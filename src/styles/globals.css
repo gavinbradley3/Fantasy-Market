@@ -1,0 +1,125 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-base text-text-primary font-body antialiased;
+    margin: 0;
+    min-height: 100vh;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  /* Tabular numerals everywhere numbers matter (§21.2) — prevents layout jitter
+     on price flashes. */
+  .tabnum {
+    font-variant-numeric: tabular-nums;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-display;
+    font-weight: 600;
+    line-height: 1.2;
+  }
+
+  /* Visible 2px focus ring on all interactives (§31). */
+  :focus-visible {
+    outline: 2px solid #7c8cf8;
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  ::selection {
+    background: rgba(124, 140, 248, 0.35);
+  }
+}
+
+@layer utilities {
+  .ticker {
+    @apply font-mono uppercase tracking-[0.05em] tabnum;
+  }
+
+  /* Thin custom scrollbars for the horizontal rails. */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /* Safe-area padding for the mobile bottom nav (§21.7). */
+  .pb-safe {
+    padding-bottom: max(env(safe-area-inset-bottom), 0px);
+  }
+}
+
+/* The Tape marquee (§21.8). Respects reduced motion — becomes a static row. */
+@keyframes tape-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.tape-track {
+  animation: tape-scroll 60s linear infinite;
+}
+.tape-track:hover {
+  animation-play-state: paused;
+}
+
+/* Price-change flash (§21.6). */
+@keyframes flash-up {
+  from {
+    background-color: rgba(45, 212, 167, 0.12);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+@keyframes flash-down {
+  from {
+    background-color: rgba(240, 82, 106, 0.12);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+
+/* Sparkline draw-in on first paint only (§21.6). */
+@keyframes spark-draw {
+  from {
+    stroke-dashoffset: var(--spark-len, 200);
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  .tape-track {
+    animation: none;
+  }
+}
