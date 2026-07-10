@@ -1,0 +1,59 @@
+{
+  "schema_version": "wr-mvp-1.0",
+  "model_version": "wr-mvp-1.0",
+  "player_id": "fixture_wr_deep",
+  "player_name": "Malik Comet",
+  "as_of_timestamp": "2026-10-13T12:00:00Z",
+  "components": {
+    "RR": 56.9,
+    "TE": 37.5,
+    "TQ": 65,
+    "EF": 29.5,
+    "TC": 57,
+    "RD": 54.2,
+    "AD": 68,
+    "AV": 98
+  },
+  "composites": {
+    "WEEKLY": 59.2931,
+    "ROS": 55.5706,
+    "ONE_YEAR": 53.2484,
+    "THREE_YEAR": 54.3585,
+    "DYNASTY": 55.6609
+  },
+  "weekly": {
+    "probability_active": 0.98,
+    "expected_routes": 28.08,
+    "expected_targets": 4.35,
+    "expected_receptions": 2.27,
+    "expected_receiving_yards": 35.5,
+    "expected_receiving_touchdowns": 0.35,
+    "expected_fantasy_points": 7.7
+  },
+  "ros": {
+    "expected_active_games": 9.8,
+    "expected_fantasy_points": 77.5
+  },
+  "confidence": {
+    "score": 100,
+    "label": "HIGH",
+    "penalties": []
+  },
+  "volatility": {
+    "score": 24.4,
+    "label": "LOW"
+  },
+  "explanations": {
+    "positive_drivers": [
+      "Current availability supports the weekly outlook.",
+      "Strong route participation supports the projection.",
+      "A high-value target profile lifts the outlook."
+    ],
+    "negative_drivers": [
+      "Target earning is below the WR reference group.",
+      "Below-average conversion efficiency weighs on the projection."
+    ]
+  },
+  "fallback_log": [],
+  "status": "OK"
+}

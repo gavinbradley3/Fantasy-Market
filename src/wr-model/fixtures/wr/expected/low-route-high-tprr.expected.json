@@ -1,0 +1,58 @@
+{
+  "schema_version": "wr-mvp-1.0",
+  "model_version": "wr-mvp-1.0",
+  "player_id": "fixture_wr_low_route",
+  "player_name": "Jalen Spark",
+  "as_of_timestamp": "2026-10-13T12:00:00Z",
+  "components": {
+    "RR": 33.4,
+    "TE": 78.8,
+    "TQ": 65,
+    "EF": 60,
+    "TC": 56.6,
+    "RD": 65.4,
+    "AD": 73,
+    "AV": 98
+  },
+  "composites": {
+    "WEEKLY": 65.6415,
+    "ROS": 64.059,
+    "ONE_YEAR": 63.5668,
+    "THREE_YEAR": 65.5445,
+    "DYNASTY": 67.0033
+  },
+  "weekly": {
+    "probability_active": 0.98,
+    "expected_routes": 15.4,
+    "expected_targets": 4.07,
+    "expected_receptions": 2.77,
+    "expected_receiving_yards": 35.3,
+    "expected_receiving_touchdowns": 0.24,
+    "expected_fantasy_points": 7.6
+  },
+  "ros": {
+    "expected_active_games": 9.8,
+    "expected_fantasy_points": 76.1
+  },
+  "confidence": {
+    "score": 100,
+    "label": "HIGH",
+    "penalties": []
+  },
+  "volatility": {
+    "score": 41.9,
+    "label": "MEDIUM"
+  },
+  "explanations": {
+    "positive_drivers": [
+      "Current availability supports the weekly outlook.",
+      "Target earning is strong relative to the WR reference group.",
+      "A high-value target profile lifts the outlook."
+    ],
+    "negative_drivers": [
+      "Limited route participation caps the opportunity."
+    ]
+  },
+  "fallback_log": [],
+  "status": "OK"
+}

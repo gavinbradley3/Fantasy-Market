@@ -1,0 +1,59 @@
+{
+  "schema_version": "wr-mvp-1.0",
+  "model_version": "wr-mvp-1.0",
+  "player_id": "fixture_wr_veteran",
+  "player_name": "Darius Stone",
+  "as_of_timestamp": "2026-10-13T12:00:00Z",
+  "components": {
+    "RR": 40.5,
+    "TE": 68,
+    "TQ": 65,
+    "EF": 72.3,
+    "TC": 69.8,
+    "RD": 23.6,
+    "AD": 30,
+    "AV": 98
+  },
+  "composites": {
+    "WEEKLY": 64.6114,
+    "ROS": 58.0998,
+    "ONE_YEAR": 53.0105,
+    "THREE_YEAR": 49.6945,
+    "DYNASTY": 46.9212
+  },
+  "weekly": {
+    "probability_active": 0.98,
+    "expected_routes": 23.68,
+    "expected_targets": 5.43,
+    "expected_receptions": 3.75,
+    "expected_receiving_yards": 52.4,
+    "expected_receiving_touchdowns": 0.38,
+    "expected_fantasy_points": 11
+  },
+  "ros": {
+    "expected_active_games": 9.8,
+    "expected_fantasy_points": 110.4
+  },
+  "confidence": {
+    "score": 100,
+    "label": "HIGH",
+    "penalties": []
+  },
+  "volatility": {
+    "score": 33,
+    "label": "MEDIUM"
+  },
+  "explanations": {
+    "positive_drivers": [
+      "Current availability supports the weekly outlook.",
+      "Target earning is strong relative to the WR reference group.",
+      "A strong team and quarterback environment helps the projection."
+    ],
+    "negative_drivers": [
+      "Limited route participation caps the opportunity.",
+      "Role durability concerns reduce the longer-term outlook."
+    ]
+  },
+  "fallback_log": [],
+  "status": "OK"
+}

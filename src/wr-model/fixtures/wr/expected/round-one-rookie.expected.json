@@ -1,0 +1,72 @@
+{
+  "schema_version": "wr-mvp-1.0",
+  "model_version": "wr-mvp-1.0",
+  "player_id": "fixture_wr_rookie",
+  "player_name": "Tyson Vale",
+  "as_of_timestamp": "2026-10-13T12:00:00Z",
+  "components": {
+    "RR": 34.3,
+    "TE": 48.9,
+    "TQ": 45,
+    "EF": 50,
+    "TC": 49.7,
+    "RD": 64,
+    "AD": 78,
+    "AV": 98
+  },
+  "composites": {
+    "WEEKLY": 55.6656,
+    "ROS": 54.1072,
+    "ONE_YEAR": 53.8025,
+    "THREE_YEAR": 57.1726,
+    "DYNASTY": 59.9605
+  },
+  "weekly": {
+    "probability_active": 0.98,
+    "expected_routes": 17.68,
+    "expected_targets": 3.51,
+    "expected_receptions": 2.23,
+    "expected_receiving_yards": 30,
+    "expected_receiving_touchdowns": 0.18,
+    "expected_fantasy_points": 6.2
+  },
+  "ros": {
+    "expected_active_games": 9.8,
+    "expected_fantasy_points": 61.6
+  },
+  "confidence": {
+    "score": 63,
+    "label": "MEDIUM",
+    "penalties": [
+      "Fallback RP8 → route_participation_last4 (−8)",
+      "Fallback Contract security → draft-round mapping (1) (−4)",
+      "Career routes < 100 (−15)",
+      "Route role change UNKNOWN (−10)"
+    ]
+  },
+  "volatility": {
+    "score": 62.3,
+    "label": "MEDIUM"
+  },
+  "explanations": {
+    "positive_drivers": [
+      "Current availability supports the weekly outlook."
+    ],
+    "negative_drivers": [
+      "Limited route participation caps the opportunity."
+    ]
+  },
+  "fallback_log": [
+    {
+      "field": "RP8",
+      "fallback_used": "route_participation_last4",
+      "confidence_penalty": 8
+    },
+    {
+      "field": "Contract security",
+      "fallback_used": "draft-round mapping (1)",
+      "confidence_penalty": 4
+    }
+  ],
+  "status": "PARTIAL"
+}
