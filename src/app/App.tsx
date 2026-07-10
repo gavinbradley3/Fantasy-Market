@@ -8,6 +8,7 @@ import WatchlistPage from '@/pages/WatchlistPage';
 import PortfolioPage from '@/pages/PortfolioPage';
 import MethodologyPage from '@/pages/MethodologyPage';
 import LegalPage from '@/pages/LegalPage';
+import WrModelPage from '@/pages/WrModelPage';
 import NotFoundPage from '@/pages/NotFoundPage';
 
 export default function App() {
@@ -21,6 +22,7 @@ export default function App() {
         <Route path="/watchlist" element={<WatchlistPage />} />
         <Route path="/portfolio" element={<PortfolioPage />} />
         <Route path="/methodology" element={<MethodologyPage />} />
+        <Route path="/wr-model" element={<WrModelPage />} />
         <Route path="/legal" element={<LegalPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>

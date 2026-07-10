@@ -11,6 +11,7 @@ const NAV = [
   { to: '/board', label: 'Board' },
   { to: '/watchlist', label: 'Watchlist' },
   { to: '/portfolio', label: 'Portfolio' },
+  { to: '/wr-model', label: 'WR Model' },
   { to: '/methodology', label: 'Methodology' },
 ];
 
@@ -65,16 +66,23 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       {/* Desktop / top nav */}
       <header className="sticky top-0 z-30 border-b border-border-subtle bg-base/95 backdrop-blur">
-        <div className="mx-auto flex max-w-app items-center gap-4 px-4 py-3">
-          <Wordmark />
-          <nav className="ml-4 hidden items-center gap-1 md:flex" aria-label="Primary">
+        <div className="mx-auto flex max-w-app items-center gap-3 px-4 py-3">
+          <div className="shrink-0">
+            <Wordmark />
+          </div>
+          {/* Nav can shrink and scroll internally so the header never forces
+              horizontal page overflow at tight widths (e.g. 768–1023px). */}
+          <nav
+            className="no-scrollbar ml-1 hidden min-w-0 flex-1 items-center gap-1 overflow-x-auto md:flex"
+            aria-label="Primary"
+          >
             {NAV.map((n) => (
               <NavLink
                 key={n.to}
                 to={n.to}
                 className={({ isActive }) =>
                   cn(
-                    'rounded-control px-3 py-1.5 text-sm transition',
+                    'shrink-0 rounded-control px-3 py-1.5 text-sm transition',
                     isActive ? 'bg-elevated text-text-primary' : 'text-text-secondary hover:text-text-primary',
                   )
                 }
@@ -83,7 +91,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               </NavLink>
             ))}
           </nav>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex shrink-0 items-center gap-2">
             <button
               onClick={() => setSearchOpen(true)}
               className="flex items-center gap-2 rounded-full border border-border-subtle bg-elevated px-3 py-1.5 text-sm text-text-muted transition hover:text-text-secondary"
