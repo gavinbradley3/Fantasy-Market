@@ -1,16 +1,20 @@
 import { Link } from 'react-router-dom';
 import { useAppStore } from '@/store/useAppStore';
+import { useRowsByIds } from '@/hooks/useMarketData';
 import { buildWatchlistEntries } from '@/lib/watchlist';
 import { ARROW, directionOf, fmtDelta } from '@/lib/format';
 import { cn, movementColor } from '@/lib/ui';
 
 // The dashboard watchlist strip (§18.2). Horizontal scroll of watched players
-// with since-added Δ, or a one-line teaching prompt when empty.
+// with since-added Δ, or a one-line teaching prompt when empty. Rows come from
+// the query layer; the strip renders nothing while they load (it is a
+// secondary surface — no skeleton flash needed).
 export function WatchlistStrip() {
   const { watchlist, format } = useAppStore();
-  const entries = buildWatchlistEntries(watchlist, format);
+  const ids = watchlist.map((w) => w.playerId);
+  const rows = useRowsByIds(ids, format);
 
-  if (entries.length === 0) {
+  if (watchlist.length === 0) {
     return (
       <div className="flex items-center justify-between gap-3 rounded-card border border-dashed border-border-subtle bg-surface px-4 py-3 text-sm">
         <span className="text-text-secondary">
@@ -22,6 +26,10 @@ export function WatchlistStrip() {
       </div>
     );
   }
+
+  if (rows.status !== 'success' || !rows.data) return null;
+  const entries = buildWatchlistEntries(watchlist, rows.data, format);
+  if (entries.length === 0) return null;
 
   return (
     <div className="rounded-card border border-border-subtle bg-surface p-2">

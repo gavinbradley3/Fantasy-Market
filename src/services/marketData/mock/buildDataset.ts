@@ -9,9 +9,10 @@
 // This is the SINGLE place the engine and the mock inputs meet. Components never
 // import from here — they go through MarketDataService (§29.3, §40.3).
 
-import { DEFAULT_FORMAT, FORMATS, FORMULA_VERSION, AGE_CURVE_INFLECTION } from '@/config/market';
+import { DEFAULT_FORMAT, FORMATS, AGE_CURVE_INFLECTION } from '@/config/market';
 import { POOL, type PlayerSeed, type SeedCatalyst } from '@/data/pool';
-import { gaussian, hashString, seededRandom } from '@/lib/prng';
+import { validatePool } from '@/data/validatePool';
+import { gaussian, seededRandom } from '@/lib/prng';
 import { isoDate } from '@/lib/format';
 import {
   assignAssetClass,
@@ -41,7 +42,6 @@ import type {
   RiskKey,
   SignalId,
 } from '@/types/market';
-import { SIGNAL_META } from '@/config/market';
 
 const HISTORY_DAYS = 150; // walk length; guarantees ≥120 days of chart history
 // Persistent sentiment shift a catalyst imprints, by magnitude (§12.3 sentiment term).
@@ -79,11 +79,15 @@ function normalizeName(name: string): string {
     .trim();
 }
 
-function seedToPlayer(seed: PlayerSeed, index: number): Player {
-  const id = `pt_${String(index + 1).padStart(4, '0')}`;
+function seedToPlayer(seed: PlayerSeed): Player {
+  // Identity comes from the AUTHORED seed id — never from array position
+  // (DESIGN §27: internal_id is permanent). validatePool guarantees presence
+  // and uniqueness before any dataset is built.
   return {
     identity: {
-      internal_id: id,
+      internal_id: seed.id,
+      sleeper_id: seed.sleeperId,
+      gsis_id: seed.gsisId,
       name_normalized: normalizeName(seed.name),
       aliases: [],
     },
@@ -175,12 +179,18 @@ function riskDetail(key: RiskKey, seed: PlayerSeed): string {
   }
 }
 
-function buildForFormat(format: FormatKey, todayIso: string): Dataset {
+// `pool` is injectable for identity tests (reorder/insert stability); production
+// callers always go through getDataset, which uses the authored POOL.
+export function buildForFormat(
+  format: FormatKey,
+  todayIso: string,
+  pool: readonly PlayerSeed[] = POOL,
+): Dataset {
   const parts = FORMATS[format].parts;
   const today = new Date(todayIso + 'T00:00:00Z');
 
-  const players = POOL.map(seedToPlayer);
-  const inputs = POOL.map(seedToInput);
+  const players = pool.map(seedToPlayer);
+  const inputs = pool.map(seedToInput);
 
   // 1) Fundamental (adjusted, pre-percentile) for every player, then percentile
   //    rank across the pool → the stable 0–100 index (§12.2).
@@ -190,7 +200,7 @@ function buildForFormat(format: FormatKey, todayIso: string): Dataset {
   // never display as an ambiguous 0.0 (reads as missing) or a maxed 100.0.
   const fundamentals = adj.map((v) => Math.round((1 + 0.985 * percentileRank(v, sortedAdj)) * 10) / 10);
 
-  const computed: ComputedPlayer[] = POOL.map((seed, i) => {
+  const computed: ComputedPlayer[] = pool.map((seed, i) => {
     const player = players[i];
     const input = inputs[i];
     const fv = fundamentals[i];
@@ -395,8 +405,15 @@ function round1(n: number): number {
 
 // ---------- Memoized public builder ----------
 const cache = new Map<string, Dataset>();
+let poolValidated = false;
 
 export function getDataset(format: FormatKey = DEFAULT_FORMAT, todayIso?: string): Dataset {
+  if (!poolValidated) {
+    // Loud, once-per-process identity check (missing/duplicate ids, duplicate
+    // tickers/external ids). A broken identity table must never serve data.
+    validatePool(POOL);
+    poolValidated = true;
+  }
   const date = todayIso ?? isoDate(new Date());
   const key = `${format}:${date}`;
   let ds = cache.get(key);
@@ -406,5 +423,3 @@ export function getDataset(format: FormatKey = DEFAULT_FORMAT, todayIso?: string
   }
   return ds;
 }
-
-export { FORMULA_VERSION, HISTORY_DAYS, hashString, SIGNAL_META };

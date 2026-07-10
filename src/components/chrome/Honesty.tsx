@@ -2,22 +2,32 @@ import { Link } from 'react-router-dom';
 import { FRESHNESS_LABEL, confidenceLabel, freshnessOf, type Freshness } from '@/lib/format';
 import { cn } from '@/lib/ui';
 import { Tooltip } from '@/components/ui/Tooltip';
-import type { Confidence, DataMode } from '@/types/market';
+import type { MarketStatus } from '@/services/marketData/types';
+import type { Confidence } from '@/types/market';
 
-// The honesty layer is structural, wired to data fields — flipping dataMode
-// reflows every badge automatically (§40.6). Never hardcoded copy.
+// The honesty layer is structural — the banner renders from the ACTIVE
+// service's self-reported MarketStatus (§40.6), never from a hardcoded prop.
+// A live service reporting mode 'live' retires the banner automatically;
+// 'mixed' and 'unavailable' render their own notices.
 
-export function DataModeBanner({ mode = 'demo' as DataMode }: { mode?: DataMode }) {
-  if (mode === 'live') return null;
-  const text =
-    mode === 'mixed'
-      ? 'Mixed Market — some values are live, some simulated. See methodology for per-source status.'
-      : 'Demo Market — simulated player values for product preview. Not current player information.';
+export function DataModeBanner({ status }: { status: MarketStatus | undefined }) {
+  if (!status || status.mode === 'live') return null;
+  const unavailable = status.mode === 'unavailable';
   return (
-    <div className="border-b border-warning/25 bg-warning/10">
-      <div className="mx-auto flex max-w-app items-center justify-center gap-2 px-4 py-1.5 text-center text-xs text-warning">
+    <div
+      className={cn(
+        'border-b',
+        unavailable ? 'border-down/25 bg-down/10' : 'border-warning/25 bg-warning/10',
+      )}
+    >
+      <div
+        className={cn(
+          'mx-auto flex max-w-app items-center justify-center gap-2 px-4 py-1.5 text-center text-xs',
+          unavailable ? 'text-down' : 'text-warning',
+        )}
+      >
         <span aria-hidden>●</span>
-        <span className="font-medium">{text}</span>
+        <span className="font-medium">{status.notice}</span>
         <Link to="/methodology" className="underline underline-offset-2 hover:text-text-primary">
           How this works →
         </Link>

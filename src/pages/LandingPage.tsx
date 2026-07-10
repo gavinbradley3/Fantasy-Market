@@ -1,7 +1,7 @@
-import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { marketData } from '@/services/marketData/mock/MockMarketDataService';
+import { useBoard, useMovers } from '@/hooks/useMarketData';
 import { useAppStore } from '@/store/useAppStore';
+import { ErrorState, LoadingSkeleton } from '@/components/states';
 import { Tape } from '@/components/market/Tape';
 import { MoverRow } from '@/components/market/rows';
 import {
@@ -27,18 +27,21 @@ const CATEGORIES: { label: string; href: string }[] = [
 
 export default function LandingPage() {
   const format = useAppStore((s) => s.format);
-  const board = useMemo(() => marketData.getBoard(format), [format]);
-  const movers = useMemo(() => marketData.getMovers(format), [format]);
+  const boardQ = useBoard(format);
+  const moversQ = useMovers(format);
+  const board = boardQ.data ?? [];
+  const movers = moversQ.data;
 
   // Featured card rotates daily with the tick: pick the top buy-low, else top riser.
-  const featured = movers.buyLow[0] ?? movers.risers[0] ?? board[0];
+  const featured = movers ? (movers.buyLow[0] ?? movers.risers[0] ?? board[0]) : undefined;
 
   return (
     <div className="space-y-10">
       {/* Hero */}
       <section className="pt-6">
         <div className="mb-4">
-          <Tape rows={board} />
+          {boardQ.status === 'loading' && <LoadingSkeleton className="h-12 w-full" />}
+          {board.length > 0 && <Tape rows={board} />}
         </div>
         <div className="grid items-center gap-6 lg:grid-cols-2">
           <div>
@@ -66,22 +69,28 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Movers preview */}
+          {/* Movers preview — loading / error / success lifecycle */}
           <div className="rounded-card border border-border-subtle bg-surface p-3">
             <div className="mb-1 flex items-center justify-between px-1">
               <span className="text-sm font-semibold text-text-primary">Today's movers</span>
               <span className="text-[11px] text-text-muted">Demo Market preview</span>
             </div>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <div>
-                <p className="px-2 text-[11px] font-semibold uppercase tracking-wide text-up">Risers</p>
-                {movers.risers.slice(0, 3).map((r) => <MoverRow key={r.player.identity.internal_id} row={r} metric="d1" />)}
+            {moversQ.status === 'loading' && <LoadingSkeleton className="h-44 w-full" />}
+            {moversQ.status === 'error' && (
+              <ErrorState message="Today's movers couldn't load." onRetry={moversQ.refetch} />
+            )}
+            {movers && (
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div>
+                  <p className="px-2 text-[11px] font-semibold uppercase tracking-wide text-up">Risers</p>
+                  {movers.risers.slice(0, 3).map((r) => <MoverRow key={r.player.identity.internal_id} row={r} metric="d1" />)}
+                </div>
+                <div>
+                  <p className="px-2 text-[11px] font-semibold uppercase tracking-wide text-down">Fallers</p>
+                  {movers.fallers.slice(0, 3).map((r) => <MoverRow key={r.player.identity.internal_id} row={r} metric="d1" />)}
+                </div>
               </div>
-              <div>
-                <p className="px-2 text-[11px] font-semibold uppercase tracking-wide text-down">Fallers</p>
-                {movers.fallers.slice(0, 3).map((r) => <MoverRow key={r.player.identity.internal_id} row={r} metric="d1" />)}
-              </div>
-            </div>
+            )}
           </div>
         </div>
       </section>

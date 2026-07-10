@@ -1,27 +1,40 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { marketData } from '@/services/marketData/mock/MockMarketDataService';
+import { useMarketSearch } from '@/hooks/useMarketData';
 import { PositionGlyph, TickerChip } from '@/components/market/primitives';
 import { cn } from '@/lib/ui';
 
-// Global player search overlay (§17). Name or ticker, opens with `/` on desktop,
-// Escape closes, arrow-key navigation.
+const DEBOUNCE_MS = 120;
+
+// Global player search overlay (§17). Name or ticker, opens with `/` on
+// desktop, Escape closes, arrow-key navigation. Queries flow through the
+// injected service via useMarketSearch; the query layer's stale-response
+// protection guarantees fast typing never renders results for an old input.
 export function SearchOverlay({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [q, setQ] = useState('');
+  const [debouncedQ, setDebouncedQ] = useState('');
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
-  const results = useMemo(() => (q.trim() ? marketData.search(q, 8) : []), [q]);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQ(q), DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [q]);
+
+  const { status, data } = useMarketSearch(debouncedQ, 8);
+  const results = data ?? [];
 
   useEffect(() => {
     if (open) {
       setQ('');
+      setDebouncedQ('');
       setActive(0);
       setTimeout(() => inputRef.current?.focus(), 10);
     }
   }, [open]);
 
-  useEffect(() => setActive(0), [q]);
+  useEffect(() => setActive(0), [debouncedQ]);
 
   if (!open) return null;
 
@@ -72,7 +85,7 @@ export function SearchOverlay({ open, onClose }: { open: boolean; onClose: () =>
                     i === active ? 'bg-elevated' : 'hover:bg-elevated/60',
                   )}
                 >
-                  <PositionGlyph position={r.position as never} />
+                  <PositionGlyph position={r.position} />
                   <span className="flex-1 text-sm text-text-primary">{r.name}</span>
                   <span className="text-xs text-text-muted">{r.team}</span>
                   <TickerChip ticker={r.ticker} />
@@ -81,9 +94,14 @@ export function SearchOverlay({ open, onClose }: { open: boolean; onClose: () =>
             ))}
           </ul>
         )}
-        {q.trim() && results.length === 0 && (
+        {debouncedQ.trim() && status === 'error' && (
+          <p className="border-t border-border-subtle px-4 py-6 text-center text-sm text-down">
+            Search is unavailable right now — try again.
+          </p>
+        )}
+        {debouncedQ.trim() && status === 'success' && results.length === 0 && (
           <p className="border-t border-border-subtle px-4 py-6 text-center text-sm text-text-muted">
-            No players match “{q}”.
+            No players match “{debouncedQ}”.
           </p>
         )}
       </div>

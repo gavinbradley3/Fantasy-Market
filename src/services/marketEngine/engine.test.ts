@@ -14,7 +14,7 @@ import {
   type EngineInputs,
 } from '@/services/marketEngine/engine';
 import { getDataset } from '@/services/marketData/mock/buildDataset';
-import { marketData } from '@/services/marketData/mock/MockMarketDataService';
+import { MockMarketDataService } from '@/services/marketData/mock/MockMarketDataService';
 import { FORMATS } from '@/config/market';
 
 const REF_DATE = '2026-07-09';
@@ -166,20 +166,23 @@ describe('pool coverage (§28.2 authoring rule)', () => {
 });
 
 describe('MarketDataService contract', () => {
-  it('serves board, player, movers, and format comparison', () => {
-    const board = marketData.getBoard('dyn_sf_half');
+  const service = new MockMarketDataService();
+
+  it('serves board, player, movers, and format comparison', async () => {
+    const board = await service.getBoard('dyn_sf_half');
     expect(board.length).toBeGreaterThan(80);
-    const nab = marketData.getPlayer('NAB', 'dyn_sf_half');
+    const nab = await service.getPlayer('NAB', 'dyn_sf_half');
     expect(nab?.player.displayName).toBe('Malik Nabers');
     expect(nab?.thesis.verdict).toContain('confidence');
-    const movers = marketData.getMovers('dyn_sf_half');
+    const movers = await service.getMovers('dyn_sf_half');
     expect(movers.risers.length).toBeGreaterThan(0);
-    const cmp = marketData.getFormatComparison('ALN');
+    const cmp = await service.getFormatComparison('ALN');
     expect(cmp.length).toBe(FORMAT_KEYS.length);
   });
 
-  it('every ticker is unique', () => {
-    const tickers = marketData.getBoard('dyn_sf_half').map((r) => r.player.ticker);
+  it('every ticker is unique', async () => {
+    const board = await service.getBoard('dyn_sf_half');
+    const tickers = board.map((r) => r.player.ticker);
     expect(new Set(tickers).size).toBe(tickers.length);
   });
 });

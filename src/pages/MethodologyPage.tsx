@@ -12,7 +12,7 @@ import {
   SIGNAL_HYSTERESIS,
   SIGNAL_RULES,
 } from '@/config/market';
-import { marketData } from '@/services/marketData/mock/MockMarketDataService';
+import { useMarketStatus } from '@/hooks/useMarketData';
 import { ValueDisclaimer } from '@/components/chrome/Honesty';
 import { Footer } from '@/components/chrome/Footer';
 
@@ -29,7 +29,8 @@ function Card({ id, title, children }: { id?: string; title: string; children: R
 }
 
 export default function MethodologyPage() {
-  const sources = marketData.getSourceStatus();
+  const { data: marketStatus } = useMarketStatus();
+  const sources = marketStatus?.sources ?? [];
   const dynW = FUNDAMENTAL_WEIGHTS.dynasty;
   const rdW = FUNDAMENTAL_WEIGHTS.redraft;
 

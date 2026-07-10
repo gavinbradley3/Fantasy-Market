@@ -3,6 +3,7 @@ import { Link, NavLink, useLocation } from 'react-router-dom';
 import { FormatRibbon } from '@/components/chrome/FormatRibbon';
 import { SearchOverlay } from '@/components/chrome/SearchOverlay';
 import { DataModeBanner } from '@/components/chrome/Honesty';
+import { useMarketStatus } from '@/hooks/useMarketData';
 import { cn } from '@/lib/ui';
 
 const NAV = [
@@ -41,6 +42,8 @@ function Wordmark() {
 export function AppShell({ children }: { children: ReactNode }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const { pathname } = useLocation();
+  // Honesty layer: banner mode comes from the active service, not a prop.
+  const { data: marketStatus } = useMarketStatus();
 
   // `/` opens search on desktop (§17, §22).
   useEffect(() => {
@@ -58,7 +61,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen">
-      <DataModeBanner mode="demo" />
+      <DataModeBanner status={marketStatus} />
 
       {/* Desktop / top nav */}
       <header className="sticky top-0 z-30 border-b border-border-subtle bg-base/95 backdrop-blur">

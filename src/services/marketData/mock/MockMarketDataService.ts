@@ -1,6 +1,11 @@
-// MockMarketDataService — the MVP implementation of the single data door. It
-// assembles view models from the deterministic dataset builder. A future
-// LiveMarketDataService implements the same interface and the UI never changes.
+// MockMarketDataService — the Demo Market implementation of the single data
+// door. It implements the ASYNC MarketDataService contract: results resolve in
+// a microtask (no artificial latency), but every consumer flows through the
+// same Promise-based path a live service will use, so swapping implementations
+// is a composition-root change only.
+//
+// Only the composition root (src/main.tsx) and tests may import this module.
+// UI code consumes the interface via MarketDataProvider/useMarketDataService.
 
 import { FORMAT_KEYS, FORMATS } from '@/config/market';
 import { getDataset, type ComputedPlayer } from '@/services/marketData/mock/buildDataset';
@@ -10,6 +15,7 @@ import type {
   FormatPrice,
   HistoryRange,
   MarketDataService,
+  MarketStatus,
   MoverGroups,
   SearchResult,
 } from '@/services/marketData/types';
@@ -47,15 +53,58 @@ function toRow(cp: ComputedPlayer): PlayerRow {
 }
 
 export class MockMarketDataService implements MarketDataService {
-  getMarketDate(): string {
-    return getDataset().date;
+  async getMarketStatus(): Promise<MarketStatus> {
+    const ds = getDataset();
+    const lastUpdated = new Date(ds.date + 'T06:00:00Z').toISOString();
+    const sources: DataSourceStatus[] = [
+      {
+        sourceId: 'internal_engine',
+        label: 'Internal market engine',
+        mode: 'live',
+        lastSuccessfulUpdate: lastUpdated,
+        coverage: `${ds.players.length} players · values, signals, tags`,
+        health: 'ok',
+      },
+      {
+        sourceId: 'mock_inputs',
+        label: 'Demo inputs (authored sub-scores + event calendar)',
+        mode: 'mock',
+        lastSuccessfulUpdate: lastUpdated,
+        coverage: 'All players · simulated stats and catalysts',
+        health: 'ok',
+      },
+      {
+        sourceId: 'sleeper',
+        label: 'Sleeper API (metadata + trending)',
+        mode: 'disabled',
+        coverage: 'Not connected — planned first live integration (P1)',
+        health: 'ok',
+      },
+      {
+        sourceId: 'nflverse',
+        label: 'nflverse-style open stats',
+        mode: 'disabled',
+        coverage: 'Not connected — powers real production/usage (P1)',
+        health: 'ok',
+      },
+    ];
+    return {
+      // Demo mode because the VALUE inputs are simulated. A live implementation
+      // derives 'live'/'mixed' from its per-source states instead.
+      mode: 'demo',
+      marketDate: ds.date,
+      lastUpdated,
+      notice:
+        'Demo Market — simulated player values for product preview. Not current player information.',
+      sources,
+    };
   }
 
-  getBoard(format: FormatKey): PlayerRow[] {
+  async getBoard(format: FormatKey): Promise<PlayerRow[]> {
     return getDataset(format).players.map(toRow);
   }
 
-  getPlayer(ticker: string, format: FormatKey): PlayerDetail | undefined {
+  async getPlayer(ticker: string, format: FormatKey): Promise<PlayerDetail | undefined> {
     const cp = getDataset(format).byTicker.get(ticker.toUpperCase());
     if (!cp) return undefined;
     return {
@@ -71,7 +120,7 @@ export class MockMarketDataService implements MarketDataService {
     };
   }
 
-  getMovers(format: FormatKey): MoverGroups {
+  async getMovers(format: FormatKey): Promise<MoverGroups> {
     const rows = getDataset(format).players.map(toRow);
     const by = (sel: (r: PlayerRow) => number, desc = true) =>
       [...rows].sort((a, b) => (desc ? sel(b) - sel(a) : sel(a) - sel(b)));
@@ -101,17 +150,32 @@ export class MockMarketDataService implements MarketDataService {
     const mostVolatile = by((r) => r.snapshot.volatility).slice(0, 5);
     const mostStable = by((r) => r.snapshot.volatility, false).slice(0, 5);
 
-    return { risers, fallers, buyLow, sellHigh, overheated, blueChips, rookieIpos, mostVolatile, mostStable };
+    return {
+      risers,
+      fallers,
+      buyLow,
+      sellHigh,
+      overheated,
+      blueChips,
+      rookieIpos,
+      mostVolatile,
+      mostStable,
+    };
   }
 
-  getHistory(ticker: string, format: FormatKey, range: HistoryRange): PlayerMarketHistoryPoint[] {
+  async getHistory(
+    ticker: string,
+    format: FormatKey,
+    range: HistoryRange,
+  ): Promise<PlayerMarketHistoryPoint[]> {
     const cp = getDataset(format).byTicker.get(ticker.toUpperCase());
     if (!cp) return [];
-    const days = range === '7d' ? 7 : range === '30d' ? 30 : range === 'season' ? 120 : cp.history.length;
+    const days =
+      range === '7d' ? 7 : range === '30d' ? 30 : range === 'season' ? 120 : cp.history.length;
     return cp.history.slice(-days);
   }
 
-  getFormatComparison(ticker: string): FormatPrice[] {
+  async getFormatComparison(ticker: string): Promise<FormatPrice[]> {
     return FORMAT_KEYS.map((f) => {
       const cp = getDataset(f).byTicker.get(ticker.toUpperCase());
       return {
@@ -124,16 +188,19 @@ export class MockMarketDataService implements MarketDataService {
     });
   }
 
-  getRowsByIds(ids: string[], format: FormatKey): PlayerRow[] {
+  async getRowsByIds(ids: string[], format: FormatKey): Promise<PlayerRow[]> {
     const ds = getDataset(format);
-    return ids.map((id) => ds.byId.get(id)).filter((cp): cp is ComputedPlayer => !!cp).map(toRow);
+    return ids
+      .map((id) => ds.byId.get(id))
+      .filter((cp): cp is ComputedPlayer => !!cp)
+      .map(toRow);
   }
 
-  getPriceById(id: string, format: FormatKey): number | undefined {
+  async getPriceById(id: string, format: FormatKey): Promise<number | undefined> {
     return getDataset(format).byId.get(id)?.snapshot.marketPrice;
   }
 
-  search(query: string, limit = 8): SearchResult[] {
+  async search(query: string, limit = 8): Promise<SearchResult[]> {
     const q = query.trim().toLowerCase();
     if (q.length < 1) return [];
     const ds = getDataset();
@@ -158,45 +225,9 @@ export class MockMarketDataService implements MarketDataService {
           score,
         });
     }
-    return scored.sort((a, b) => b.score - a.score).slice(0, limit).map((s) => s.r);
-  }
-
-  getSourceStatus(): DataSourceStatus[] {
-    const date = getDataset().date;
-    const updated = new Date(date + 'T06:00:00Z').toISOString();
-    return [
-      {
-        sourceId: 'internal_engine',
-        label: 'Internal market engine',
-        mode: 'live',
-        lastSuccessfulUpdate: updated,
-        coverage: `${getDataset().players.length} players · values, signals, tags`,
-        health: 'ok',
-      },
-      {
-        sourceId: 'mock_inputs',
-        label: 'Demo inputs (authored sub-scores + event calendar)',
-        mode: 'mock',
-        lastSuccessfulUpdate: updated,
-        coverage: 'All players · simulated stats and catalysts',
-        health: 'ok',
-      },
-      {
-        sourceId: 'sleeper',
-        label: 'Sleeper API (metadata + trending)',
-        mode: 'disabled',
-        coverage: 'Not connected — planned first live integration (P1)',
-        health: 'ok',
-      },
-      {
-        sourceId: 'nflverse',
-        label: 'nflverse-style open stats',
-        mode: 'disabled',
-        coverage: 'Not connected — powers real production/usage (P1)',
-        health: 'ok',
-      },
-    ];
+    return scored
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit)
+      .map((s) => s.r);
   }
 }
-
-export const marketData: MarketDataService = new MockMarketDataService();

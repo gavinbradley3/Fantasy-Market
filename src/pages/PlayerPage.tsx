@@ -1,6 +1,6 @@
-import { Suspense, lazy, useMemo, useState } from 'react';
+import { Suspense, lazy, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { marketData } from '@/services/marketData/mock/MockMarketDataService';
+import { useFormatComparison, usePlayer, usePlayerHistory } from '@/hooks/useMarketData';
 import { useAppStore } from '@/store/useAppStore';
 import { FORMATS, SIGNAL_META } from '@/config/market';
 import {
@@ -27,7 +27,7 @@ import {
 } from '@/components/market/stockcard';
 import { WatchlistButton } from '@/components/market/WatchlistButton';
 import { ConfidencePill, DataFreshnessBadge, ValueDisclaimer } from '@/components/chrome/Honesty';
-import { LoadingSkeleton } from '@/components/states';
+import { ErrorState, LoadingSkeleton } from '@/components/states';
 import { Footer } from '@/components/chrome/Footer';
 import { fmtSigned } from '@/lib/format';
 import { cn } from '@/lib/ui';
@@ -60,16 +60,40 @@ export default function PlayerPage() {
   const { ticker = '' } = useParams();
   const format = useAppStore((s) => s.format);
   const scoring = FORMATS[format].parts.scoring;
-  const watched = useAppStore((s) => s.watchlist.find((w) => w.playerId === detailId(ticker, format)));
 
   const [range, setRange] = useState<HistoryRange>('30d');
 
-  const detail = useMemo(() => marketData.getPlayer(ticker, format), [ticker, format]);
-  const history = useMemo(
-    () => (detail ? marketData.getHistory(ticker, format, range) : []),
-    [detail, ticker, format, range],
+  const detailQ = usePlayer(ticker, format);
+  const detail = detailQ.data;
+  // The watch marker keys off the id the detail query already resolved — no
+  // second fetch just to translate ticker → id.
+  const watched = useAppStore((s) =>
+    detail
+      ? s.watchlist.find((w) => w.playerId === detail.player.identity.internal_id)
+      : undefined,
   );
-  const comparison = useMemo(() => (detail ? marketData.getFormatComparison(ticker) : []), [detail, ticker]);
+  const historyQ = usePlayerHistory(detail ? ticker : undefined, format, range);
+  const comparisonQ = useFormatComparison(detail ? ticker : undefined);
+
+  if (detailQ.status === 'loading') {
+    return (
+      <div className="space-y-4" aria-label="Loading player">
+        <LoadingSkeleton className="h-8 w-full" />
+        <LoadingSkeleton className="h-40 w-full" />
+        <LoadingSkeleton className="h-64 w-full" />
+        <LoadingSkeleton className="h-48 w-full" />
+      </div>
+    );
+  }
+
+  if (detailQ.status === 'error') {
+    return (
+      <ErrorState
+        message={`This player's stock card couldn't load.`}
+        onRetry={detailQ.refetch}
+      />
+    );
+  }
 
   if (!detail) {
     return (
@@ -83,6 +107,8 @@ export default function PlayerPage() {
   }
 
   const { player, snapshot: s, signal, catalysts, riskFactors, thesis, seasonStats, gameLog, formatNotes } = detail;
+  const history = historyQ.data ?? [];
+  const comparison = comparisonQ.data ?? [];
   const addedMarker = watched
     ? { date: watched.addedAt.slice(0, 10), price: watched.priceAtAdd }
     : undefined;
@@ -160,9 +186,15 @@ export default function PlayerPage() {
           </div>
         }
       >
-        <Suspense fallback={<LoadingSkeleton className="h-64 w-full" />}>
-          <PriceChart history={history} catalysts={catalysts} addedMarker={addedMarker} />
-        </Suspense>
+        {historyQ.status === 'error' ? (
+          <ErrorState message="Price history couldn't load." onRetry={historyQ.refetch} />
+        ) : history.length === 0 ? (
+          <LoadingSkeleton className="h-64 w-full" />
+        ) : (
+          <Suspense fallback={<LoadingSkeleton className="h-64 w-full" />}>
+            <PriceChart history={history} catalysts={catalysts} addedMarker={addedMarker} />
+          </Suspense>
+        )}
         <div className="mt-2 flex flex-wrap items-center gap-3 text-[11px] text-text-muted">
           <span className="flex items-center gap-1"><span className="inline-block h-0.5 w-4 bg-up" /> Market price</span>
           <span className="flex items-center gap-1"><span className="inline-block h-0.5 w-4 border-t border-dashed border-secondary" /> Model value</span>
@@ -308,9 +340,4 @@ function Metric({ label, value, tone }: { label: string; value: string; tone?: '
       </dd>
     </div>
   );
-}
-
-// Resolve internal id from ticker for the current format (for the watchlist marker).
-function detailId(ticker: string, format: import('@/types/market').FormatKey): string | undefined {
-  return marketData.getPlayer(ticker, format)?.player.identity.internal_id;
 }

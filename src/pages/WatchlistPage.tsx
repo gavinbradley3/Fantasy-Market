@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAppStore } from '@/store/useAppStore';
+import { useRowsByIds } from '@/hooks/useMarketData';
 import { buildWatchlistEntries, type WatchlistEntry } from '@/lib/watchlist';
 import { FORMATS } from '@/config/market';
 import {
@@ -13,7 +14,7 @@ import {
 } from '@/components/market/primitives';
 import { SoonButton } from '@/components/market/stockcard';
 import { DataFreshnessBadge } from '@/components/chrome/Honesty';
-import { EmptyState } from '@/components/states';
+import { EmptyState, ErrorState, LoadingSkeleton } from '@/components/states';
 import { Footer } from '@/components/chrome/Footer';
 import { ARROW, directionOf, fmtDelta, fmtPct, fmtPrice } from '@/lib/format';
 import { cn, movementColor } from '@/lib/ui';
@@ -21,9 +22,13 @@ import { cn, movementColor } from '@/lib/ui';
 type SortKey = 'delta' | 'price' | 'added';
 
 export default function WatchlistPage() {
-  const { watchlist, format, toggleWatch } = useAppStore();
+  const { watchlist, format, removeWatch } = useAppStore();
   const [sort, setSort] = useState<SortKey>('delta');
-  const entries = useMemo(() => buildWatchlistEntries(watchlist, format), [watchlist, format]);
+  const rowsQ = useRowsByIds(watchlist.map((w) => w.playerId), format);
+  const entries = useMemo(
+    () => buildWatchlistEntries(watchlist, rowsQ.data ?? [], format),
+    [watchlist, rowsQ.data, format],
+  );
 
   const sorted = useMemo(() => {
     const e = [...entries];
@@ -49,13 +54,21 @@ export default function WatchlistPage() {
         <SoonButton label="Price alerts" />
       </div>
 
-      {entries.length === 0 ? (
+      {watchlist.length === 0 ? (
         <EmptyState
           title="Nothing on your watchlist yet"
           body="Watch a player and we'll track value from the day you added them. Try today's top riser."
           ctaLabel="Watch today's top riser →"
           ctaTo="/board?sort=d1"
         />
+      ) : rowsQ.status === 'loading' ? (
+        <div className="grid gap-2" aria-label="Loading watchlist">
+          {watchlist.map((w) => (
+            <LoadingSkeleton key={w.playerId} className="h-16 w-full" />
+          ))}
+        </div>
+      ) : rowsQ.status === 'error' ? (
+        <ErrorState message="Your watchlist couldn't load current prices." onRetry={rowsQ.refetch} />
       ) : (
         <>
           {/* Header stats */}
@@ -117,7 +130,7 @@ export default function WatchlistPage() {
                   </div>
                 </div>
                 <button
-                  onClick={() => toggleWatch(e.item.playerId)}
+                  onClick={() => removeWatch(e.item.playerId)}
                   className="text-text-muted transition hover:text-down"
                   aria-label={`Remove ${e.row.player.ticker} from watchlist`}
                 >

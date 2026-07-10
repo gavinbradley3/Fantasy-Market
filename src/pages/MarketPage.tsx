@@ -1,6 +1,5 @@
-import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { marketData } from '@/services/marketData/mock/MockMarketDataService';
+import { useBoard, useMarketStatus, useMovers } from '@/hooks/useMarketData';
 import { useAppStore } from '@/store/useAppStore';
 import { FORMATS } from '@/config/market';
 import { fmtDate } from '@/lib/format';
@@ -8,15 +7,15 @@ import { Tape } from '@/components/market/Tape';
 import { MarketMoversPanel } from '@/components/market/rows';
 import { FormatRibbon } from '@/components/chrome/FormatRibbon';
 import { DataFreshnessBadge, ConfidencePill } from '@/components/chrome/Honesty';
+import { ErrorState, LoadingSkeleton } from '@/components/states';
 import { Footer } from '@/components/chrome/Footer';
 import { WatchlistStrip } from '@/components/market/WatchlistStrip';
 
 export default function MarketPage() {
   const format = useAppStore((s) => s.format);
-  const date = marketData.getMarketDate();
-  const board = useMemo(() => marketData.getBoard(format), [format]);
-  const movers = useMemo(() => marketData.getMovers(format), [format]);
-  const lastUpdated = date + 'T06:00:00Z';
+  const { data: status } = useMarketStatus();
+  const board = useBoard(format);
+  const movers = useMovers(format);
 
   return (
     <div className="space-y-5">
@@ -31,32 +30,49 @@ export default function MarketPage() {
             Market Update
           </h1>
           <p className="text-sm text-text-secondary">
-            {fmtDate(date)} · close 06:00 UTC · {FORMATS[format].label}
+            {status?.marketDate ? `${fmtDate(status.marketDate)} · close 06:00 UTC · ` : ''}
+            {FORMATS[format].label}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <ConfidencePill confidence="medium" />
-          <DataFreshnessBadge lastUpdated={lastUpdated} />
+          {status?.lastUpdated && <DataFreshnessBadge lastUpdated={status.lastUpdated} />}
           <FormatRibbon compact />
         </div>
       </header>
 
-      <Tape rows={board} />
+      {board.status === 'success' && board.data && <Tape rows={board.data} />}
+      {board.status === 'loading' && <LoadingSkeleton className="h-12 w-full" />}
 
       <WatchlistStrip />
 
-      {/* Movers grid */}
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        <MarketMoversPanel title="Biggest Risers" subtitle="Top 24-hour gains" rows={movers.risers} metric="d1" accent="up" viewAllHref="/board?sort=d1" />
-        <MarketMoversPanel title="Biggest Fallers" subtitle="Top 24-hour drops" rows={movers.fallers} metric="d1" accent="down" viewAllHref="/board?sort=d30" />
-        <MarketMoversPanel title="Buy-Low Windows" subtitle="Undervalued after a 30-day dip" rows={movers.buyLow} metric="d30" accent="up" viewAllHref="/board?tag=buy_low_window&sort=mis" emptyNote="No buy-low windows in this format today." />
-        <MarketMoversPanel title="Sell-High Warnings" subtitle="Overvalued after a 30-day run" rows={movers.sellHigh} metric="d30" accent="down" viewAllHref="/board?sort=misAsc" emptyNote="No sell-high warnings today." />
-        <MarketMoversPanel title="Overheated Assets" subtitle="Mispricing −25 or worse" rows={movers.overheated} metric="d30" accent="down" viewAllHref="/board?tag=overheated&sort=misAsc" emptyNote="Nothing deeply overheated today." />
-        <MarketMoversPanel title="Blue Chips" subtitle="The stability shelf" rows={movers.blueChips} metric="d7" accent="neutral" viewAllHref="/board?class=blue_chip&sort=price" />
-        <MarketMoversPanel title="Rookie IPOs" subtitle="First-year market debuts" rows={movers.rookieIpos} metric="d7" accent="neutral" viewAllHref="/board?class=rookie_ipo&sort=d7" />
-        <MarketMoversPanel title="Most Volatile" subtitle="Highest week-to-week swing" rows={movers.mostVolatile} metric="d7" accent="neutral" viewAllHref="/board?sort=vol" />
-        <MarketMoversPanel title="Most Stable" subtitle="Lowest volatility" rows={movers.mostStable} metric="d7" accent="neutral" viewAllHref="/board?sort=vol" />
-      </div>
+      {/* Movers grid — explicit loading / error / success lifecycle */}
+      {movers.status === 'loading' && (
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3" aria-label="Loading movers">
+          {Array.from({ length: 6 }, (_, i) => (
+            <LoadingSkeleton key={i} className="h-64 w-full" />
+          ))}
+        </div>
+      )}
+      {movers.status === 'error' && (
+        <ErrorState
+          message="Today's market movers couldn't load."
+          onRetry={movers.refetch}
+        />
+      )}
+      {movers.status === 'success' && movers.data && (
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <MarketMoversPanel title="Biggest Risers" subtitle="Top 24-hour gains" rows={movers.data.risers} metric="d1" accent="up" viewAllHref="/board?sort=d1" />
+          <MarketMoversPanel title="Biggest Fallers" subtitle="Top 24-hour drops" rows={movers.data.fallers} metric="d1" accent="down" viewAllHref="/board?sort=d30" />
+          <MarketMoversPanel title="Buy-Low Windows" subtitle="Undervalued after a 30-day dip" rows={movers.data.buyLow} metric="d30" accent="up" viewAllHref="/board?tag=buy_low_window&sort=mis" emptyNote="No buy-low windows in this format today." />
+          <MarketMoversPanel title="Sell-High Warnings" subtitle="Overvalued after a 30-day run" rows={movers.data.sellHigh} metric="d30" accent="down" viewAllHref="/board?sort=misAsc" emptyNote="No sell-high warnings today." />
+          <MarketMoversPanel title="Overheated Assets" subtitle="Mispricing −25 or worse" rows={movers.data.overheated} metric="d30" accent="down" viewAllHref="/board?tag=overheated&sort=misAsc" emptyNote="Nothing deeply overheated today." />
+          <MarketMoversPanel title="Blue Chips" subtitle="The stability shelf" rows={movers.data.blueChips} metric="d7" accent="neutral" viewAllHref="/board?class=blue_chip&sort=price" />
+          <MarketMoversPanel title="Rookie IPOs" subtitle="First-year market debuts" rows={movers.data.rookieIpos} metric="d7" accent="neutral" viewAllHref="/board?class=rookie_ipo&sort=d7" />
+          <MarketMoversPanel title="Most Volatile" subtitle="Highest week-to-week swing" rows={movers.data.mostVolatile} metric="d7" accent="neutral" viewAllHref="/board?sort=vol" />
+          <MarketMoversPanel title="Most Stable" subtitle="Lowest volatility" rows={movers.data.mostStable} metric="d7" accent="neutral" viewAllHref="/board?sort=vol" />
+        </div>
+      )}
 
       <div className="rounded-card border border-border-subtle bg-surface p-4 text-center text-sm text-text-secondary">
         Every value on this page is generated by our market engine from simulated inputs.{' '}

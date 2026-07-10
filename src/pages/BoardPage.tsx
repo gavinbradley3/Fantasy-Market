@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { marketData } from '@/services/marketData/mock/MockMarketDataService';
+import { useBoard, useMarketStatus } from '@/hooks/useMarketData';
 import { useAppStore } from '@/store/useAppStore';
 import { FORMATS } from '@/config/market';
 import { ASSET_CLASSES, MARKET_TAGS } from '@/config/taxonomy';
@@ -9,6 +9,7 @@ import { PlayerMarketCard, PlayerMarketRow } from '@/components/market/rows';
 import { FormatRibbon } from '@/components/chrome/FormatRibbon';
 import { DataFreshnessBadge } from '@/components/chrome/Honesty';
 import { Footer } from '@/components/chrome/Footer';
+import { ErrorState, LoadingSkeleton } from '@/components/states';
 import { cn } from '@/lib/ui';
 import type { AssetClass, MarketTagId, Position, SignalId } from '@/types/market';
 import type { PlayerRow } from '@/types/market';
@@ -53,7 +54,8 @@ export default function BoardPage() {
   const sort = (params.get('sort') as SortKey) || 'rank';
   const query = params.get('q') || '';
 
-  const allRows = useMemo(() => marketData.getBoard(format), [format]);
+  const board = useBoard(format);
+  const allRows = useMemo(() => board.data ?? [], [board.data]);
 
   const filtered = useMemo(() => {
     let rows = allRows;
@@ -86,7 +88,7 @@ export default function BoardPage() {
   const activeFilters =
     pos.length + (tag ? 1 : 0) + (cls ? 1 : 0) + (sig ? 1 : 0) + (query ? 1 : 0);
   const reset = () => setParams(new URLSearchParams(), { replace: true });
-  const date = marketData.getMarketDate() + 'T06:00:00Z';
+  const { data: marketStatus } = useMarketStatus();
 
   return (
     <div>
@@ -98,7 +100,9 @@ export default function BoardPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <DataFreshnessBadge lastUpdated={date} />
+          {marketStatus && marketStatus.lastUpdated && (
+            <DataFreshnessBadge lastUpdated={marketStatus.lastUpdated} />
+          )}
           <FormatRibbon compact />
         </div>
       </div>
@@ -153,6 +157,23 @@ export default function BoardPage() {
         </div>
       </div>
 
+      {/* Query lifecycle: loading and failure are explicit states (§20). */}
+      {board.status === 'loading' && (
+        <div className="grid gap-2" aria-label="Loading market data">
+          {Array.from({ length: 8 }, (_, i) => (
+            <LoadingSkeleton key={i} className="h-14 w-full" />
+          ))}
+        </div>
+      )}
+      {board.status === 'error' && (
+        <ErrorState
+          message="The market board couldn't load. Your connection or the data source may be down."
+          onRetry={board.refetch}
+        />
+      )}
+
+      {board.status === 'success' && (
+        <>
       <p className="mb-2 px-1 text-xs text-text-secondary" aria-live="polite">
         <span className="font-mono tabnum text-text-primary">{filtered.length}</span> players match
       </p>
@@ -202,6 +223,8 @@ export default function BoardPage() {
               <PlayerMarketCard key={r.player.identity.internal_id} row={r} />
             ))}
           </div>
+        </>
+      )}
         </>
       )}
 

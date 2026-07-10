@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAppStore } from '@/store/useAppStore';
-import { marketData } from '@/services/marketData/mock/MockMarketDataService';
+import { useRowsByIds } from '@/hooks/useMarketData';
 import { FORMATS } from '@/config/market';
 import { volatilityBand } from '@/lib/format';
 import {
@@ -11,7 +11,7 @@ import {
   TickerChip,
 } from '@/components/market/primitives';
 import { SoonButton } from '@/components/market/stockcard';
-import { EmptyState } from '@/components/states';
+import { EmptyState, ErrorState, LoadingSkeleton } from '@/components/states';
 import { Footer } from '@/components/chrome/Footer';
 import { cn } from '@/lib/ui';
 import type { Position } from '@/types/market';
@@ -24,11 +24,9 @@ const POS_COLOR: Record<Position, string> = {
 };
 
 export default function PortfolioPage() {
-  const { portfolio, format, togglePortfolio } = useAppStore();
-  const rows = useMemo(
-    () => marketData.getRowsByIds(portfolio.map((h) => h.playerId), format),
-    [portfolio, format],
-  );
+  const { portfolio, format, removeHolding } = useAppStore();
+  const rowsQ = useRowsByIds(portfolio.map((h) => h.playerId), format);
+  const rows = useMemo(() => rowsQ.data ?? [], [rowsQ.data]);
 
   const totalValue = rows.reduce((a, r) => a + r.snapshot.marketPrice, 0);
   const byPos = useMemo(() => {
@@ -68,13 +66,20 @@ export default function PortfolioPage() {
         <SoonButton label="Import from Sleeper" />
       </div>
 
-      {rows.length === 0 ? (
+      {portfolio.length === 0 ? (
         <EmptyState
           title="Build your portfolio"
           body="Add the players you roster to see your team as a portfolio — total value, position allocation, team exposure, and risk mix. League import (Sleeper) arrives in P1."
           ctaLabel="Find players on the Board →"
           ctaTo="/board"
         />
+      ) : rowsQ.status === 'loading' ? (
+        <div className="grid gap-3" aria-label="Loading portfolio">
+          <LoadingSkeleton className="h-24 w-full" />
+          <LoadingSkeleton className="h-40 w-full" />
+        </div>
+      ) : rowsQ.status === 'error' ? (
+        <ErrorState message="Your portfolio couldn't load current prices." onRetry={rowsQ.refetch} />
       ) : (
         <>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -154,7 +159,7 @@ export default function PortfolioPage() {
                   </Link>
                   <span className="font-mono text-sm tabnum text-text-primary">{r.snapshot.marketPrice.toFixed(1)}</span>
                   <MovementBadge value={r.snapshot.movement.d7} />
-                  <button onClick={() => togglePortfolio(r.player.identity.internal_id)} className="text-text-muted hover:text-down" aria-label={`Remove ${r.player.ticker}`}>✕</button>
+                  <button onClick={() => removeHolding(r.player.identity.internal_id)} className="text-text-muted hover:text-down" aria-label={`Remove ${r.player.ticker}`}>✕</button>
                 </div>
               ))}
             </div>
