@@ -10,6 +10,10 @@ import { MemoryRouter } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { MarketDataProvider } from '@/services/marketData/MarketDataProvider';
 import { MockMarketDataService } from '@/services/marketData/mock/MockMarketDataService';
+import { LiveMarketDataService } from '@/services/marketData/live/LiveMarketDataService';
+import { SleeperMetadataProvider } from '@/services/marketData/live/SleeperMetadataProvider';
+import { SleeperClient } from '@/services/marketData/live/sleeperClient';
+import { memoryStorage } from '@/services/storage/storage';
 import type { MarketDataService } from '@/services/marketData/types';
 import { AppErrorBoundary } from '@/components/states/ErrorBoundary';
 import { WatchlistButton } from '@/components/market/WatchlistButton';
@@ -80,6 +84,22 @@ describe('BoardPage lifecycle through an injected service', () => {
     const stub = svcWith({ getBoard: async () => twoRows });
     renderWith(stub, <BoardPage />);
     expect(await screen.findByText(/^2$/)).toBeInTheDocument(); // "2 players match"
+  });
+
+  it('LiveMarketDataService injects through the same provider; with Sleeper down it renders full demo fallback', async () => {
+    const deadNetwork = (async () => {
+      throw new TypeError('network unreachable');
+    }) as unknown as typeof fetch;
+    const live = new LiveMarketDataService({
+      provider: new SleeperMetadataProvider({
+        client: new SleeperClient({ fetchFn: deadNetwork, retries: 0, delay: async () => {} }),
+        storage: memoryStorage(),
+      }),
+    });
+    renderWith(live, <BoardPage />);
+    // Deterministic demo board renders with authored metadata — no crash.
+    const allens = await screen.findAllByText('Josh Allen');
+    expect(allens.length).toBeGreaterThan(0);
   });
 });
 

@@ -226,6 +226,13 @@ export interface DataSourceStatus {
 
 // ---------- Composite view models the UI consumes ----------
 
+// Sleeper trending add/drop counts — INFORMATIONAL ONLY (P1 Wave 1 rule):
+// never an input to prices, volatility, signals, or any engine output.
+export interface TrendingInfo {
+  adds24h?: number;
+  drops24h?: number;
+}
+
 // Everything the Stock Card needs, assembled by the data service.
 export interface PlayerDetail {
   player: Player;
@@ -237,6 +244,8 @@ export interface PlayerDetail {
   seasonStats: PlayerStatsSeason;
   gameLog: PlayerStatsGameLog[];
   formatNotes: string[];
+  /** Present only when a live provider supplies it. */
+  trending?: TrendingInfo;
 }
 
 // Board / mover row.
@@ -246,4 +255,6 @@ export interface PlayerRow {
   signal: MarketSignal;
   topCatalyst?: MarketCatalyst;
   spark: number[]; // 30-day market price series for sparkline
+  /** Present only when a live provider supplies it. */
+  trending?: TrendingInfo;
 }

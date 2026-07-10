@@ -8,10 +8,13 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './app/App';
 import { AppErrorBoundary } from './components/states/ErrorBoundary';
 import { MarketDataProvider } from './services/marketData/MarketDataProvider';
-import { MockMarketDataService } from './services/marketData/mock/MockMarketDataService';
+import { LiveMarketDataService } from './services/marketData/live/LiveMarketDataService';
 import './styles/globals.css';
 
-const marketDataService = new MockMarketDataService();
+// P1 Wave 1: live Sleeper player metadata over the deterministic demo market.
+// If Sleeper is unreachable this degrades to full demo mode automatically —
+// swap back to `new MockMarketDataService()` to force pure demo.
+const marketDataService = new LiveMarketDataService();
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

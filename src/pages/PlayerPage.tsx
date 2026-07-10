@@ -319,6 +319,18 @@ export default function PlayerPage() {
       </Section>
 
       <div className="rounded-card border border-border-subtle bg-surface p-4">
+        {detail.trending && (detail.trending.adds24h ?? detail.trending.drops24h) !== undefined && (
+          <p className="mb-2 text-[11px] text-text-secondary">
+            Sleeper trending (24h):
+            {detail.trending.adds24h !== undefined && (
+              <span className="ml-1 font-mono tabnum text-up">+{detail.trending.adds24h.toLocaleString()} adds</span>
+            )}
+            {detail.trending.drops24h !== undefined && (
+              <span className="ml-1 font-mono tabnum text-down">−{detail.trending.drops24h.toLocaleString()} drops</span>
+            )}
+            <span className="ml-1 text-text-muted">— informational only; never affects prices or signals.</span>
+          </p>
+        )}
         <ValueDisclaimer />
         <p className="mt-2 text-[11px] text-text-muted">
           Signal: {SIGNAL_META[signal.signal].label} — rule {signal.ruleFired}.{' '}
