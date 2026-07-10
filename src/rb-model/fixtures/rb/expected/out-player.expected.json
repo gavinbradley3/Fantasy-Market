@@ -1,0 +1,73 @@
+{
+  "schema_version": "rb-mvp-1.0",
+  "model_version": "rb-mvp-1.0",
+  "reference_version": "rb-reference-1.0",
+  "player_id": "fixture_rb_out",
+  "player_name": "Derrick Crown Out",
+  "as_of_timestamp": "2026-10-13T12:00:00Z",
+  "components": {
+    "WRK": 86.2,
+    "OQ": 74.6,
+    "RE": 71.8,
+    "RU": 74.2,
+    "TC": 72.5,
+    "RD": 73.1,
+    "AD": 69,
+    "AV": 0
+  },
+  "composites": {
+    "WEEKLY": 62.2,
+    "ROS": 66.8,
+    "ONE_YEAR": 71.4,
+    "THREE_YEAR": 71.1,
+    "DYNASTY": 70.4
+  },
+  "weekly": {
+    "probability_active": 0,
+    "workload_ramp_factor": 0,
+    "expected_carries": 0,
+    "expected_rushing_yards": 0,
+    "expected_rushing_touchdowns": 0,
+    "expected_routes": 0,
+    "expected_targets": 0,
+    "expected_receptions": 0,
+    "expected_receiving_yards": 0,
+    "expected_receiving_touchdowns": 0,
+    "expected_fantasy_points": 0
+  },
+  "ros": {
+    "expected_active_games": 0,
+    "expected_fantasy_points": 0
+  },
+  "confidence": {
+    "score": 96,
+    "label": "HIGH",
+    "penalties": [
+      "Fallback Workload ramp → status/practice lookup (−4)"
+    ]
+  },
+  "volatility": {
+    "score": 7.2,
+    "label": "LOW",
+    "td_dependence": 0,
+    "receiving_dependence": 0
+  },
+  "explanations": {
+    "positive_drivers": [
+      "Projected to control most backfield carries.",
+      "Projected to dominate goal-line work.",
+      "High-value opportunities strengthen the projection."
+    ],
+    "negative_drivers": [
+      "Current availability materially lowers the weekly outlook."
+    ]
+  },
+  "fallback_log": [
+    {
+      "field": "Workload ramp",
+      "fallback_used": "status/practice lookup",
+      "confidence_penalty": 4
+    }
+  ],
+  "status": "PARTIAL"
+}

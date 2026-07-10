@@ -1,0 +1,81 @@
+{
+  "schema_version": "rb-mvp-1.0",
+  "model_version": "rb-mvp-1.0",
+  "reference_version": "rb-reference-1.0",
+  "player_id": "fixture_rb_rookie",
+  "player_name": "Tyson Flash",
+  "as_of_timestamp": "2026-10-13T12:00:00Z",
+  "components": {
+    "WRK": 42.8,
+    "OQ": 33.1,
+    "RE": 61.1,
+    "RU": 42.5,
+    "TC": 54.2,
+    "RD": 69.4,
+    "AD": 84,
+    "AV": 98
+  },
+  "composites": {
+    "WEEKLY": 56.8,
+    "ROS": 55.8,
+    "ONE_YEAR": 57.5,
+    "THREE_YEAR": 61.7,
+    "DYNASTY": 65.1
+  },
+  "weekly": {
+    "probability_active": 0.98,
+    "workload_ramp_factor": 1,
+    "expected_carries": 8.1,
+    "expected_rushing_yards": 36.4,
+    "expected_rushing_touchdowns": 0.3,
+    "expected_routes": 8.4,
+    "expected_targets": 1.6,
+    "expected_receptions": 1.2,
+    "expected_receiving_yards": 9.6,
+    "expected_receiving_touchdowns": 0,
+    "expected_fantasy_points": 7.9
+  },
+  "ros": {
+    "expected_active_games": 9.8,
+    "expected_fantasy_points": 79.4
+  },
+  "confidence": {
+    "score": 68,
+    "label": "MEDIUM",
+    "penalties": [
+      "Fallback Snap8 → original Snap4 (−8)",
+      "Fallback Contract security → draft-round mapping (2) (−4)",
+      "Career touches < 50 (−15)",
+      "Coaching continuity UNKNOWN (−5)"
+    ]
+  },
+  "volatility": {
+    "score": 45.6,
+    "label": "MEDIUM",
+    "td_dependence": 0.3,
+    "receiving_dependence": 0.2
+  },
+  "explanations": {
+    "positive_drivers": [
+      "Current availability supports the weekly outlook."
+    ],
+    "negative_drivers": [
+      "Limited high-value opportunities constrain the projection.",
+      "Limited workload lowers the outlook.",
+      "Limited receiving utility reduces weekly stability."
+    ]
+  },
+  "fallback_log": [
+    {
+      "field": "Snap8",
+      "fallback_used": "original Snap4",
+      "confidence_penalty": 8
+    },
+    {
+      "field": "Contract security",
+      "fallback_used": "draft-round mapping (2)",
+      "confidence_penalty": 4
+    }
+  ],
+  "status": "PARTIAL"
+}

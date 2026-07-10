@@ -1,0 +1,65 @@
+{
+  "schema_version": "rb-mvp-1.0",
+  "model_version": "rb-mvp-1.0",
+  "reference_version": "rb-reference-1.0",
+  "player_id": "fixture_rb_return",
+  "player_name": "Noah Vale",
+  "as_of_timestamp": "2026-10-13T12:00:00Z",
+  "components": {
+    "WRK": 66,
+    "OQ": 56.5,
+    "RE": 61.8,
+    "RU": 55.4,
+    "TC": 61.8,
+    "RD": 61.4,
+    "AD": 62,
+    "AV": 68
+  },
+  "composites": {
+    "WEEKLY": 62.5,
+    "ROS": 61.8,
+    "ONE_YEAR": 61.2,
+    "THREE_YEAR": 61.1,
+    "DYNASTY": 61.2
+  },
+  "weekly": {
+    "probability_active": 0.68,
+    "workload_ramp_factor": 0.72,
+    "expected_carries": 10,
+    "expected_rushing_yards": 44.8,
+    "expected_rushing_touchdowns": 0.6,
+    "expected_routes": 11.1,
+    "expected_targets": 2,
+    "expected_receptions": 1.6,
+    "expected_receiving_yards": 12.2,
+    "expected_receiving_touchdowns": 0.1,
+    "expected_fantasy_points": 7.8
+  },
+  "ros": {
+    "expected_active_games": 6.8,
+    "expected_fantasy_points": 103.8
+  },
+  "confidence": {
+    "score": 100,
+    "label": "HIGH",
+    "penalties": []
+  },
+  "volatility": {
+    "score": 30.5,
+    "label": "LOW",
+    "td_dependence": 0.4,
+    "receiving_dependence": 0.1
+  },
+  "explanations": {
+    "positive_drivers": [
+      "Current workload supports the outlook.",
+      "Current availability supports the weekly outlook.",
+      "The team environment supports RB opportunity."
+    ],
+    "negative_drivers": [
+      "The projection depends heavily on touchdown opportunities."
+    ]
+  },
+  "fallback_log": [],
+  "status": "OK"
+}

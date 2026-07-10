@@ -1,0 +1,65 @@
+{
+  "schema_version": "rb-mvp-1.0",
+  "model_version": "rb-mvp-1.0",
+  "reference_version": "rb-reference-1.0",
+  "player_id": "fixture_rb_elite",
+  "player_name": "Derrick Crown",
+  "as_of_timestamp": "2026-10-13T12:00:00Z",
+  "components": {
+    "WRK": 86.2,
+    "OQ": 74.6,
+    "RE": 71.8,
+    "RU": 74.2,
+    "TC": 72.5,
+    "RD": 73.1,
+    "AD": 69,
+    "AV": 98
+  },
+  "composites": {
+    "WEEKLY": 81.8,
+    "ROS": 79.6,
+    "ONE_YEAR": 76.3,
+    "THREE_YEAR": 75,
+    "DYNASTY": 74.3
+  },
+  "weekly": {
+    "probability_active": 0.98,
+    "workload_ramp_factor": 1,
+    "expected_carries": 19.3,
+    "expected_rushing_yards": 91.7,
+    "expected_rushing_touchdowns": 1.8,
+    "expected_routes": 21.7,
+    "expected_targets": 4.3,
+    "expected_receptions": 3.5,
+    "expected_receiving_yards": 29.5,
+    "expected_receiving_touchdowns": 0.1,
+    "expected_fantasy_points": 26.5
+  },
+  "ros": {
+    "expected_active_games": 9.8,
+    "expected_fantasy_points": 265
+  },
+  "confidence": {
+    "score": 100,
+    "label": "HIGH",
+    "penalties": []
+  },
+  "volatility": {
+    "score": 15.2,
+    "label": "LOW",
+    "td_dependence": 0.4,
+    "receiving_dependence": 0.1
+  },
+  "explanations": {
+    "positive_drivers": [
+      "Projected to control most backfield carries.",
+      "Projected to dominate goal-line work.",
+      "Receiving usage provides weekly stability."
+    ],
+    "negative_drivers": [
+      "The projection depends heavily on touchdown opportunities."
+    ]
+  },
+  "fallback_log": [],
+  "status": "OK"
+}

@@ -1,0 +1,64 @@
+{
+  "schema_version": "rb-mvp-1.0",
+  "model_version": "rb-mvp-1.0",
+  "reference_version": "rb-reference-1.0",
+  "player_id": "fixture_rb_receiving",
+  "player_name": "Eli Rivers",
+  "as_of_timestamp": "2026-10-13T12:00:00Z",
+  "components": {
+    "WRK": 49,
+    "OQ": 35.1,
+    "RE": 42,
+    "RU": 82.5,
+    "TC": 55.9,
+    "RD": 56.4,
+    "AD": 62,
+    "AV": 98
+  },
+  "composites": {
+    "WEEKLY": 62.5,
+    "ROS": 60.1,
+    "ONE_YEAR": 58,
+    "THREE_YEAR": 58.9,
+    "DYNASTY": 59.9
+  },
+  "weekly": {
+    "probability_active": 0.98,
+    "workload_ramp_factor": 1,
+    "expected_carries": 4.6,
+    "expected_rushing_yards": 18.7,
+    "expected_rushing_touchdowns": 0.2,
+    "expected_routes": 24.6,
+    "expected_targets": 5.7,
+    "expected_receptions": 4.9,
+    "expected_receiving_yards": 43.4,
+    "expected_receiving_touchdowns": 0.2,
+    "expected_fantasy_points": 12.7
+  },
+  "ros": {
+    "expected_active_games": 9.8,
+    "expected_fantasy_points": 126.5
+  },
+  "confidence": {
+    "score": 100,
+    "label": "HIGH",
+    "penalties": []
+  },
+  "volatility": {
+    "score": 25.2,
+    "label": "LOW",
+    "td_dependence": 0.1,
+    "receiving_dependence": 0.4
+  },
+  "explanations": {
+    "positive_drivers": [
+      "Receiving usage provides weekly stability.",
+      "Current availability supports the weekly outlook."
+    ],
+    "negative_drivers": [
+      "Limited high-value opportunities constrain the projection."
+    ]
+  },
+  "fallback_log": [],
+  "status": "OK"
+}

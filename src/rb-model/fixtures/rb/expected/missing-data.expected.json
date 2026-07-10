@@ -1,0 +1,198 @@
+{
+  "schema_version": "rb-mvp-1.0",
+  "model_version": "rb-mvp-1.0",
+  "reference_version": "rb-reference-1.0",
+  "player_id": "fixture_rb_missing",
+  "player_name": "Ghost Doe",
+  "as_of_timestamp": "2026-10-13T12:00:00Z",
+  "components": {
+    "WRK": 45.2,
+    "OQ": 42.8,
+    "RE": 46.9,
+    "RU": 34.8,
+    "TC": 51.5,
+    "RD": 43.2,
+    "AD": 67,
+    "AV": 72
+  },
+  "composites": {
+    "WEEKLY": 49.9,
+    "ROS": 48.1,
+    "ONE_YEAR": 48,
+    "THREE_YEAR": 49.6,
+    "DYNASTY": 51.3
+  },
+  "weekly": {
+    "probability_active": 0.72,
+    "workload_ramp_factor": 0.8,
+    "expected_carries": 7.2,
+    "expected_rushing_yards": 30.4,
+    "expected_rushing_touchdowns": 0.3,
+    "expected_routes": 7.3,
+    "expected_targets": 1.1,
+    "expected_receptions": 0.9,
+    "expected_receiving_yards": 6.4,
+    "expected_receiving_touchdowns": 0,
+    "expected_fantasy_points": 4.9
+  },
+  "ros": {
+    "expected_active_games": 7.2,
+    "expected_fantasy_points": 59.1
+  },
+  "confidence": {
+    "score": 0,
+    "label": "LOW",
+    "penalties": [
+      "Fallback Snap4 → 0.45 (−8)",
+      "Fallback Snap8 → 0.45 (−8)",
+      "Fallback Carry share → canonical Snap4 × 0.9 (cap 0.8) (−8)",
+      "Fallback Route participation → canonical Snap4 × 0.6 (−15)",
+      "Fallback TPRR → draft-round prior (UDFA) (−10)",
+      "Fallback Target share → route × TPRR × 0.85 (cap 0.2) (−6)",
+      "Fallback Red-zone share → canonical carry share (−6)",
+      "Fallback Goal-line share → canonical red-zone share (−8)",
+      "Fallback YPC → 4.2 (−5)",
+      "Fallback Success rate → 0.42 (−5)",
+      "Fallback Explosive rate → 0.1 (−5)",
+      "Fallback Catch rate → 0.78 (−5)",
+      "Fallback Rec yards/reception → 7.5 (−5)",
+      "Fallback Team non-QB rushes → reference median (−5)",
+      "Fallback Team dropbacks → reference median (−5)",
+      "Fallback Points/drive → reference median (−5)",
+      "Fallback Red-zone trips → reference median (−5)",
+      "Fallback QB rush pressure → 0.35 (−4)",
+      "Fallback Workload ramp → status/practice lookup (−4)",
+      "Fallback Contract security → draft-round mapping (UDFA) (−4)",
+      "Fallback Competition pressure → 0.5 (−4)",
+      "Career touches < 50 (−15)",
+      "Injury status UNKNOWN (−10)",
+      "Role change UNKNOWN (−10)",
+      "Team is null (−5)",
+      "Coaching continuity UNKNOWN (−5)"
+    ]
+  },
+  "volatility": {
+    "score": 55,
+    "label": "MEDIUM",
+    "td_dependence": 0.3,
+    "receiving_dependence": 0.1
+  },
+  "explanations": {
+    "positive_drivers": [
+      "Current availability supports the weekly outlook."
+    ],
+    "negative_drivers": [
+      "Limited receiving utility reduces weekly stability.",
+      "Limited workload lowers the outlook.",
+      "Limited high-value opportunities constrain the projection."
+    ]
+  },
+  "fallback_log": [
+    {
+      "field": "Snap4",
+      "fallback_used": "0.45",
+      "confidence_penalty": 8
+    },
+    {
+      "field": "Snap8",
+      "fallback_used": "0.45",
+      "confidence_penalty": 8
+    },
+    {
+      "field": "Carry share",
+      "fallback_used": "canonical Snap4 × 0.9 (cap 0.8)",
+      "confidence_penalty": 8
+    },
+    {
+      "field": "Route participation",
+      "fallback_used": "canonical Snap4 × 0.6",
+      "confidence_penalty": 15
+    },
+    {
+      "field": "TPRR",
+      "fallback_used": "draft-round prior (UDFA)",
+      "confidence_penalty": 10
+    },
+    {
+      "field": "Target share",
+      "fallback_used": "route × TPRR × 0.85 (cap 0.2)",
+      "confidence_penalty": 6
+    },
+    {
+      "field": "Red-zone share",
+      "fallback_used": "canonical carry share",
+      "confidence_penalty": 6
+    },
+    {
+      "field": "Goal-line share",
+      "fallback_used": "canonical red-zone share",
+      "confidence_penalty": 8
+    },
+    {
+      "field": "YPC",
+      "fallback_used": "4.2",
+      "confidence_penalty": 5
+    },
+    {
+      "field": "Success rate",
+      "fallback_used": "0.42",
+      "confidence_penalty": 5
+    },
+    {
+      "field": "Explosive rate",
+      "fallback_used": "0.1",
+      "confidence_penalty": 5
+    },
+    {
+      "field": "Catch rate",
+      "fallback_used": "0.78",
+      "confidence_penalty": 5
+    },
+    {
+      "field": "Rec yards/reception",
+      "fallback_used": "7.5",
+      "confidence_penalty": 5
+    },
+    {
+      "field": "Team non-QB rushes",
+      "fallback_used": "reference median",
+      "confidence_penalty": 5
+    },
+    {
+      "field": "Team dropbacks",
+      "fallback_used": "reference median",
+      "confidence_penalty": 5
+    },
+    {
+      "field": "Points/drive",
+      "fallback_used": "reference median",
+      "confidence_penalty": 5
+    },
+    {
+      "field": "Red-zone trips",
+      "fallback_used": "reference median",
+      "confidence_penalty": 5
+    },
+    {
+      "field": "QB rush pressure",
+      "fallback_used": "0.35",
+      "confidence_penalty": 4
+    },
+    {
+      "field": "Workload ramp",
+      "fallback_used": "status/practice lookup",
+      "confidence_penalty": 4
+    },
+    {
+      "field": "Contract security",
+      "fallback_used": "draft-round mapping (UDFA)",
+      "confidence_penalty": 4
+    },
+    {
+      "field": "Competition pressure",
+      "fallback_used": "0.5",
+      "confidence_penalty": 4
+    }
+  ],
+  "status": "PARTIAL"
+}
