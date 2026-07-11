@@ -9,6 +9,8 @@ import type {
   InjuryStatus,
   PracticeStatus,
   RBMVPInput,
+  RBMVPOutput,
+  RBReferenceDistributions,
   RoleChange,
 } from '@/rb-model/types';
 
@@ -51,8 +53,13 @@ export function validateInput(input: RBMVPInput, selectedHorizon?: string): void
     'player_name is required',
   );
 
-  // Age missing / non-finite / < 18.
-  req(isFiniteNumber(input.age) && input.age >= 18, 'age is required, finite, and at least 18');
+  // Age missing / non-finite / < 18. Age is semantically an integer year: the
+  // §26.8.7/§26.8.8 age tables are integer-keyed, so fractional ages are rejected
+  // rather than mapped into an undefined band (Decision 8).
+  req(
+    isFiniteNumber(input.age) && Number.isInteger(input.age) && input.age >= 18,
+    'age is required, an integer, and at least 18',
+  );
 
   // expected_games_remaining missing / non-finite / negative.
   req(
@@ -60,11 +67,13 @@ export function validateInput(input: RBMVPInput, selectedHorizon?: string): void
     'expected_games_remaining is required, finite, and non-negative',
   );
 
-  // Career exposure: missing / non-finite / negative.
+  // Career exposure: missing / non-finite / negative. These are event counts
+  // (attempts, receptions, routes), so non-integers are rejected rather than
+  // straddling the §26.8.4/§26.11 tier boundaries (Decision 8).
   for (const key of ['career_touches', 'career_carries', 'career_routes'] as const) {
     req(
-      isFiniteNumber(input[key]) && input[key] >= 0,
-      `${key} is required, finite, and non-negative`,
+      isFiniteNumber(input[key]) && Number.isInteger(input[key]) && input[key] >= 0,
+      `${key} is required, a non-negative integer`,
     );
   }
 
@@ -172,6 +181,57 @@ export function validateInput(input: RBMVPInput, selectedHorizon?: string): void
   if (selectedHorizon !== undefined && !HORIZON_VALUES.includes(selectedHorizon as Horizon)) {
     issues.push(`invalid selected_horizon: ${selectedHorizon}`);
   }
+
+  if (issues.length > 0) throw new RBValidationError(issues);
+}
+
+/**
+ * Reference-configuration validation (§26.4; §26.14 step 1). A named distribution
+ * may be absent or empty — that triggers the neutral-percentile-50 fallback path —
+ * but a non-empty array containing a non-finite member is REJECTED rather than
+ * silently sanitized ("do not silently drop them").
+ */
+export function validateReferenceDistributions(reference: RBReferenceDistributions): void {
+  const issues: string[] = [];
+  for (const [key, value] of Object.entries(reference)) {
+    if (key === 'reference_version') continue;
+    if (!Array.isArray(value)) continue; // absent → §26.4 neutral fallback path
+    if (value.some((member) => !isFiniteNumber(member))) {
+      issues.push(`reference distribution ${key} contains a non-finite member`);
+    }
+  }
+  if (issues.length > 0) throw new RBValidationError(issues);
+}
+
+/**
+ * Output validation (§26.14 step 19): every returned numeric output must be
+ * finite and within its declared range before the engine returns.
+ */
+export function validateOutput(output: RBMVPOutput): void {
+  const issues: string[] = [];
+  const inRange = (v: number, lo: number, hi: number, label: string) => {
+    if (!isFiniteNumber(v) || v < lo || v > hi) {
+      issues.push(`${label} must be finite and within [${lo},${hi}]; got ${v}`);
+    }
+  };
+  const nonNegative = (v: number, label: string) => {
+    if (!isFiniteNumber(v) || v < 0) issues.push(`${label} must be finite and non-negative; got ${v}`);
+  };
+
+  for (const [k, v] of Object.entries(output.components)) inRange(v, 0, 100, `components.${k}`);
+  for (const [k, v] of Object.entries(output.composites)) inRange(v, 0, 100, `composites.${k}`);
+  inRange(output.weekly.probability_active, 0, 1, 'weekly.probability_active');
+  inRange(output.weekly.workload_ramp_factor, 0, 1, 'weekly.workload_ramp_factor');
+  for (const [k, v] of Object.entries(output.weekly)) {
+    if (k === 'probability_active' || k === 'workload_ramp_factor') continue;
+    nonNegative(v, `weekly.${k}`);
+  }
+  nonNegative(output.ros.expected_active_games, 'ros.expected_active_games');
+  nonNegative(output.ros.expected_fantasy_points, 'ros.expected_fantasy_points');
+  inRange(output.confidence.score, 0, 100, 'confidence.score');
+  inRange(output.volatility.score, 0, 100, 'volatility.score');
+  inRange(output.volatility.td_dependence, 0, 1, 'volatility.td_dependence');
+  inRange(output.volatility.receiving_dependence, 0, 1, 'volatility.receiving_dependence');
 
   if (issues.length > 0) throw new RBValidationError(issues);
 }

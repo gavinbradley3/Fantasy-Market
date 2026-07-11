@@ -25,32 +25,26 @@ export function computeConfidence(
   input: RBMVPInput,
   fallbackLog: FallbackLogEntry[],
   fallbackPenalty: number,
-  missingReferencePenalty: number,
 ): ConfidenceResult {
   const penalties: string[] = [];
   let total = 0;
 
-  // §26.5 fallback penalties (itemized for transparency).
+  // §26.5 field fallbacks and §26.4 missing-reference fallbacks, both itemized
+  // from the de-duplicated log; each canonical entry carries its own penalty.
   for (const f of fallbackLog) {
     penalties.push(`Fallback ${f.field} → ${f.fallback_used} (−${f.confidence_penalty})`);
   }
   total += fallbackPenalty;
 
-  // §26.4 missing-reference penalties.
-  if (missingReferencePenalty > 0) {
-    penalties.push(`Missing reference distribution(s) (−${missingReferencePenalty})`);
-    total += missingReferencePenalty;
-  }
-
-  // Career-touch tiers (mutually exclusive).
+  // Career-touch tiers (mutually exclusive), using the literal §26.11 boundaries.
   const t = input.career_touches;
-  if (t <= CONF_TOUCHES.veryLow.max) {
+  if (t < CONF_TOUCHES.veryLow.below) {
     penalties.push(`Career touches < 50 (−${CONF_TOUCHES.veryLow.penalty})`);
     total += CONF_TOUCHES.veryLow.penalty;
-  } else if (t <= CONF_TOUCHES.low.max) {
+  } else if (t < CONF_TOUCHES.low.below) {
     penalties.push(`Career touches 50–149 (−${CONF_TOUCHES.low.penalty})`);
     total += CONF_TOUCHES.low.penalty;
-  } else if (t <= CONF_TOUCHES.mid.max) {
+  } else if (t < CONF_TOUCHES.mid.below) {
     penalties.push(`Career touches 150–299 (−${CONF_TOUCHES.mid.penalty})`);
     total += CONF_TOUCHES.mid.penalty;
   }

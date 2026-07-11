@@ -1,7 +1,9 @@
-// §26.16.11 / §9 fixture behavior assertions. Where a §9 expectation and a binding
-// §26 formula disagree on the verbatim input, the formula governs (Decision 7);
-// those cases assert the reachable behavior (e.g. volatility raised relative to a
-// matched baseline) rather than an unreachable label.
+// §26.16.11 fixture behavior assertions. The committee-back fixture inputs were
+// re-authored (conformance patch, Decision 7 revision) so the fixture satisfies
+// the binding §26.16.11.4 "medium/high volatility" requirement under the
+// unchanged §26.12 formula. The injury-return expectations that are NOT part of
+// §26.16.11.7 (elevated-volatility label, availability-negative explanation)
+// remain formula-governed: the tests assert the §26-reachable behavior.
 import { describe, expect, it } from 'vitest';
 import { evaluateRunningBack } from '@/rb-model/engine';
 import { resolveFallbacks } from '@/rb-model/fallbacks';
@@ -81,9 +83,12 @@ describe('9.4 committee back', () => {
     expect(o.explanations.negative_drivers).toContain('Committee usage limits expected workload.');
     expect(o.weekly.expected_fantasy_points).toBeLessThan(eliteWkEfo());
   });
-  it('competition raises volatility relative to a low-competition baseline (Decision 7)', () => {
+  it('competition raises volatility relative to a low-competition baseline', () => {
     const calm = evaluateRunningBack({ ...i, competition_pressure: 0.1 });
     expect(o.volatility.score).toBeGreaterThan(calm.volatility.score);
+  });
+  it('§26.16.11.4 committee volatility label is MEDIUM or HIGH', () => {
+    expect(['MEDIUM', 'HIGH']).toContain(o.volatility.label);
   });
 });
 

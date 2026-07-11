@@ -123,18 +123,22 @@ describe('§10.6 projection monotonicity', () => {
   const rushYds = (i: RBMVPInput) => evaluateRunningBack(i).weekly.expected_rushing_yards;
   const rushTD = (i: RBMVPInput) => evaluateRunningBack(i).weekly.expected_rushing_touchdowns;
   const routes = (i: RBMVPInput) => evaluateRunningBack(i).weekly.expected_routes;
+  const weeklyEFO = (i: RBMVPInput) => evaluateRunningBack(i).weekly.expected_fantasy_points;
 
-  it('higher carry share raises carries', () => {
-    expect(carries({ ...base(), carry_share_last4: 0.75 })).toBeGreaterThan(
-      carries({ ...base(), carry_share_last4: 0.4 }),
-    );
+  it('§26.16.1.3 higher carry share raises carries AND Weekly EFO, all else equal', () => {
+    const hi = { ...base(), carry_share_last4: 0.75 };
+    const lo = { ...base(), carry_share_last4: 0.4 };
+    expect(carries(hi)).toBeGreaterThan(carries(lo));
+    expect(weeklyEFO(hi)).toBeGreaterThan(weeklyEFO(lo));
   });
 
-  it('higher route participation raises routes and targets', () => {
+  it('§26.16.1.4 higher route participation raises routes, targets, AND PPR EFO', () => {
     const hi = { ...base(), route_participation_last4: 0.68 };
     const lo = { ...base(), route_participation_last4: 0.3 };
     expect(routes(hi)).toBeGreaterThan(routes(lo));
     expect(targets(hi)).toBeGreaterThan(targets(lo));
+    // full-PPR default scoring — receiving volume must lift the weekly EFO
+    expect(weeklyEFO(hi)).toBeGreaterThan(weeklyEFO(lo));
   });
 
   it('higher TPRR raises targets', () => {

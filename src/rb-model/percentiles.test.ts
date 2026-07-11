@@ -44,10 +44,13 @@ describe('§26.16.2 percentile estimator', () => {
     expect(missing).toEqual(['snap_share']);
   });
 
-  it('sanitizes non-finite members instead of dropping to zero', () => {
-    // NaN members are rejected; the finite members drive the percentile.
-    const { ctx } = ctxWith({ ...DEFAULT_REFERENCE_DISTRIBUTIONS, snap_share: [NaN, 0.2, 0.4] });
-    expect(pct(0.3, 'snap_share', ctx)).toBe(percentileRank(0.3, [0.2, 0.4]));
+  it('an all-non-finite distribution behaves as missing (neutral 50 + one penalty key)', () => {
+    // "contains no finite values" → §26.4 neutral path. Arrays that MIX finite
+    // and non-finite members never reach pct through the engine — configuration
+    // validation rejects them (see validation.test.ts).
+    const { ctx, missing } = ctxWith({ ...DEFAULT_REFERENCE_DISTRIBUTIONS, snap_share: [NaN, NaN] });
+    expect(pct(0.3, 'snap_share', ctx)).toBe(50);
+    expect(missing).toEqual(['snap_share']);
   });
 
   it('referenceMedian returns NaN for an empty/missing distribution', () => {

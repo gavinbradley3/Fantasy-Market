@@ -126,3 +126,34 @@ describe('§10.3 fallback behavior', () => {
     expect(penalty).toBe(sum);
   });
 });
+
+describe('§26.16.2.5 / §26.4 missing reference distribution (engine level)', () => {
+  it('produces one fallback-log entry, one five-point penalty, and PARTIAL status', () => {
+    const clean = evaluateRunningBack(base());
+    const emptySnap = { ...REF, snap_share: [] };
+    const o = evaluateRunningBack(base(), { reference_distributions: emptySnap });
+
+    const refEntries = o.fallback_log.filter((e) => e.field === 'Reference distribution snap_share');
+    expect(refEntries).toHaveLength(1);
+    expect(refEntries[0].confidence_penalty).toBe(5);
+    expect(refEntries[0].fallback_used).toBe('neutral percentile 50');
+    expect(o.status).toBe('PARTIAL');
+    expect(o.confidence.score).toBe(clean.confidence.score - 5);
+  });
+
+  it('a distribution used by several percentile calls is logged and penalized once', () => {
+    // snap_share backs both the Snap4 and Snap8 terms of WRK.
+    const o = evaluateRunningBack(base(), { reference_distributions: { ...REF, snap_share: [] } });
+    expect(o.fallback_log.filter((e) => e.field.startsWith('Reference distribution'))).toHaveLength(1);
+  });
+
+  it('two missing distributions produce two entries and a ten-point total deduction', () => {
+    const clean = evaluateRunningBack(base());
+    const o = evaluateRunningBack(base(), {
+      reference_distributions: { ...REF, snap_share: [], catch_rate: [] },
+    });
+    expect(o.fallback_log.filter((e) => e.field.startsWith('Reference distribution'))).toHaveLength(2);
+    expect(o.confidence.score).toBe(clean.confidence.score - 10);
+    expect(o.status).toBe('PARTIAL');
+  });
+});

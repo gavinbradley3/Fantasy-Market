@@ -39,8 +39,10 @@ export interface PercentileContext {
 /**
  * `pct(x, key)` against the named reference distribution. If the distribution is
  * absent, empty, or contains no finite values, returns the neutral 50 and records
- * the §26.4 confidence penalty exactly once via the context callback. Non-finite
- * members of an otherwise usable array are rejected (not silently dropped into 0).
+ * the §26.4 penalty exactly once via the context callback. Arrays containing
+ * non-finite members never reach this point through the public engine — they are
+ * rejected during configuration validation (§26.4 "do not silently drop them");
+ * the finite filter here is defense-in-depth for direct unit-level calls only.
  */
 export function pct(value: number, key: ReferenceKey, ctx: PercentileContext): number {
   const usable = finiteMembers(ctx.reference[key]);

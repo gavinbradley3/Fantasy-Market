@@ -127,6 +127,16 @@ describe('§26.16.8 explanations', () => {
     }
   });
 
+  it('§26.13.1 rule 6: teammate-return flag emits the negative workload-durability explanation', () => {
+    const i = loadFixture('elite-bell-cow');
+    i.teammate_return_flag = true;
+    const e = evaluateRunningBack(i).explanations;
+    expect(e.negative_drivers).toContain('Current workload may shrink when a teammate returns.');
+    // The direct explanation owns the workload_durability topic, so the RD
+    // component driver may not also appear on the positive side (§26.13.3.9).
+    expect(e.positive_drivers).not.toContain('The current role has strong durability support.');
+  });
+
   it('10. changing selected horizon can change ordering but not calculations or composites', () => {
     const i: RBMVPInput = loadFixture('aging-veteran');
     const weekly = evaluateRunningBack(i, { selected_horizon: 'WEEKLY' });

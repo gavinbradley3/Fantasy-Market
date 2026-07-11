@@ -211,9 +211,9 @@ export const REC_TD_RATE = 0.025;
 // §26.11 — confidence deductions beyond fallback / missing-reference penalties.
 export const CONF_START = 100;
 export const CONF_TOUCHES = {
-  veryLow: { max: 49, penalty: 15 }, // < 50
-  low: { min: 50, max: 149, penalty: 10 },
-  mid: { min: 150, max: 299, penalty: 6 },
+  veryLow: { below: 50, penalty: 15 }, // career_touches < 50
+  low: { below: 150, penalty: 10 }, // 50–149
+  mid: { below: 300, penalty: 6 }, // 150–299
 } as const;
 export const CONF_INJURY_UNKNOWN = 10;
 export const CONF_ROLE_UNKNOWN = 10;

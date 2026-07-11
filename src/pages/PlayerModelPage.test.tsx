@@ -124,12 +124,14 @@ describe('§25.3 projection assertions', () => {
     expect(screen.getByText(/ROS applies the current workload ramp/i)).toBeInTheDocument();
   });
 
-  it('committee back: engine volatility (LOW) shown faithfully; competition pressure visible', async () => {
+  it('committee back: engine volatility (MEDIUM, per §26.16.11.4 fixture) shown faithfully; competition pressure visible', async () => {
     renderRB();
     await selectFixture(/Committee back/i);
     const out = rb('committee-back');
-    expect(out.volatility.label).toBe('LOW'); // engine truth — not forced to MEDIUM/HIGH
-    expect(screen.getByText(`${out.volatility.score.toFixed(1)} · LOW`)).toBeInTheDocument();
+    // Engine truth shown as-is. The re-authored conformance fixture satisfies the
+    // binding §26.16.11.4 "medium/high volatility" requirement (Decision 7 revision).
+    expect(out.volatility.label).toBe('MEDIUM');
+    expect(screen.getByText(`${out.volatility.score.toFixed(1)} · MEDIUM`)).toBeInTheDocument();
     expect(screen.getByText('Competition pressure')).toBeInTheDocument();
   });
 

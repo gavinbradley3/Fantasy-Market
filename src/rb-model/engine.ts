@@ -10,7 +10,11 @@ import {
   SCHEMA_VERSION,
 } from '@/rb-model/constants';
 import { DEFAULT_REFERENCE_DISTRIBUTIONS } from '@/rb-model/referenceDistributions';
-import { validateInput } from '@/rb-model/validation';
+import {
+  validateInput,
+  validateOutput,
+  validateReferenceDistributions,
+} from '@/rb-model/validation';
 import { resolveFallbacks } from '@/rb-model/fallbacks';
 import {
   shrinkCatchRate,
@@ -29,7 +33,14 @@ import { computeVolatility, volatilityLabel } from '@/rb-model/volatility';
 import { computeExplanations } from '@/rb-model/explanations';
 import { PRECISION, round } from '@/rb-model/rounding';
 import type { PercentileContext } from '@/rb-model/percentiles';
-import type { EvaluateOptions, InjuryStatus, RBMVPInput, RBMVPOutput, ReferenceKey } from '@/rb-model/types';
+import type {
+  EvaluateOptions,
+  FallbackLogEntry,
+  InjuryStatus,
+  RBMVPInput,
+  RBMVPOutput,
+  ReferenceKey,
+} from '@/rb-model/types';
 
 const INACTIVE_LIST: InjuryStatus[] = ['OUT', 'IR', 'PUP', 'SUSPENDED'];
 
@@ -39,8 +50,10 @@ export function evaluateRunningBack(input: RBMVPInput, options: EvaluateOptions 
   const modelVersion = options.model_version ?? DEFAULT_MODEL_VERSION;
   const scoring = input.scoring ?? DEFAULT_SCORING;
 
-  // 1) Validate — throws RBValidationError on bad input (never fabricates output).
+  // 1) Validate — throws RBValidationError on bad input or a reference
+  // configuration containing non-finite members (never fabricates output).
   validateInput(input, options.selected_horizon);
+  validateReferenceDistributions(reference);
 
   // 2–3) Capture originals + apply canonical fallbacks (de-duplicated log + penalty).
   const { resolved, log: fallbackLog, penalty: fallbackPenalty } = resolveFallbacks(input, reference);
@@ -106,9 +119,20 @@ export function evaluateRunningBack(input: RBMVPInput, options: EvaluateOptions 
     scoring,
   });
 
+  // §26.4 — each missing/empty reference distribution produces one fallback-log
+  // entry, one five-point penalty, and PARTIAL status. All percentile calls have
+  // completed by now (they all run inside computeComponents), so the key set is
+  // final. Set iteration preserves deterministic insertion order.
+  const referenceFallbackEntries: FallbackLogEntry[] = [...missingReferenceKeys].map((key) => ({
+    field: `Reference distribution ${key}`,
+    fallback_used: 'neutral percentile 50',
+    confidence_penalty: MISSING_REFERENCE_PENALTY,
+  }));
+  const combinedFallbackLog = [...fallbackLog, ...referenceFallbackEntries];
+  const combinedPenalty = fallbackPenalty + missingReferenceKeys.size * MISSING_REFERENCE_PENALTY;
+
   // 14) Confidence.
-  const missingReferencePenalty = missingReferenceKeys.size * MISSING_REFERENCE_PENALTY;
-  const confidence = computeConfidence(input, fallbackLog, fallbackPenalty, missingReferencePenalty);
+  const confidence = computeConfidence(input, combinedFallbackLog, combinedPenalty);
 
   // 15) Volatility + dependence measures.
   const volatility = computeVolatility(
@@ -133,8 +157,7 @@ export function evaluateRunningBack(input: RBMVPInput, options: EvaluateOptions 
   });
 
   // 17) Status: PARTIAL if any §26.5 fallback or §26.4 missing-reference was used.
-  const status: 'OK' | 'PARTIAL' =
-    fallbackLog.length > 0 || missingReferenceKeys.size > 0 ? 'PARTIAL' : 'OK';
+  const status: 'OK' | 'PARTIAL' = combinedFallbackLog.length > 0 ? 'PARTIAL' : 'OK';
 
   // 18) Serialize with required rounding (§26.2.4). Confidence and volatility
   // labels derive from the ROUNDED score so the reported score and label never
@@ -143,7 +166,7 @@ export function evaluateRunningBack(input: RBMVPInput, options: EvaluateOptions 
   const confidenceScore = round(confidence.score, PRECISION.confidence);
   const volatilityScore = round(volatility.score, PRECISION.volatility);
 
-  return {
+  const output: RBMVPOutput = {
     schema_version: SCHEMA_VERSION,
     model_version: modelVersion,
     reference_version: reference.reference_version,
@@ -203,7 +226,14 @@ export function evaluateRunningBack(input: RBMVPInput, options: EvaluateOptions 
     },
 
     explanations,
-    fallback_log: fallbackLog,
+    fallback_log: combinedFallbackLog,
     status,
   };
+
+  // 19) Validate every returned numeric output is finite and within its declared
+  // range (§26.14 step 19) before returning.
+  validateOutput(output);
+
+  // 20) Return.
+  return output;
 }

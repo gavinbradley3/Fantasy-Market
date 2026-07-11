@@ -6,38 +6,38 @@
   "player_name": "Jalen North",
   "as_of_timestamp": "2026-10-13T12:00:00Z",
   "components": {
-    "WRK": 47.8,
-    "OQ": 39.7,
+    "WRK": 41.5,
+    "OQ": 44.3,
     "RE": 56.4,
     "RU": 45,
     "TC": 54.1,
-    "RD": 50.6,
+    "RD": 47.8,
     "AD": 53,
     "AV": 98
   },
   "composites": {
-    "WEEKLY": 57.7,
-    "ROS": 54.4,
-    "ONE_YEAR": 51.2,
-    "THREE_YEAR": 51.4,
-    "DYNASTY": 51.8
+    "WEEKLY": 56.5,
+    "ROS": 53.2,
+    "ONE_YEAR": 50.1,
+    "THREE_YEAR": 50.4,
+    "DYNASTY": 50.9
   },
   "weekly": {
     "probability_active": 0.98,
     "workload_ramp_factor": 1,
-    "expected_carries": 9.9,
-    "expected_rushing_yards": 43.3,
+    "expected_carries": 9.4,
+    "expected_rushing_yards": 41.1,
     "expected_rushing_touchdowns": 0.5,
-    "expected_routes": 11.6,
-    "expected_targets": 2,
-    "expected_receptions": 1.5,
-    "expected_receiving_yards": 11.1,
-    "expected_receiving_touchdowns": 0.1,
-    "expected_fantasy_points": 9.9
+    "expected_routes": 10.9,
+    "expected_targets": 1.8,
+    "expected_receptions": 1.4,
+    "expected_receiving_yards": 10.4,
+    "expected_receiving_touchdowns": 0,
+    "expected_fantasy_points": 9.5
   },
   "ros": {
     "expected_active_games": 9.8,
-    "expected_fantasy_points": 98.7
+    "expected_fantasy_points": 94.9
   },
   "confidence": {
     "score": 100,
@@ -45,18 +45,17 @@
     "penalties": []
   },
   "volatility": {
-    "score": 29.3,
-    "label": "LOW",
+    "score": 34.1,
+    "label": "MEDIUM",
     "td_dependence": 0.3,
-    "receiving_dependence": 0.2
+    "receiving_dependence": 0.1
   },
   "explanations": {
     "positive_drivers": [
       "Current availability supports the weekly outlook."
     ],
     "negative_drivers": [
-      "Committee usage limits expected workload.",
-      "Limited high-value opportunities constrain the projection."
+      "Committee usage limits expected workload."
     ]
   },
   "fallback_log": [],

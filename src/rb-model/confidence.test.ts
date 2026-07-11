@@ -15,12 +15,12 @@ describe('§10.8 confidence', () => {
       { field: 'Route participation', fallback_used: 'x', confidence_penalty: 15 },
       { field: 'TPRR', fallback_used: 'x', confidence_penalty: 10 },
     ];
-    const c = computeConfidence(base(), log, 25, 0);
+    const c = computeConfidence(base(), log, 25);
     expect(c.score).toBe(75);
   });
 
   it('low-sample touch tiers are mutually exclusive', () => {
-    const mk = (touches: number) => computeConfidence({ ...base(), career_touches: touches }, noFallback, 0, 0).score;
+    const mk = (touches: number) => computeConfidence({ ...base(), career_touches: touches }, noFallback, 0).score;
     expect(mk(40)).toBe(85); // < 50 → −15
     expect(mk(100)).toBe(90); // 50–149 → −10
     expect(mk(200)).toBe(94); // 150–299 → −6
@@ -28,14 +28,14 @@ describe('§10.8 confidence', () => {
   });
 
   it('injury UNKNOWN, role UNKNOWN, team null, and coaching UNKNOWN each deduct', () => {
-    expect(computeConfidence({ ...base(), injury_status: 'UNKNOWN' }, noFallback, 0, 0).score).toBe(90);
-    expect(computeConfidence({ ...base(), role_change: 'UNKNOWN' }, noFallback, 0, 0).score).toBe(90);
-    expect(computeConfidence({ ...base(), team: null }, noFallback, 0, 0).score).toBe(95);
-    expect(computeConfidence({ ...base(), coaching_continuity: 'UNKNOWN' }, noFallback, 0, 0).score).toBe(95);
+    expect(computeConfidence({ ...base(), injury_status: 'UNKNOWN' }, noFallback, 0).score).toBe(90);
+    expect(computeConfidence({ ...base(), role_change: 'UNKNOWN' }, noFallback, 0).score).toBe(90);
+    expect(computeConfidence({ ...base(), team: null }, noFallback, 0).score).toBe(95);
+    expect(computeConfidence({ ...base(), coaching_continuity: 'UNKNOWN' }, noFallback, 0).score).toBe(95);
   });
 
   it('teammate return deducts 8', () => {
-    expect(computeConfidence({ ...base(), teammate_return_flag: true }, noFallback, 0, 0).score).toBe(92);
+    expect(computeConfidence({ ...base(), teammate_return_flag: true }, noFallback, 0).score).toBe(92);
   });
 
   it('§26.16.4.1 route-participation fallback contributes exactly a 15-point total', () => {

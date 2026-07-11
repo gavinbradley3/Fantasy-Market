@@ -129,29 +129,74 @@ when both are missing.
 
 ---
 
-## Decision 7 — Fixture qualitative expectations that the binding formula does not meet
+## Decision 7 (revised by the conformance patch) — Fixture expectations vs. binding formulas
 
-**Decision:** three §9 fixture "required behavior" bullets are not literally reproducible from the
-verbatim fixture inputs under the binding §26 formulas. The formulas are followed; the fixture tests
-assert the closest true behavior instead of the unreachable label.
+**Decision:** the §26 formulas are never tuned to hit a fixture label. Where the *binding*
+specification itself constrains a golden fixture's behavior, the fixture **inputs** are authored to
+satisfy it; expectations that exist only outside the binding contract are asserted as the
+§26-reachable behavior.
 
-**Cases:**
-- **Committee back — "volatility MEDIUM or HIGH":** §26.12 yields ≈ 29.3 (**LOW**). Competition
-  (0.74) and TD dependence do lift it above a low-competition equivalent, but not past the 33.0
-  MEDIUM boundary. The committee *negative explanation* requirement is met.
-- **Injury-return — "volatility elevated" and "availability negative explanation":** §26.12 yields
-  ≈ 30.5 (**LOW**, though +10 above the healthy-equivalent from the QUESTIONABLE injury term), and
-  §26.13.1 rule 7 fires only at `AV < 60` while a QUESTIONABLE+LIMITED back scores `AV = 68`. So no
-  availability-negative explanation is generated. The reduced-ramp and reduced-EFO behaviors are
-  fully met.
+**Cases (as resolved by the conformance audit and patch):**
+- **Committee back — "medium/high volatility" (§26.16.11.4, binding):** the original inputs
+  (snap 0.48, competition 0.74) produced 29.3 **LOW** under the unchanged §26.12 formula. Because
+  §26.16.11.4 is part of the binding golden-fixture contract and MEDIUM is reachable with legitimate
+  committee-archetype inputs, the fixture was re-authored (snap 0.38/0.40, competition 0.88, smaller
+  career sample, goal-line/red-zone 0.42/0.44) and its golden regenerated: volatility **34.1
+  MEDIUM**. The §26.12 formula was not modified.
+- **Injury-return — "volatility elevated" and "availability negative explanation":** neither appears
+  in the binding §26.16.11.7 requirements (nonzero Pactive, ramp below one, reduced first active
+  game, later games at full workload — all met). §26.12 yields ≈ 30.5 (LOW, though +10 above the
+  healthy-equivalent from the QUESTIONABLE term), and §26.13.1 rule 7 fires only at `AV < 60` while
+  QUESTIONABLE+LIMITED scores `AV = 68`. These outputs stand as the formulas produce them.
 
-**Why required:** §26.0 — the formulas "control without exception." Tuning §26.12 or the §26.13.1
-threshold to hit a label would be inventing logic to satisfy a non-binding expectation, which the
-task forbids.
+**Why required:** §26.0 — the formulas "control without exception," and §26.16.11 golden-fixture
+descriptions are equally binding. Fixture inputs are an implementation choice; formulas are not.
 
-**Interpretation chosen:** implement §26 verbatim; record the golden outputs as the formula produces
-them; assert the reachable behaviors (competition/injury raise volatility relative to a matched
-baseline; committee explanation negative; ramp reduces conditional stats and EFO).
+**Output impact:** committee golden volatility 34.1 MEDIUM; injury-return golden volatility 30.5 LOW
+with no availability-negative driver. All ten §26.16.11 fixture descriptions are now satisfied.
 
-**Output impact:** committee volatility label LOW; injury-return volatility label LOW with no
-availability-negative driver, in the golden snapshots. All other fixture expectations are met.
+---
+
+## Decision 8 — Integer-valued age and career counts (conformance patch)
+
+**Decision:** `age`, `career_touches`, `career_carries`, and `career_routes` must be integers;
+non-integer values are rejected at validation.
+
+**Why required:** the §26.8.7 age-security adjustment and §26.8.8 AD base table are integer-keyed
+(bands "24", "25", "27" leave fractional ages like 24.5 in no band), and the §26.11 career-touch
+tiers ("< 50", "50–149") assume count semantics. The audit showed a fractional age such as 24.5 fell
+through to the 30+ AD base (14) and a fractional 27.5 received the ≥29 RD adjustment — pathological
+mappings the spec never defines.
+
+**Interpretation chosen:** the smallest deterministic resolution consistent with the public
+contract: these fields are semantically integer (years, attempts, receptions, routes), so
+non-integers are rejected exactly like other malformed input rather than being mapped into an
+undefined band. The §26.11 confidence tiers additionally use the literal `< 50 / < 150 / < 300`
+boundary comparisons.
+
+**Output impact:** none for any valid integer input; all golden fixtures are unchanged by this rule.
+
+---
+
+## Decision 9 — Missing-reference fallback-log entries and reference rejection (conformance patch)
+
+**Decision:** each missing/empty reference distribution writes one fallback-log entry
+(`field: "Reference distribution <key>"`, `fallback_used: "neutral percentile 50"`, penalty 5) in
+addition to the existing −5 confidence penalty and PARTIAL status; and a caller-supplied non-empty
+reference array containing a non-finite member is rejected during configuration validation.
+
+**Why required:** §26.4 — "add one fallback-log entry for that canonical distribution" (the entry
+was previously omitted; only the penalty and status were applied), and "Sanitize a non-empty array
+by rejecting non-finite members during configuration validation; do not silently drop them" (members
+were previously filtered silently at percentile time). §26.14 step 19's output-range validation was
+also added to the engine as part of the same patch.
+
+**Interpretation chosen:** a distribution key is logged once regardless of how many percentile calls
+used it (mirroring §26.5.1 once-per-canonical-field semantics); an *all*-non-finite array cannot
+occur past validation, so the §26.4 "contains no finite values" neutral path now applies to absent
+or empty arrays. An absent or empty array remains a legal configuration handled by the neutral
+percentile-50 fallback, not a validation error.
+
+**Output impact:** none with the bundled reference table (it is complete and finite); goldens are
+unchanged. Only callers injecting incomplete or malformed reference tables observe the new log
+entries or rejections.

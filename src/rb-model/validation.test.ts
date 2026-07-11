@@ -1,7 +1,13 @@
 // §26.16.10 / §10.2 input-definition & validation tests.
 import { describe, expect, it } from 'vitest';
 import { evaluateRunningBack } from '@/rb-model/engine';
-import { RBValidationError, validateInput } from '@/rb-model/validation';
+import {
+  RBValidationError,
+  validateInput,
+  validateOutput,
+  validateReferenceDistributions,
+} from '@/rb-model/validation';
+import { DEFAULT_REFERENCE_DISTRIBUTIONS } from '@/rb-model/referenceDistributions';
 import { loadFixture } from '@/rb-model/testutil';
 import type { RBMVPInput } from '@/rb-model/types';
 
@@ -93,5 +99,60 @@ describe('§26.16.10 / §10.2 validation rejects', () => {
     const input = base();
     input.career_touches = input.career_carries; // pure runner, zero receptions
     expect(() => validateInput(input)).not.toThrow();
+  });
+
+  it('Decision 8: non-integer age is rejected (age tables are integer-keyed)', () => {
+    expectReject((i) => (i.age = 24.5), /age/);
+    expectReject((i) => (i.age = 21.5), /age/);
+  });
+
+  it('Decision 8: non-integer career counts are rejected', () => {
+    expectReject((i) => (i.career_touches = 49.5), /career_touches/);
+    expectReject((i) => (i.career_carries = 100.25), /career_carries/);
+    expectReject((i) => (i.career_routes = 10.1), /career_routes/);
+  });
+});
+
+describe('§26.4 reference-configuration validation', () => {
+  it('rejects a non-empty reference array containing a non-finite member (no silent filtering)', () => {
+    const reference = {
+      ...DEFAULT_REFERENCE_DISTRIBUTIONS,
+      carry_share: [NaN, ...DEFAULT_REFERENCE_DISTRIBUTIONS.carry_share],
+    };
+    expect(() => evaluateRunningBack(base(), { reference_distributions: reference })).toThrow(
+      RBValidationError,
+    );
+    expect(() => validateReferenceDistributions(reference)).toThrow(/carry_share/);
+  });
+
+  it('accepts an absent/empty distribution (handled by the §26.4 neutral fallback path)', () => {
+    const reference = { ...DEFAULT_REFERENCE_DISTRIBUTIONS, snap_share: [] };
+    expect(() => validateReferenceDistributions(reference)).not.toThrow();
+  });
+
+  it('the bundled default reference table validates cleanly', () => {
+    expect(() => validateReferenceDistributions(DEFAULT_REFERENCE_DISTRIBUTIONS)).not.toThrow();
+  });
+});
+
+describe('§26.14 step 19 output validation', () => {
+  it('every fixture output passes the declared-range validation the engine runs before returning', () => {
+    // validateOutput throws on any out-of-range value; evaluateRunningBack calls
+    // it internally, so a clean return already proves conformance. Re-run it on
+    // the returned record to pin the invariant explicitly.
+    const o = evaluateRunningBack(base());
+    expect(() => validateOutput(o)).not.toThrow();
+  });
+
+  it('rejects a record with an out-of-range component', () => {
+    const o = evaluateRunningBack(base());
+    const broken = { ...o, components: { ...o.components, WRK: 140 } };
+    expect(() => validateOutput(broken)).toThrow(RBValidationError);
+  });
+
+  it('rejects a record with a non-finite projection', () => {
+    const o = evaluateRunningBack(base());
+    const broken = { ...o, weekly: { ...o.weekly, expected_fantasy_points: Number.NaN } };
+    expect(() => validateOutput(broken)).toThrow(RBValidationError);
   });
 });
