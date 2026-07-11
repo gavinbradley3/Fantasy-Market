@@ -8,11 +8,12 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc -b --noEmit && tsc -p tsconfig.te.json",
+    "typecheck": "tsc -b --noEmit && tsc -p tsconfig.te.json && tsc -p tsconfig.qb.json",
     "test": "vitest run",
     "test:watch": "vitest",
     "build:te-model": "tsc -p tsconfig.build.json",
-    "generate:te-goldens": "tsx scripts/generate-te-goldens.ts"
+    "generate:te-goldens": "tsx scripts/generate-te-goldens.ts",
+    "generate:qb-goldens": "tsx scripts/generate-qb-goldens.ts"
   },
   "dependencies": {
     "react": "^18.3.1",

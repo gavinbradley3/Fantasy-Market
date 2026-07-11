@@ -25,7 +25,8 @@
     }
   },
   "include": ["src"],
-  // The TE engine keeps its original standalone compiler settings; it is
-  // typechecked via tsconfig.te.json (see the "typecheck" script).
-  "exclude": ["src/te-model"]
+  // The TE and QB engines keep their original standalone compiler settings; each is
+  // typechecked via its own tsconfig (tsconfig.te.json / tsconfig.qb.json), matching the
+  // "typecheck" script.
+  "exclude": ["src/te-model", "src/qb-model"]
 }
