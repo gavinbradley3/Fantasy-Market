@@ -92,8 +92,11 @@ in the repository. Per-engine implementation plans, decision logs, and test repo
 
 Requires Node.js (the toolchain is Vite 5 / Vitest 2 / TypeScript 5). npm is the package manager.
 
+Reproduce a clean environment with `npm ci` (uses the committed `package-lock.json`); use
+`npm install` when adding or updating dependencies.
+
 ```bash
-npm install
+npm ci                   # clean, lockfile-exact install
 npm run dev              # Vite dev server → http://localhost:5173
 npm run test             # full Vitest suite (app + WR + RB + TE engines)
 npm run typecheck        # tsc -b (app projects) + tsc -p tsconfig.te.json (TE engine)
@@ -103,8 +106,8 @@ npm run build:te-model   # compile the TE engine (declarations) to dist-te/
 npm run generate:te-goldens   # regenerate TE golden fixtures (only after formula tests pass)
 ```
 
-`npm run lint` exists in `package.json` but **ESLint is not installed or configured** — the script
-currently fails. Setting up linting is an open task.
+There is no lint step: no ESLint configuration has ever existed in this repository, so no `lint`
+script is exposed. Adding a linter is an open, optional task.
 
 Golden fixture files (`fixtures/te/expected/`, `src/*-model/fixtures/*/expected/`) must never be
 hand-edited; regenerate them with the scripts in `scripts/` only after an intentional, versioned
@@ -140,7 +143,9 @@ only environment usage is Vite's built-in `import.meta.env.DEV` for dev-only log
 - Live Sleeper metadata is informational overlay only; it **never changes deterministic
   valuations**, and the app degrades to full demo mode when the API is unreachable.
 - The **RB specification and the Foundation document are missing** from the repository (see the
-  table above). The RB engine cannot be re-audited against its spec until the document is recovered.
+  table above). The RB engine exists without its binding specification, so **RB model changes are
+  blocked** until `RB_VALUATION_MODEL_v1.1_FINAL.md` is recovered — or formally reconstructed and
+  audited — as its own dedicated task.
 - The TE engine has **no UI integration** yet; it is exercised only by its test suite.
 - No scraping of proprietary fantasy sites; no NFL logos, marks, or licensed headshots.
 
@@ -165,7 +170,7 @@ only environment usage is Vite's built-in `import.meta.env.DEV` for dev-only log
 | WR model | Implemented + documented | Spec in `docs/valuation-models/`; engine + goldens pass |
 | TE model | Implemented + documented (engine only) | Spec in `docs/valuation-models/`; no UI |
 | Player Model UI | Verified | WR + RB at `/player-model`; TE not integrated |
-| Tests | Passing | 621/621 (Vitest) |
+| Tests | Passing | 621/621 (Vitest), verified from a clean `npm ci` |
 | Typecheck | Passing | app projects + TE project |
-| Production build | Passing | `tsc -b && vite build` |
-| Lint | Not configured | `lint` script exists but ESLint is not installed |
+| Production build | Passing | `tsc -b && vite build`; `build:te-model` also passing |
+| Lint | Not present | No ESLint setup; no `lint` script exposed (adding one is optional) |
