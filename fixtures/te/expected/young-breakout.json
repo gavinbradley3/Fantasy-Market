@@ -1,0 +1,76 @@
+{
+  "schema_version": "te-mvp-1.0",
+  "model_version": "te-mvp-1.0",
+  "reference_version": "TE_REFERENCE_V1",
+  "selected_horizon": "WEEKLY",
+  "scoring": {
+    "points_per_reception": 1,
+    "points_per_receiving_yard": 0.1,
+    "points_per_receiving_td": 6
+  },
+  "player_id": "TE-FIX-006",
+  "player_name": "Ezra Vantwell",
+  "team": "HRB",
+  "as_of_timestamp": "2025-11-05T12:00:00Z",
+  "components": {
+    "RR": 60.4,
+    "TE": 66.7,
+    "TQ": 66,
+    "RE": 46.4,
+    "TC": 62.7,
+    "RD": 87.3,
+    "AD": 95,
+    "AV": 98
+  },
+  "composites": {
+    "WEEKLY": 70.4,
+    "ROS": 71,
+    "ONE_YEAR": 72.9,
+    "THREE_YEAR": 75.7,
+    "DYNASTY": 78.4
+  },
+  "weekly": {
+    "probability_active": 0.98,
+    "workload_ramp_factor": 1,
+    "expected_routes": 22,
+    "expected_targets": 4.8,
+    "expected_receptions": 3.6,
+    "expected_receiving_yards": 37.4,
+    "expected_receiving_touchdowns": 0.2,
+    "expected_fantasy_points": 8.4
+  },
+  "ros": {
+    "expected_active_games": 8.8,
+    "expected_fantasy_points": 75.4
+  },
+  "confidence": {
+    "score": 79,
+    "label": "MEDIUM",
+    "penalties": [
+      "FALLBACK:CATCHABLE_TARGET_RATE",
+      "LOW_CAREER_ROUTES_LT_75"
+    ]
+  },
+  "volatility": {
+    "score": 38.3,
+    "label": "MEDIUM",
+    "td_dependence": 0.1,
+    "explosive_dependence": 0.3
+  },
+  "explanations": {
+    "positive_drivers": [
+      "Current availability supports the weekly outlook.",
+      "Target-earning ability strengthens the profile.",
+      "Current route usage supports the outlook."
+    ],
+    "negative_drivers": []
+  },
+  "fallback_log": [
+    {
+      "field": "CATCHABLE_TARGET_RATE",
+      "fallback_used": "QB_ENVIRONMENT_PROXY",
+      "confidence_penalty": 6
+    }
+  ],
+  "status": "PARTIAL"
+}

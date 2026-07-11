@@ -1,0 +1,69 @@
+{
+  "schema_version": "te-mvp-1.0",
+  "model_version": "te-mvp-1.0",
+  "reference_version": "TE_REFERENCE_V1",
+  "selected_horizon": "WEEKLY",
+  "scoring": {
+    "points_per_reception": 1,
+    "points_per_receiving_yard": 0.1,
+    "points_per_receiving_td": 6
+  },
+  "player_id": "TE-FIX-003",
+  "player_name": "Garrick Stoneham",
+  "team": "IRN",
+  "as_of_timestamp": "2025-11-05T12:00:00Z",
+  "components": {
+    "RR": 36.1,
+    "TE": 21.9,
+    "TQ": 53.8,
+    "RE": 32.5,
+    "TC": 38.7,
+    "RD": 53.9,
+    "AD": 63,
+    "AV": 98
+  },
+  "composites": {
+    "WEEKLY": 46.9,
+    "ROS": 44.8,
+    "ONE_YEAR": 44.5,
+    "THREE_YEAR": 46.9,
+    "DYNASTY": 48.9
+  },
+  "weekly": {
+    "probability_active": 0.98,
+    "workload_ramp_factor": 1,
+    "expected_routes": 12.5,
+    "expected_targets": 1.4,
+    "expected_receptions": 1.1,
+    "expected_receiving_yards": 9.9,
+    "expected_receiving_touchdowns": 0,
+    "expected_fantasy_points": 2.3
+  },
+  "ros": {
+    "expected_active_games": 7.8,
+    "expected_fantasy_points": 18.2
+  },
+  "confidence": {
+    "score": 100,
+    "label": "HIGH",
+    "penalties": []
+  },
+  "volatility": {
+    "score": 29.7,
+    "label": "LOW",
+    "td_dependence": 0.1,
+    "explosive_dependence": 0.2
+  },
+  "explanations": {
+    "positive_drivers": [
+      "Current availability supports the weekly outlook."
+    ],
+    "negative_drivers": [
+      "A blocking-heavy role limits receiving volume.",
+      "Target earning is below the TE reference group.",
+      "The team environment limits receiving opportunity."
+    ]
+  },
+  "fallback_log": [],
+  "status": "OK"
+}

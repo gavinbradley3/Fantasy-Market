@@ -1,0 +1,19 @@
+{
+  "name": "fantasy-market",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Deterministic fantasy-football player valuation engines. TE MVP engine implemented per TE_VALUATION_MODEL_REFERENCE_V1_FROZEN.md Section 26.",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc -p tsconfig.build.json",
+    "generate:te-goldens": "tsx scripts/generate-te-goldens.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.0"
+  }
+}

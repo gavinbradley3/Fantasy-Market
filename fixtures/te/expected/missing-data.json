@@ -1,0 +1,197 @@
+{
+  "schema_version": "te-mvp-1.0",
+  "model_version": "te-mvp-1.0",
+  "reference_version": "TE_REFERENCE_V1",
+  "selected_horizon": "WEEKLY",
+  "scoring": {
+    "points_per_reception": 1,
+    "points_per_receiving_yard": 0.1,
+    "points_per_receiving_td": 6
+  },
+  "player_id": "TE-FIX-011",
+  "player_name": "Quill Barrowdine",
+  "team": null,
+  "as_of_timestamp": "2025-11-05T12:00:00Z",
+  "components": {
+    "RR": 44.4,
+    "TE": 39,
+    "TQ": 61.2,
+    "RE": 45.4,
+    "TC": 50,
+    "RD": 43,
+    "AD": 84,
+    "AV": 72
+  },
+  "composites": {
+    "WEEKLY": 51.2,
+    "ROS": 50.1,
+    "ONE_YEAR": 51.3,
+    "THREE_YEAR": 53.8,
+    "DYNASTY": 56.4
+  },
+  "weekly": {
+    "probability_active": 0.72,
+    "workload_ramp_factor": 0.8,
+    "expected_routes": 13.7,
+    "expected_targets": 2.2,
+    "expected_receptions": 1.5,
+    "expected_receiving_yards": 16.3,
+    "expected_receiving_touchdowns": 0.1,
+    "expected_fantasy_points": 2.7
+  },
+  "ros": {
+    "expected_active_games": 5.8,
+    "expected_fantasy_points": 25.8
+  },
+  "confidence": {
+    "score": 0,
+    "label": "LOW",
+    "penalties": [
+      "FALLBACK:RP4",
+      "FALLBACK:RP8",
+      "FALLBACK:SNAP4",
+      "FALLBACK:TPRR",
+      "FALLBACK:TARGET_SHARE",
+      "FALLBACK:AVERAGE_DEPTH_OF_TARGET",
+      "FALLBACK:RED_ZONE_TARGET_RATE",
+      "FALLBACK:END_ZONE_TARGET_RATE",
+      "FALLBACK:CATCHABLE_TARGET_RATE",
+      "FALLBACK:CATCH_RATE",
+      "FALLBACK:YARDS_PER_TARGET",
+      "FALLBACK:YARDS_PER_RECEPTION",
+      "FALLBACK:YAC_PER_RECEPTION",
+      "FALLBACK:PROJECTED_TEAM_DROPBACKS",
+      "FALLBACK:TEAM_POINTS_PER_DRIVE",
+      "FALLBACK:TEAM_RED_ZONE_TRIPS_PER_GAME",
+      "FALLBACK:QB_ENVIRONMENT_SCORE",
+      "FALLBACK:COMPETITION_PRESSURE",
+      "FALLBACK:CONTRACT_SECURITY",
+      "FALLBACK:WORKLOAD_RAMP_FACTOR",
+      "LOW_CAREER_ROUTES_LT_75",
+      "UNKNOWN_INJURY_STATUS",
+      "UNKNOWN_ROLE_CHANGE",
+      "UNKNOWN_DEPTH_CHART_ROLE",
+      "UNKNOWN_COACHING_CONTINUITY",
+      "MISSING_TEAM"
+    ]
+  },
+  "volatility": {
+    "score": 54.1,
+    "label": "MEDIUM",
+    "td_dependence": 0.1,
+    "explosive_dependence": 0.3
+  },
+  "explanations": {
+    "positive_drivers": [
+      "Current availability supports the weekly outlook.",
+      "Target quality supports efficient fantasy opportunity."
+    ],
+    "negative_drivers": [
+      "Target earning is below the TE reference group.",
+      "Limited route usage constrains the outlook."
+    ]
+  },
+  "fallback_log": [
+    {
+      "field": "RP4",
+      "fallback_used": "FIXED_0.50",
+      "confidence_penalty": 15
+    },
+    {
+      "field": "RP8",
+      "fallback_used": "FIXED_0.50",
+      "confidence_penalty": 12
+    },
+    {
+      "field": "SNAP4",
+      "fallback_used": "ROUTE_PARTICIPATION_PROXY",
+      "confidence_penalty": 6
+    },
+    {
+      "field": "TPRR",
+      "fallback_used": "DRAFT_PROSPECT_PRIOR",
+      "confidence_penalty": 10
+    },
+    {
+      "field": "TARGET_SHARE",
+      "fallback_used": "RP4_SHRUNK_TPRR_PROXY",
+      "confidence_penalty": 6
+    },
+    {
+      "field": "AVERAGE_DEPTH_OF_TARGET",
+      "fallback_used": "FIXED_7.50",
+      "confidence_penalty": 3
+    },
+    {
+      "field": "RED_ZONE_TARGET_RATE",
+      "fallback_used": "FIXED_0.18",
+      "confidence_penalty": 6
+    },
+    {
+      "field": "END_ZONE_TARGET_RATE",
+      "fallback_used": "FIXED_0.08",
+      "confidence_penalty": 6
+    },
+    {
+      "field": "CATCHABLE_TARGET_RATE",
+      "fallback_used": "QB_ENVIRONMENT_PROXY",
+      "confidence_penalty": 6
+    },
+    {
+      "field": "CATCH_RATE",
+      "fallback_used": "FIXED_0.68",
+      "confidence_penalty": 5
+    },
+    {
+      "field": "YARDS_PER_TARGET",
+      "fallback_used": "FIXED_7.20",
+      "confidence_penalty": 5
+    },
+    {
+      "field": "YARDS_PER_RECEPTION",
+      "fallback_used": "FIXED_10.60",
+      "confidence_penalty": 5
+    },
+    {
+      "field": "YAC_PER_RECEPTION",
+      "fallback_used": "FIXED_4.60",
+      "confidence_penalty": 5
+    },
+    {
+      "field": "PROJECTED_TEAM_DROPBACKS",
+      "fallback_used": "REFERENCE_MEDIAN",
+      "confidence_penalty": 5
+    },
+    {
+      "field": "TEAM_POINTS_PER_DRIVE",
+      "fallback_used": "REFERENCE_MEDIAN",
+      "confidence_penalty": 5
+    },
+    {
+      "field": "TEAM_RED_ZONE_TRIPS_PER_GAME",
+      "fallback_used": "REFERENCE_MEDIAN",
+      "confidence_penalty": 5
+    },
+    {
+      "field": "QB_ENVIRONMENT_SCORE",
+      "fallback_used": "FIXED_50",
+      "confidence_penalty": 6
+    },
+    {
+      "field": "COMPETITION_PRESSURE",
+      "fallback_used": "FIXED_0.50",
+      "confidence_penalty": 4
+    },
+    {
+      "field": "CONTRACT_SECURITY",
+      "fallback_used": "DRAFT_ROUND_MAPPING",
+      "confidence_penalty": 4
+    },
+    {
+      "field": "WORKLOAD_RAMP_FACTOR",
+      "fallback_used": "STATUS_PRACTICE_MAPPING",
+      "confidence_penalty": 4
+    }
+  ],
+  "status": "PARTIAL"
+}

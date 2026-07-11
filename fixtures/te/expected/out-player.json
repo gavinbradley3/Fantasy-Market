@@ -1,0 +1,76 @@
+{
+  "schema_version": "te-mvp-1.0",
+  "model_version": "te-mvp-1.0",
+  "reference_version": "TE_REFERENCE_V1",
+  "selected_horizon": "WEEKLY",
+  "scoring": {
+    "points_per_reception": 1,
+    "points_per_receiving_yard": 0.1,
+    "points_per_receiving_td": 6
+  },
+  "player_id": "TE-FIX-010",
+  "player_name": "Boone Castellane",
+  "team": "FRO",
+  "as_of_timestamp": "2025-11-05T12:00:00Z",
+  "components": {
+    "RR": 60.1,
+    "TE": 53.6,
+    "TQ": 67.7,
+    "RE": 46.4,
+    "TC": 49.9,
+    "RD": 69.2,
+    "AD": 81,
+    "AV": 0
+  },
+  "composites": {
+    "WEEKLY": 48,
+    "ROS": 53.8,
+    "ONE_YEAR": 59.8,
+    "THREE_YEAR": 61.8,
+    "DYNASTY": 63.6
+  },
+  "weekly": {
+    "probability_active": 0,
+    "workload_ramp_factor": 0,
+    "expected_routes": 0,
+    "expected_targets": 0,
+    "expected_receptions": 0,
+    "expected_receiving_yards": 0,
+    "expected_receiving_touchdowns": 0,
+    "expected_fantasy_points": 0
+  },
+  "ros": {
+    "expected_active_games": 0,
+    "expected_fantasy_points": 0
+  },
+  "confidence": {
+    "score": 96,
+    "label": "HIGH",
+    "penalties": [
+      "FALLBACK:WORKLOAD_RAMP_FACTOR"
+    ]
+  },
+  "volatility": {
+    "score": 18,
+    "label": "LOW",
+    "td_dependence": 0,
+    "explosive_dependence": 0.3
+  },
+  "explanations": {
+    "positive_drivers": [
+      "Current route usage supports the outlook.",
+      "Target quality supports efficient fantasy opportunity."
+    ],
+    "negative_drivers": [
+      "Current availability materially lowers the weekly outlook."
+    ]
+  },
+  "fallback_log": [
+    {
+      "field": "WORKLOAD_RAMP_FACTOR",
+      "fallback_used": "STATUS_PRACTICE_MAPPING",
+      "confidence_penalty": 4
+    }
+  ],
+  "status": "PARTIAL"
+}
