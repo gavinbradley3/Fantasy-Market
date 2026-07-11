@@ -1,8 +1,7 @@
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/ui';
 import { Tooltip } from '@/components/ui/Tooltip';
-
-type Tone = 'up' | 'warning' | 'down' | 'neutral';
+import type { Tone } from '@/pages/player-model/types';
 
 const TONE_CLASS: Record<Tone, string> = {
   up: 'text-up border-up/40 bg-up/10',
@@ -12,7 +11,7 @@ const TONE_CLASS: Record<Tone, string> = {
 };
 
 // A labeled pill. Confidence and volatility each get their own — never merged.
-export function WrBadge({
+export function Badge({
   tone,
   label,
   title,
@@ -68,15 +67,24 @@ export function StatCell({
   value,
   suffix,
   emphasis = false,
+  tip,
 }: {
   label: string;
   value: string;
   suffix?: string;
   emphasis?: boolean;
+  tip?: string;
 }) {
+  const labelNode = tip ? (
+    <Tooltip label={tip}>
+      <span className="cursor-help border-b border-dotted border-text-muted/50">{label}</span>
+    </Tooltip>
+  ) : (
+    label
+  );
   return (
     <div className={cn('rounded-control border border-border-subtle bg-base px-3 py-2', emphasis && 'border-up/30 bg-up/5')}>
-      <div className="text-[10px] uppercase tracking-wide text-text-muted">{label}</div>
+      <div className="text-[10px] uppercase tracking-wide text-text-muted">{labelNode}</div>
       <div
         className={cn(
           'font-mono tabnum text-text-primary',

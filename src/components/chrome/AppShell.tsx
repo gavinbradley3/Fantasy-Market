@@ -11,7 +11,7 @@ const NAV = [
   { to: '/board', label: 'Board' },
   { to: '/watchlist', label: 'Watchlist' },
   { to: '/portfolio', label: 'Portfolio' },
-  { to: '/wr-model', label: 'WR Model' },
+  { to: '/player-model', label: 'Player Model' },
   { to: '/methodology', label: 'Methodology' },
 ];
 
