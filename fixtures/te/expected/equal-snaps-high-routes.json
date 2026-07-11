@@ -1,0 +1,67 @@
+{
+  "schema_version": "te-mvp-1.0",
+  "model_version": "te-mvp-1.0",
+  "reference_version": "TE_REFERENCE_V1",
+  "selected_horizon": "WEEKLY",
+  "scoring": {
+    "points_per_reception": 1,
+    "points_per_receiving_yard": 0.1,
+    "points_per_receiving_td": 6
+  },
+  "player_id": "TE-FIX-012A",
+  "player_name": "Paired Invariant Player A",
+  "team": "PRA",
+  "as_of_timestamp": "2025-11-05T12:00:00Z",
+  "components": {
+    "RR": 67.3,
+    "TE": 58.3,
+    "TQ": 68.1,
+    "RE": 50,
+    "TC": 55.6,
+    "RD": 71.2,
+    "AD": 73,
+    "AV": 98
+  },
+  "composites": {
+    "WEEKLY": 68.4,
+    "ROS": 67,
+    "ONE_YEAR": 66.1,
+    "THREE_YEAR": 66.9,
+    "DYNASTY": 67.8
+  },
+  "weekly": {
+    "probability_active": 0.98,
+    "workload_ramp_factor": 1,
+    "expected_routes": 27.3,
+    "expected_targets": 5.2,
+    "expected_receptions": 4,
+    "expected_receiving_yards": 42.1,
+    "expected_receiving_touchdowns": 0.2,
+    "expected_fantasy_points": 9.3
+  },
+  "ros": {
+    "expected_active_games": 7.8,
+    "expected_fantasy_points": 74.1
+  },
+  "confidence": {
+    "score": 100,
+    "label": "HIGH",
+    "penalties": []
+  },
+  "volatility": {
+    "score": 17.6,
+    "label": "LOW",
+    "td_dependence": 0.1,
+    "explosive_dependence": 0.4
+  },
+  "explanations": {
+    "positive_drivers": [
+      "Runs routes on most team dropbacks.",
+      "Current availability supports the weekly outlook.",
+      "Target-earning ability strengthens the profile."
+    ],
+    "negative_drivers": []
+  },
+  "fallback_log": [],
+  "status": "OK"
+}

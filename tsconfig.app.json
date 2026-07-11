@@ -24,5 +24,8 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src"]
+  "include": ["src"],
+  // The TE engine keeps its original standalone compiler settings; it is
+  // typechecked via tsconfig.te.json (see the "typecheck" script).
+  "exclude": ["src/te-model"]
 }

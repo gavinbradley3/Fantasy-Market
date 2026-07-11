@@ -1,0 +1,67 @@
+{
+  "schema_version": "te-mvp-1.0",
+  "model_version": "te-mvp-1.0",
+  "reference_version": "TE_REFERENCE_V1",
+  "selected_horizon": "WEEKLY",
+  "scoring": {
+    "points_per_reception": 1,
+    "points_per_receiving_yard": 0.1,
+    "points_per_receiving_td": 6
+  },
+  "player_id": "TE-FIX-008",
+  "player_name": "Silas Thornbury",
+  "team": "GLD",
+  "as_of_timestamp": "2025-11-05T12:00:00Z",
+  "components": {
+    "RR": 75,
+    "TE": 66.4,
+    "TQ": 78.2,
+    "RE": 55,
+    "TC": 70.7,
+    "RD": 66.5,
+    "AD": 31,
+    "AV": 98
+  },
+  "composites": {
+    "WEEKLY": 74.4,
+    "ROS": 70.7,
+    "ONE_YEAR": 65,
+    "THREE_YEAR": 61.8,
+    "DYNASTY": 58.9
+  },
+  "weekly": {
+    "probability_active": 0.98,
+    "workload_ramp_factor": 1,
+    "expected_routes": 28.1,
+    "expected_targets": 5.9,
+    "expected_receptions": 4.7,
+    "expected_receiving_yards": 50.7,
+    "expected_receiving_touchdowns": 0.3,
+    "expected_fantasy_points": 11.5
+  },
+  "ros": {
+    "expected_active_games": 7.8,
+    "expected_fantasy_points": 92.2
+  },
+  "confidence": {
+    "score": 100,
+    "label": "HIGH",
+    "penalties": []
+  },
+  "volatility": {
+    "score": 15.4,
+    "label": "LOW",
+    "td_dependence": 0.2,
+    "explosive_dependence": 0.4
+  },
+  "explanations": {
+    "positive_drivers": [
+      "Runs routes on most team dropbacks.",
+      "Red-zone usage supports touchdown opportunity.",
+      "Current availability supports the weekly outlook."
+    ],
+    "negative_drivers": []
+  },
+  "fallback_log": [],
+  "status": "OK"
+}

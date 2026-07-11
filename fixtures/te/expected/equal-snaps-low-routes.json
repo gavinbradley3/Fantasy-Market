@@ -1,0 +1,69 @@
+{
+  "schema_version": "te-mvp-1.0",
+  "model_version": "te-mvp-1.0",
+  "reference_version": "TE_REFERENCE_V1",
+  "selected_horizon": "WEEKLY",
+  "scoring": {
+    "points_per_reception": 1,
+    "points_per_receiving_yard": 0.1,
+    "points_per_receiving_td": 6
+  },
+  "player_id": "TE-FIX-012B",
+  "player_name": "Paired Invariant Player B",
+  "team": "PRB",
+  "as_of_timestamp": "2025-11-05T12:00:00Z",
+  "components": {
+    "RR": 47.9,
+    "TE": 58.3,
+    "TQ": 68.1,
+    "RE": 50,
+    "TC": 55.6,
+    "RD": 65.2,
+    "AD": 73,
+    "AV": 98
+  },
+  "composites": {
+    "WEEKLY": 63.3,
+    "ROS": 61.9,
+    "ONE_YEAR": 61.5,
+    "THREE_YEAR": 63.1,
+    "DYNASTY": 64.6
+  },
+  "weekly": {
+    "probability_active": 0.98,
+    "workload_ramp_factor": 1,
+    "expected_routes": 18.2,
+    "expected_targets": 3.5,
+    "expected_receptions": 2.6,
+    "expected_receiving_yards": 28.1,
+    "expected_receiving_touchdowns": 0.1,
+    "expected_fantasy_points": 6.2
+  },
+  "ros": {
+    "expected_active_games": 7.8,
+    "expected_fantasy_points": 49.4
+  },
+  "confidence": {
+    "score": 100,
+    "label": "HIGH",
+    "penalties": []
+  },
+  "volatility": {
+    "score": 24.4,
+    "label": "LOW",
+    "td_dependence": 0.1,
+    "explosive_dependence": 0.4
+  },
+  "explanations": {
+    "positive_drivers": [
+      "Current availability supports the weekly outlook.",
+      "Target-earning ability strengthens the profile.",
+      "Target quality supports efficient fantasy opportunity."
+    ],
+    "negative_drivers": [
+      "A blocking-heavy role limits receiving volume."
+    ]
+  },
+  "fallback_log": [],
+  "status": "OK"
+}

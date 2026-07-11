@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.te.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "declaration": true,
+    "outDir": "dist-te",
+    "rootDir": "src"
+  },
+  "include": ["src/te-model/**/*.ts"]
+}

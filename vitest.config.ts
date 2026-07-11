@@ -11,7 +11,9 @@ export default defineConfig({
     environment: 'node',
     // Component tests (.tsx) run in jsdom; pure logic tests stay in node.
     environmentMatchGlobs: [['src/**/*.test.tsx', 'jsdom']],
-    include: ['src/**/*.test.{ts,tsx}'],
+    // App/engine tests are colocated under src/; the TE engine keeps its
+    // original standalone layout with tests under tests/te-model/.
+    include: ['src/**/*.test.{ts,tsx}', 'tests/**/*.test.ts'],
     setupFiles: ['src/test/setup.ts'],
     // Required for @testing-library/react's automatic per-test DOM cleanup.
     globals: true,

@@ -1,0 +1,71 @@
+{
+  "schema_version": "te-mvp-1.0",
+  "model_version": "te-mvp-1.0",
+  "reference_version": "TE_REFERENCE_V1",
+  "selected_horizon": "WEEKLY",
+  "scoring": {
+    "points_per_reception": 1,
+    "points_per_receiving_yard": 0.1,
+    "points_per_receiving_td": 6
+  },
+  "player_id": "TE-FIX-007",
+  "player_name": "Rowan Ablett",
+  "team": "SGL",
+  "as_of_timestamp": "2025-11-05T12:00:00Z",
+  "components": {
+    "RR": 49.6,
+    "TE": 43.2,
+    "TQ": 63.8,
+    "RE": 43.3,
+    "TC": 46.1,
+    "RD": 38.5,
+    "AD": 73,
+    "AV": 98
+  },
+  "composites": {
+    "WEEKLY": 57,
+    "ROS": 53.3,
+    "ONE_YEAR": 51.5,
+    "THREE_YEAR": 52.8,
+    "DYNASTY": 54.4
+  },
+  "weekly": {
+    "probability_active": 0.98,
+    "workload_ramp_factor": 1,
+    "expected_routes": 18.7,
+    "expected_targets": 3,
+    "expected_receptions": 2.3,
+    "expected_receiving_yards": 23.2,
+    "expected_receiving_touchdowns": 0.1,
+    "expected_fantasy_points": 5.2
+  },
+  "ros": {
+    "expected_active_games": 7.8,
+    "expected_fantasy_points": 41.2
+  },
+  "confidence": {
+    "score": 94,
+    "label": "HIGH",
+    "penalties": [
+      "ANOTHER_RECEIVING_TE"
+    ]
+  },
+  "volatility": {
+    "score": 35.4,
+    "label": "MEDIUM",
+    "td_dependence": 0.1,
+    "explosive_dependence": 0.3
+  },
+  "explanations": {
+    "positive_drivers": [
+      "Current availability supports the weekly outlook.",
+      "Target quality supports efficient fantasy opportunity."
+    ],
+    "negative_drivers": [
+      "Another receiving option creates meaningful route and target competition.",
+      "Target earning is below the TE reference group."
+    ]
+  },
+  "fallback_log": [],
+  "status": "OK"
+}
