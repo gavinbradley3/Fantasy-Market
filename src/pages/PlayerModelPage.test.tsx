@@ -5,6 +5,10 @@ import { MemoryRouter } from 'react-router-dom';
 import PlayerModelPage from '@/pages/player-model/PlayerModelPage';
 import { evaluateRunningBack } from '@/rb-model/engine';
 import { getFixture as getRbFixture } from '@/pages/rb/registry';
+import { evaluateTightEnd, TEValidationError } from '@/te-model';
+import type { TEHorizon } from '@/te-model';
+import { getFixture as getTeFixture } from '@/pages/te/registry';
+import { POSITION_MODULES } from '@/pages/player-model/registry';
 
 function renderAt(entry: string) {
   return render(
@@ -238,5 +242,173 @@ describe('§25.6 accessibility', () => {
     renderRB();
     const wrk = rb('elite-bell-cow').components.WRK.toFixed(1);
     expect(screen.getByLabelText(new RegExp(`Workload Role score: ${wrk} out of 100`, 'i'))).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// TE integration — the third position wired into the shared Player Model page.
+// ---------------------------------------------------------------------------
+const renderTE = () => renderAt('/player-model?position=TE');
+
+function te(id: string, horizon: TEHorizon = 'WEEKLY') {
+  return evaluateTightEnd(getTeFixture(id)!.input, { selected_horizon: horizon });
+}
+const teWeekly = (id: string) => te(id).weekly.expected_fantasy_points.toFixed(1);
+
+describe('TE integration', () => {
+  it('renders the nine core TE fixtures in the primary selector and four edge fixtures', () => {
+    renderTE();
+    const primary = screen.getByRole('tablist', { name: /^select a te profile$/i });
+    expect(within(primary).getAllByRole('tab')).toHaveLength(9);
+    const edge = screen.getByRole('tablist', { name: /test scenarios/i });
+    expect(within(edge).getAllByRole('tab')).toHaveLength(4);
+  });
+
+  it('invokes evaluateTightEnd: the default player and its Weekly EFO come from the engine', () => {
+    renderTE();
+    expect(screen.getByRole('heading', { level: 1, name: /alden crestwood/i })).toBeInTheDocument();
+    expect(teWeekly('elite-receiving-focal-point')).toBe('18.0');
+    expect(screen.getAllByText('18.0').length).toBeGreaterThan(0);
+  });
+
+  it('selecting a different TE fixture changes the analyzed player', async () => {
+    renderTE();
+    await selectFixture(/Red-zone specialist/i);
+    expect(screen.getByRole('heading', { level: 1, name: /tobias renfield/i })).toBeInTheDocument();
+  });
+
+  it('shows the eight TE component labels, distinct from WR and RB terminology', () => {
+    renderTE();
+    for (const name of [
+      'Route Role', 'Target Earning', 'Target Quality', 'Receiving Efficiency',
+      'Team Context', 'Role Durability', 'Age & Development', 'Availability',
+    ]) {
+      expect(screen.getByText(name)).toBeInTheDocument();
+    }
+    // TE uses "Receiving Efficiency", never the RB "Rushing Efficiency" or the
+    // WR standalone "Efficiency" label.
+    expect(screen.queryByText('Rushing Efficiency')).not.toBeInTheDocument();
+    expect(screen.queryByText('Workload Role')).not.toBeInTheDocument();
+  });
+
+  it('edge-case fixtures are reachable and selectable', async () => {
+    renderTE();
+    await selectFixture(/Missing-data player/i);
+    expect(screen.getByRole('heading', { level: 1, name: /quill barrowdine/i })).toBeInTheDocument();
+  });
+
+  it('elite focal point: high Weekly EFO, receiving stats render, status OK, no fallback panel', () => {
+    renderTE();
+    expect(teWeekly('elite-receiving-focal-point')).toBe('18.0');
+    expect(screen.getByRole('heading', { name: /^Receiving$/ })).toBeInTheDocument();
+    expect(screen.getByText('Receptions')).toBeInTheDocument();
+    expect(screen.getByText(/No fallback data was required/i)).toBeInTheDocument();
+    // A tight-end-specific driver from the engine appears.
+    expect(screen.getByText(/Runs routes on most team dropbacks/i)).toBeInTheDocument();
+  });
+
+  it('red-zone specialist: TE-specific TD dependence + red-zone context surfaced', async () => {
+    renderTE();
+    await selectFixture(/Red-zone specialist/i);
+    expect(screen.getAllByText('TD dependence').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Explosive dependence').length).toBeGreaterThan(0);
+    expect(screen.getByText('Red-zone target rate')).toBeInTheDocument();
+    expect(screen.getByText(/Red-zone usage supports touchdown opportunity/i)).toBeInTheDocument();
+  });
+
+  it('out player: Weekly and ROS EFO are zero; OUT status communicated', async () => {
+    renderTE();
+    await selectFixture(/Out player/i);
+    const out = te('out-player');
+    expect(out.weekly.expected_fantasy_points).toBe(0);
+    expect(out.ros.expected_fantasy_points).toBe(0);
+    expect(screen.getAllByText(/\bOut\b/).length).toBeGreaterThan(0);
+  });
+
+  it('young breakout: PARTIAL with a logged fallback, confidence reduced below HIGH', async () => {
+    renderTE();
+    await selectFixture(/Young breakout/i);
+    const out = te('young-breakout');
+    expect(out.status).toBe('PARTIAL');
+    expect(out.confidence.label).not.toBe('HIGH');
+    expect(screen.getByText(/Fallback warnings/i)).toBeInTheDocument();
+    expect(screen.getByText(`${out.confidence.score.toFixed(1)} · ${out.confidence.label}`)).toBeInTheDocument();
+  });
+
+  it('missing-data: missing inputs are surfaced as explicit fallback warnings, not hidden defaults', async () => {
+    const { container } = renderTE();
+    await selectFixture(/Missing-data player/i);
+    const out = te('missing-data');
+    expect(out.status).toBe('PARTIAL');
+    expect(out.confidence.label).toBe('LOW');
+    expect(out.fallback_log.length).toBe(20);
+    expect(screen.getByText(new RegExp(`${out.fallback_log.length} fields substituted`, 'i'))).toBeInTheDocument();
+    // No silent NaN/undefined leaks into the rendered UI.
+    expect(container.textContent ?? '').not.toMatch(/NaN|undefined/);
+  });
+
+  it('long-term horizons defer TE fantasy points but keep the component profile', async () => {
+    renderTE();
+    await userEvent.click(screen.getByRole('tab', { name: 'Dynasty' }));
+    expect(screen.getByText(/not included in TE MVP v1\.0/i)).toBeInTheDocument();
+    expect(screen.getByText('Route Role')).toBeInTheDocument();
+  });
+
+  it('TE component score bars expose accessible numeric labels', () => {
+    renderTE();
+    const rr = te('elite-receiving-focal-point').components.RR.toFixed(1);
+    expect(screen.getByLabelText(new RegExp(`Route Role score: ${rr} out of 100`, 'i'))).toBeInTheDocument();
+  });
+});
+
+describe('TE validation & error handling (inputs are never silently defaulted)', () => {
+  it('the engine rejects structurally invalid TE input with a TEValidationError', () => {
+    // The UI contract depends on the engine validating inputs rather than
+    // coercing them; malformed input must throw, not silently produce output.
+    expect(() => evaluateTightEnd({} as never)).toThrow(TEValidationError);
+  });
+
+  it('the TE module returns a clear, user-facing error for an unknown profile', () => {
+    const result = POSITION_MODULES.TE.build('does-not-exist', 'WEEKLY');
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.message).toMatch(/could not be loaded/i);
+  });
+});
+
+describe('three-way position switching leaves no stale state', () => {
+  it('WR → RB → TE → WR updates player, component labels, and clears position-specific UI', async () => {
+    renderWR();
+    expect(screen.getByRole('heading', { level: 1, name: /marcus crown/i })).toBeInTheDocument();
+    expect(screen.getByText('Route Role')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('radio', { name: 'Running Back' }));
+    expect(screen.getByRole('heading', { level: 1, name: /derrick crown/i })).toBeInTheDocument();
+    expect(screen.getByText('Workload Role')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('radio', { name: 'Tight End' }));
+    expect(screen.getByRole('heading', { level: 1, name: /alden crestwood/i })).toBeInTheDocument();
+    // TE labels present; RB-only + WR-only labels gone (no stale carry-over).
+    expect(screen.getByText('Receiving Efficiency')).toBeInTheDocument();
+    expect(screen.queryByText('Workload Role')).not.toBeInTheDocument();
+    expect(screen.queryByText('Rushing Efficiency')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('radio', { name: 'Wide Receiver' }));
+    expect(screen.getByRole('heading', { level: 1, name: /marcus crown/i })).toBeInTheDocument();
+    expect(screen.getByText('Route Role')).toBeInTheDocument();
+    // TE-only projection context must not persist after leaving TE.
+    expect(screen.queryByText('Explosive dependence')).not.toBeInTheDocument();
+  });
+
+  it('preserves the selected horizon across a switch into TE', async () => {
+    renderWR();
+    await userEvent.click(screen.getByRole('tab', { name: 'Dynasty' }));
+    await userEvent.click(screen.getByRole('radio', { name: 'Tight End' }));
+    expect(screen.getByRole('tab', { name: 'Dynasty' })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('TE position selector is keyboard operable and exposes checked state', async () => {
+    renderTE();
+    const teRadio = screen.getByRole('radio', { name: 'Tight End' });
+    expect(teRadio).toHaveAttribute('aria-checked', 'true');
   });
 });

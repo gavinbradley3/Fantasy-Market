@@ -4,6 +4,8 @@
 
 import { evaluateWideReceiver } from '@/wr-model/engine';
 import { evaluateRunningBack } from '@/rb-model/engine';
+import { evaluateTightEnd } from '@/te-model';
+import type { TEHorizon } from '@/te-model';
 import type { Horizon } from '@/rb-model/types';
 
 import { WR_FIXTURES, getFixture as getWrFixture } from '@/pages/wr/registry';
@@ -17,6 +19,14 @@ import {
 } from '@/pages/rb/registry';
 import { buildRbView } from '@/pages/rb/view';
 import { RbProjection } from '@/pages/rb/RbProjection';
+
+import {
+  TE_CORE_FIXTURES,
+  TE_EDGE_FIXTURES,
+  getFixture as getTeFixture,
+} from '@/pages/te/registry';
+import { buildTeView } from '@/pages/te/view';
+import { TeProjection } from '@/pages/te/TeProjection';
 
 import type {
   BuildResult,
@@ -121,13 +131,60 @@ const RB_MODULE: PositionModule = {
   },
 };
 
+// ---------- TE module ----------
+const TE_INACTIVE_STATUSES = ['OUT', 'IR', 'PUP', 'SUSPENDED'];
+
+const TE_MODULE: PositionModule = {
+  position: 'TE',
+  fullLabel: 'Tight End',
+  primary: TE_CORE_FIXTURES.map(summary),
+  edge: TE_EDGE_FIXTURES.map(summary),
+  edgeGroupLabel: 'Test scenarios',
+  defaultFixtureId: TE_CORE_FIXTURES[0].id,
+  selectorLabel: 'Select a TE profile',
+  hasFixture: (id) => !!getTeFixture(id),
+  selectorData() {
+    const map: Record<string, SelectorDatum> = {};
+    for (const f of [...TE_CORE_FIXTURES, ...TE_EDGE_FIXTURES]) {
+      try {
+        const out = evaluateTightEnd(f.input, { selected_horizon: 'WEEKLY' });
+        const inactive = TE_INACTIVE_STATUSES.includes(f.input.injury_status);
+        map[f.id] = {
+          weeklyEfo: out.weekly.expected_fantasy_points,
+          confidenceLabel: out.confidence.label,
+          statusMarker: inactive ? 'OUT' : out.status === 'PARTIAL' ? 'PARTIAL' : undefined,
+        };
+      } catch {
+        /* skip */
+      }
+    }
+    return map;
+  },
+  build(fixtureId: string, horizon: Horizon): BuildResult {
+    const fixture = getTeFixture(fixtureId);
+    if (!fixture) return { ok: false, message: 'The selected demo profile could not be loaded.' };
+    try {
+      const output = evaluateTightEnd(fixture.input, { selected_horizon: horizon as TEHorizon });
+      return {
+        ok: true,
+        view: buildTeView(output, fixture, horizon as TEHorizon),
+        projection: <TeProjection output={output} input={fixture.input} />,
+      };
+    } catch (err) {
+      if (import.meta.env.DEV) console.error('[player-model] TE evaluation error', err);
+      return { ok: false, message: 'The TE model could not evaluate this profile because required data was invalid.' };
+    }
+  },
+};
+
 export const POSITION_MODULES: Record<SupportedPosition, PositionModule> = {
   WR: WR_MODULE,
   RB: RB_MODULE,
+  TE: TE_MODULE,
 };
 
-export const SUPPORTED_POSITIONS: SupportedPosition[] = ['WR', 'RB'];
+export const SUPPORTED_POSITIONS: SupportedPosition[] = ['WR', 'RB', 'TE'];
 
 export function isSupportedPosition(value: string | null): value is SupportedPosition {
-  return value === 'WR' || value === 'RB';
+  return value === 'WR' || value === 'RB' || value === 'TE';
 }

@@ -6,7 +6,7 @@
 
 import type { ReactNode } from 'react';
 
-export type SupportedPosition = 'WR' | 'RB';
+export type SupportedPosition = 'WR' | 'RB' | 'TE';
 
 export type Tone = 'up' | 'warning' | 'down' | 'neutral';
 
