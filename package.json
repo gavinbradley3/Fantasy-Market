@@ -12,7 +12,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "build:te-model": "tsc -p tsconfig.build.json",
-    "generate:te-goldens": "tsx scripts/generate-te-goldens.ts"
+    "generate:te-goldens": "tsx scripts/generate-te-goldens.ts",
+    "ingest:identity": "vite-node scripts/ingest-player-identity.mts --"
   },
   "dependencies": {
     "react": "^18.3.1",

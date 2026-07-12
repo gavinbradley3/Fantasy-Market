@@ -16,6 +16,9 @@ npm-debug.log*
 .vscode/
 *.local
 
+# raw provider payloads cached by scripts/ingest-player-identity.mts
+.cache/
+
 # scratch / smoke-test artifacts
 _shot_*.png
 _smoke.mjs
