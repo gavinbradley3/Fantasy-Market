@@ -1,8 +1,13 @@
 # PlayerTicker Real-Data Integration — Phase 1: Identity & Source Resolution
 
-Status: implemented. Scope: **identity only** — no statistics, no engine
-inputs, no prices. The WR/RB/TE valuation engines and their golden outputs are
-untouched by this layer and must remain so.
+Status: implemented, integrated on the four-position (WR/RB/TE/QB) baseline.
+Scope: **identity only** — no statistics, no engine inputs, no prices. The
+WR/RB/TE/QB valuation engines and their golden outputs are untouched by this
+layer and must remain so. QB identity support corresponds to the completed QB
+engine and shared-UI integration; wiring live performance data into any engine
+remains a later phase. The identity directory's `ptp_…` ids are a separate
+namespace from the demo pool's authored `pt_XXXX` ids until a later bridge is
+implemented.
 
 ## What this layer does
 
