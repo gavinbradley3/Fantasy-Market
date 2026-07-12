@@ -6,7 +6,7 @@
 
 import type { ReactNode } from 'react';
 
-export type SupportedPosition = 'WR' | 'RB' | 'TE';
+export type SupportedPosition = 'WR' | 'RB' | 'TE' | 'QB';
 
 export type Tone = 'up' | 'warning' | 'down' | 'neutral';
 
@@ -26,10 +26,13 @@ export interface DriverView {
   code?: string;
 }
 
-// One fallback log entry rendered as a readable sentence.
+// One fallback log entry rendered as a readable sentence. `penalty` is the
+// per-entry confidence penalty where the engine records one (WR/RB/TE); the QB
+// engine applies fallback penalties in aggregate buckets rather than per entry,
+// so QB fallback rows omit it and the shared panel simply hides the penalty line.
 export interface FallbackView {
   sentence: string;
-  penalty: number;
+  penalty?: number;
 }
 
 // A compact status marker shown beside the summary header (RB role/injury/etc).
@@ -50,7 +53,9 @@ export interface MetaView {
   modelVersion: string;
   referenceVersion: string;
   asOfTimestamp: string;
-  status: 'OK' | 'PARTIAL';
+  // WR/RB/TE emit OK|PARTIAL; QB emits its native COMPLETE|PARTIAL|FALLBACK_HEAVY
+  // status verbatim. The shared header renders this string as-is.
+  status: 'OK' | 'PARTIAL' | 'COMPLETE' | 'FALLBACK_HEAVY';
 }
 
 // Everything the shared shell + shared sections render for one player at one

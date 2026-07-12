@@ -6,6 +6,8 @@ import { evaluateWideReceiver } from '@/wr-model/engine';
 import { evaluateRunningBack } from '@/rb-model/engine';
 import { evaluateTightEnd } from '@/te-model';
 import type { TEHorizon } from '@/te-model';
+import { evaluateQuarterback } from '@/qb-model';
+import type { QBHorizon } from '@/qb-model';
 import type { Horizon } from '@/rb-model/types';
 
 import { WR_FIXTURES, getFixture as getWrFixture } from '@/pages/wr/registry';
@@ -27,6 +29,14 @@ import {
 } from '@/pages/te/registry';
 import { buildTeView } from '@/pages/te/view';
 import { TeProjection } from '@/pages/te/TeProjection';
+
+import {
+  QB_CORE_FIXTURES,
+  QB_EDGE_FIXTURES,
+  getFixture as getQbFixture,
+} from '@/pages/qb/registry';
+import { buildQbView } from '@/pages/qb/view';
+import { QbProjection } from '@/pages/qb/QbProjection';
 
 import type {
   BuildResult,
@@ -177,14 +187,67 @@ const TE_MODULE: PositionModule = {
   },
 };
 
+// ---------- QB module ----------
+const QB_INACTIVE_STATUSES = ['OUT', 'IR', 'PUP'];
+
+const QB_MODULE: PositionModule = {
+  position: 'QB',
+  fullLabel: 'Quarterback',
+  primary: QB_CORE_FIXTURES.map(summary),
+  edge: QB_EDGE_FIXTURES.map(summary),
+  edgeGroupLabel: 'Test scenarios',
+  defaultFixtureId: QB_CORE_FIXTURES[0].id,
+  selectorLabel: 'Select a QB profile',
+  hasFixture: (id) => !!getQbFixture(id),
+  selectorData() {
+    const map: Record<string, SelectorDatum> = {};
+    for (const f of [...QB_CORE_FIXTURES, ...QB_EDGE_FIXTURES]) {
+      try {
+        const out = evaluateQuarterback(f.input, { selected_horizon: 'WEEKLY' });
+        const inactive = QB_INACTIVE_STATUSES.includes(f.input.injury_status);
+        map[f.id] = {
+          weeklyEfo: out.expected_fantasy_output.weekly_fantasy_points,
+          confidenceLabel: out.confidence.label,
+          statusMarker: inactive
+            ? 'OUT'
+            : out.status === 'FALLBACK_HEAVY'
+              ? 'FALLBACK'
+              : out.status === 'PARTIAL'
+                ? 'PARTIAL'
+                : undefined,
+        };
+      } catch {
+        /* skip */
+      }
+    }
+    return map;
+  },
+  build(fixtureId: string, horizon: Horizon): BuildResult {
+    const fixture = getQbFixture(fixtureId);
+    if (!fixture) return { ok: false, message: 'The selected demo profile could not be loaded.' };
+    try {
+      const output = evaluateQuarterback(fixture.input, { selected_horizon: horizon as QBHorizon });
+      return {
+        ok: true,
+        view: buildQbView(output, fixture, horizon as QBHorizon),
+        projection: <QbProjection output={output} input={fixture.input} />,
+      };
+    } catch (err) {
+      if (import.meta.env.DEV) console.error('[player-model] QB evaluation error', err);
+      return { ok: false, message: 'The QB model could not evaluate this profile because required data was invalid.' };
+    }
+  },
+};
+
 export const POSITION_MODULES: Record<SupportedPosition, PositionModule> = {
   WR: WR_MODULE,
   RB: RB_MODULE,
   TE: TE_MODULE,
+  QB: QB_MODULE,
 };
 
-export const SUPPORTED_POSITIONS: SupportedPosition[] = ['WR', 'RB', 'TE'];
+export const SUPPORTED_POSITIONS: SupportedPosition[] = ['WR', 'RB', 'TE', 'QB'];
 
 export function isSupportedPosition(value: string | null): value is SupportedPosition {
-  return value === 'WR' || value === 'RB' || value === 'TE';
+  return value === 'WR' || value === 'RB' || value === 'TE' || value === 'QB';
 }

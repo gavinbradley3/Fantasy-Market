@@ -5,11 +5,12 @@ const OPTIONS: { position: SupportedPosition; short: string; full: string }[] = 
   { position: 'WR', short: 'WR', full: 'Wide Receiver' },
   { position: 'RB', short: 'RB', full: 'Running Back' },
   { position: 'TE', short: 'TE', full: 'Tight End' },
+  { position: 'QB', short: 'QB', full: 'Quarterback' },
 ];
 
 // Compact segmented control for position. Keyboard-operable (roving arrow keys +
-// Enter/Space), visible selected state, full accessible names. No QB controls;
-// no implication that WR, RB, and TE scores are comparable across positions.
+// Enter/Space), visible selected state, full accessible names. No implication that
+// WR, RB, TE, and QB scores are comparable across positions.
 export function PositionSelector({
   selected,
   onSelect,
@@ -60,7 +61,7 @@ export function PositionSelector({
         })}
       </div>
       <p className="max-w-md text-[11px] leading-snug text-text-muted">
-        Component scores are position-specific and should not be compared directly across WR, RB, and TE.
+        Component scores are position-specific and should not be compared directly across WR, RB, TE, and QB.
       </p>
     </div>
   );

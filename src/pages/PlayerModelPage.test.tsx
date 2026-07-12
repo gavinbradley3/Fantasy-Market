@@ -8,6 +8,9 @@ import { getFixture as getRbFixture } from '@/pages/rb/registry';
 import { evaluateTightEnd, TEValidationError } from '@/te-model';
 import type { TEHorizon } from '@/te-model';
 import { getFixture as getTeFixture } from '@/pages/te/registry';
+import { evaluateQuarterback, QBValidationError } from '@/qb-model';
+import type { QBHorizon } from '@/qb-model';
+import { getFixture as getQbFixture } from '@/pages/qb/registry';
 import { POSITION_MODULES } from '@/pages/player-model/registry';
 
 function renderAt(entry: string) {
@@ -410,5 +413,161 @@ describe('three-way position switching leaves no stale state', () => {
     renderTE();
     const teRadio = screen.getByRole('radio', { name: 'Tight End' });
     expect(teRadio).toHaveAttribute('aria-checked', 'true');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// QB integration — the fourth position wired into the shared Player Model page.
+// ---------------------------------------------------------------------------
+const renderQB = () => renderAt('/player-model?position=QB');
+
+function qb(id: string, horizon: QBHorizon = 'WEEKLY') {
+  return evaluateQuarterback(getQbFixture(id)!.input, { selected_horizon: horizon });
+}
+const qbWeekly = (id: string) => qb(id).expected_fantasy_output.weekly_fantasy_points.toFixed(1);
+
+describe('QB integration', () => {
+  it('renders the eleven core QB fixtures in the primary selector and four edge fixtures', () => {
+    renderQB();
+    const primary = screen.getByRole('tablist', { name: /^select a qb profile$/i });
+    expect(within(primary).getAllByRole('tab')).toHaveLength(11);
+    const edge = screen.getByRole('tablist', { name: /test scenarios/i });
+    expect(within(edge).getAllByRole('tab')).toHaveLength(4);
+  });
+
+  it('invokes evaluateQuarterback: the default player and its Weekly EFO come from the engine', () => {
+    renderQB();
+    expect(screen.getByRole('heading', { level: 1, name: /elite dual threat/i })).toBeInTheDocument();
+    expect(qbWeekly('QB-G01')).toBe('27.5');
+    expect(screen.getAllByText('27.5').length).toBeGreaterThan(0);
+  });
+
+  it('selecting a different QB fixture changes the analyzed player', async () => {
+    renderQB();
+    await selectFixture(/Elite pocket passer/i);
+    expect(screen.getByRole('heading', { level: 1, name: /elite pocket passer/i })).toBeInTheDocument();
+  });
+
+  it('shows the eight QB component labels, distinct from WR/RB/TE terminology', () => {
+    renderQB();
+    for (const name of [
+      'Passing Opportunity', 'Passing Quality', 'Rushing Value', 'Scoring Environment',
+      'Role Security', 'Availability', 'Age & Development', 'Sustainability',
+    ]) {
+      expect(screen.getByText(name)).toBeInTheDocument();
+    }
+    // QB uses passing/rushing terminology, never the receiving-position labels.
+    expect(screen.queryByText('Route Role')).not.toBeInTheDocument();
+    expect(screen.queryByText('Workload Role')).not.toBeInTheDocument();
+    expect(screen.queryByText('Receiving Efficiency')).not.toBeInTheDocument();
+  });
+
+  it('edge-case fixtures are reachable and selectable', async () => {
+    renderQB();
+    await selectFixture(/Fallback-heavy profile/i);
+    expect(screen.getByRole('heading', { level: 1, name: /fallback heavy/i })).toBeInTheDocument();
+  });
+
+  it('elite dual threat: high Weekly EFO, passing + rushing render, COMPLETE, no fallback panel', () => {
+    renderQB();
+    expect(qbWeekly('QB-G01')).toBe('27.5');
+    expect(qb('QB-G01').status).toBe('COMPLETE');
+    expect(screen.getByRole('heading', { name: /^Passing \(if active\)$/ })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /^Rushing \(if active\)$/ })).toBeInTheDocument();
+    expect(screen.getByText(/No fallback data was required/i)).toBeInTheDocument();
+    // A QB-specific engine driver appears verbatim.
+    expect(
+      screen.getByText(/Designed rushing, scrambling, and rushing production/i),
+    ).toBeInTheDocument();
+  });
+
+  it('rushing-dependent QB: rushing dependence + role-dependence context surfaced', async () => {
+    renderQB();
+    await selectFixture(/Rushing-dependent QB/i);
+    expect(screen.getAllByText('Rushing dependence').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Turnover risk').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Role instability').length).toBeGreaterThan(0);
+    const out = qb('QB-G05');
+    expect(out.volatility.rushing_dependence).toBeGreaterThanOrEqual(40);
+  });
+
+  it('out quarterback: Weekly EFO is zero and OUT status is communicated', async () => {
+    renderQB();
+    await selectFixture(/Out quarterback/i);
+    const out = qb('QB-E03');
+    expect(out.expected_fantasy_output.weekly_fantasy_points).toBe(0);
+    expect(screen.getAllByText(/\bOut\b/).length).toBeGreaterThan(0);
+  });
+
+  it('fallback-heavy profile: FALLBACK_HEAVY status, fallback warnings render, confidence LOW, no NaN/undefined', async () => {
+    const { container } = renderQB();
+    await selectFixture(/Fallback-heavy profile/i);
+    const out = qb('QB-G12');
+    expect(out.status).toBe('FALLBACK_HEAVY');
+    expect(out.confidence.label).toBe('LOW');
+    expect(screen.getByText(/Fallback warnings/i)).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(`${out.fallback_log.length} fields substituted`, 'i'))).toBeInTheDocument();
+    expect(screen.getByText(`${out.confidence.score.toFixed(1)} · ${out.confidence.label}`)).toBeInTheDocument();
+    // The engine's native FALLBACK_HEAVY status is surfaced verbatim in the header.
+    expect(screen.getByText(/Output FALLBACK_HEAVY/i)).toBeInTheDocument();
+    expect(container.textContent ?? '').not.toMatch(/NaN|undefined/);
+  });
+
+  it('long-term horizons defer QB fantasy points but keep the component profile', async () => {
+    renderQB();
+    await userEvent.click(screen.getByRole('tab', { name: 'Dynasty' }));
+    expect(screen.getByText(/not included in QB MVP v1\.2/i)).toBeInTheDocument();
+    expect(screen.getByText('Passing Opportunity')).toBeInTheDocument();
+  });
+
+  it('QB component score bars expose accessible numeric labels', () => {
+    renderQB();
+    const po = qb('QB-G01').components.passing_opportunity.toFixed(1);
+    expect(
+      screen.getByLabelText(new RegExp(`Passing Opportunity score: ${po} out of 100`, 'i')),
+    ).toBeInTheDocument();
+  });
+});
+
+describe('QB validation & error handling (inputs are never silently defaulted)', () => {
+  it('the engine rejects structurally invalid QB input with a QBValidationError', () => {
+    expect(() => evaluateQuarterback({} as never)).toThrow(QBValidationError);
+  });
+
+  it('the QB module returns a clear, user-facing error for an unknown profile', () => {
+    const result = POSITION_MODULES.QB.build('does-not-exist', 'WEEKLY');
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.message).toMatch(/could not be loaded/i);
+  });
+});
+
+describe('four-way position switching includes QB with no stale state', () => {
+  it('WR → QB updates player + QB labels; QB → WR restores WR and clears QB-only UI', async () => {
+    renderWR();
+    expect(screen.getByText('Route Role')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('radio', { name: 'Quarterback' }));
+    expect(screen.getByRole('heading', { level: 1, name: /elite dual threat/i })).toBeInTheDocument();
+    expect(screen.getByText('Passing Opportunity')).toBeInTheDocument();
+    expect(screen.queryByText('Route Role')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('radio', { name: 'Wide Receiver' }));
+    expect(screen.getByRole('heading', { level: 1, name: /marcus crown/i })).toBeInTheDocument();
+    expect(screen.getByText('Route Role')).toBeInTheDocument();
+    // QB-only projection context must not persist after leaving QB.
+    expect(screen.queryByText('Rushing dependence')).not.toBeInTheDocument();
+  });
+
+  it('preserves the selected horizon across a switch into QB', async () => {
+    renderWR();
+    await userEvent.click(screen.getByRole('tab', { name: 'Dynasty' }));
+    await userEvent.click(screen.getByRole('radio', { name: 'Quarterback' }));
+    expect(screen.getByRole('tab', { name: 'Dynasty' })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('QB position selector is keyboard operable and exposes checked state', () => {
+    renderQB();
+    const qbRadio = screen.getByRole('radio', { name: 'Quarterback' });
+    expect(qbRadio).toHaveAttribute('aria-checked', 'true');
   });
 });

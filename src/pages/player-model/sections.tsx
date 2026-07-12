@@ -296,7 +296,9 @@ export function FallbackPanel({ view }: { view: SharedPlayerModelView }) {
         {log.map((f, i) => (
           <li key={i} className="rounded-control border border-warning/20 bg-warning/5 px-3 py-2">
             <p className="text-sm text-text-secondary">{f.sentence}</p>
-            <p className="mt-0.5 text-[11px] text-text-muted">Confidence penalty: {f.penalty}</p>
+            {f.penalty !== undefined && (
+              <p className="mt-0.5 text-[11px] text-text-muted">Confidence penalty: {f.penalty}</p>
+            )}
           </li>
         ))}
       </ul>
