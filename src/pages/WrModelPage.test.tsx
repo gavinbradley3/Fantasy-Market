@@ -27,7 +27,7 @@ beforeEach(() => {
 describe('§14.1 data integration', () => {
   it('renders all five fixtures in the selector, each with a model Weekly EFO', () => {
     renderPage();
-    const tablist = screen.getByRole('tablist', { name: /select a wr profile/i });
+    const tablist = screen.getByRole('tablist', { name: /^select a wr profile$/i });
     const tabs = within(tablist).getAllByRole('tab');
     expect(tabs).toHaveLength(5);
     for (const id of ['elite-full-time', 'low-route-high-tprr', 'round-one-rookie', 'declining-veteran', 'deep-threat-low-efficiency']) {
@@ -134,7 +134,9 @@ describe('§14.3 horizon behavior', () => {
 describe('§14.4 accessibility', () => {
   it('player selector is keyboard operable with arrow keys', async () => {
     renderPage();
-    const eliteTab = screen.getByRole('tab', { name: /Marcus Crown/i });
+    // "Elite target earner" uniquely identifies the default WR tab (the exposed
+    // out-player edge fixture shares the player name "Marcus Crown").
+    const eliteTab = screen.getByRole('tab', { name: /Elite target earner/i });
     eliteTab.focus();
     await userEvent.keyboard('{ArrowRight}');
     expect(screen.getByRole('heading', { level: 1, name: /jalen spark/i })).toBeInTheDocument();

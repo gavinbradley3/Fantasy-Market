@@ -40,7 +40,7 @@ export function DemoDisclosure() {
     <div className="rounded-card border border-secondary/25 bg-secondary/5 px-4 py-2.5 text-sm">
       <span className="font-semibold text-text-primary">Player Model Demo. </span>
       <span className="text-text-secondary">
-        This experience uses fictional WR, RB, and TE profiles with deterministic position-specific
+        This experience uses fictional WR, RB, TE, and QB profiles with deterministic position-specific
         models. It does not show real-player data, trade values, or market prices.
       </span>
     </div>
@@ -327,7 +327,7 @@ export function ModelTransparencyFooter({
         {view.transparencyBody}
       </p>
       <p className="mt-2 max-w-2xl text-[11px] leading-relaxed text-text-muted">
-        WR, RB, and TE use different formulas and position-specific reference distributions. Their
+        WR, RB, TE, and QB use different formulas and position-specific reference distributions. Their
         component scores should not be compared directly.
       </p>
       {children}

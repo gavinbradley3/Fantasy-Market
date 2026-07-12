@@ -5,6 +5,8 @@ import { MemoryRouter } from 'react-router-dom';
 import PlayerModelPage from '@/pages/player-model/PlayerModelPage';
 import { evaluateRunningBack } from '@/rb-model/engine';
 import { getFixture as getRbFixture } from '@/pages/rb/registry';
+import { evaluateWideReceiver } from '@/wr-model/engine';
+import { getFixture as getWrFixture } from '@/pages/wr/registry';
 import { evaluateTightEnd, TEValidationError } from '@/te-model';
 import type { TEHorizon } from '@/te-model';
 import { getFixture as getTeFixture } from '@/pages/te/registry';
@@ -29,6 +31,11 @@ function rb(id: string, horizon: 'WEEKLY' | 'ROS' | 'ONE_YEAR' | 'THREE_YEAR' | 
   return evaluateRunningBack(getRbFixture(id)!.input, { selected_horizon: horizon });
 }
 const rbWeekly = (id: string) => rb(id).weekly.expected_fantasy_points.toFixed(1);
+
+function wr(id: string, horizon: 'WEEKLY' | 'ROS' | 'ONE_YEAR' | 'THREE_YEAR' | 'DYNASTY' = 'WEEKLY') {
+  return evaluateWideReceiver(getWrFixture(id)!.input, { selected_horizon: horizon });
+}
+const wrWeekly = (id: string) => wr(id).weekly.expected_fantasy_points.toFixed(1);
 
 // Click a specific fixture card by its (unique) archetype text.
 async function selectFixture(archetype: RegExp) {
@@ -569,5 +576,72 @@ describe('four-way position switching includes QB with no stale state', () => {
     renderQB();
     const qbRadio = screen.getByRole('radio', { name: 'Quarterback' });
     expect(qbRadio).toHaveAttribute('aria-checked', 'true');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// WR edge scenarios — the OUT and missing-data WR fixtures are now exposed in a
+// "Test scenarios" group, reaching parity with RB/TE/QB. All asserted values come
+// from evaluateWideReceiver (no valuation logic is duplicated in the test).
+// ---------------------------------------------------------------------------
+describe('WR edge scenarios', () => {
+  it('exposes the five core WR fixtures in the primary selector and two edge fixtures', () => {
+    renderWR();
+    const primary = screen.getByRole('tablist', { name: /^select a wr profile$/i });
+    expect(within(primary).getAllByRole('tab')).toHaveLength(5);
+    const edge = screen.getByRole('tablist', { name: /test scenarios/i });
+    expect(within(edge).getAllByRole('tab')).toHaveLength(2);
+  });
+
+  it('out WR: Weekly and ROS EFO are zero and the OUT selector marker is shown', async () => {
+    renderWR();
+    await selectFixture(/Out player/i);
+    const out = wr('out-player');
+    // Engine truth: an OUT receiver projects zero expected fantasy points.
+    expect(out.weekly.expected_fantasy_points).toBe(0);
+    expect(out.ros.expected_fantasy_points).toBe(0);
+    expect(wrWeekly('out-player')).toBe('0.0');
+    // The Weekly projection reflects the engine's zero EFO.
+    expect(screen.getAllByText('0.0').length).toBeGreaterThan(0);
+    // The selector surfaces the OUT status marker for the inactive receiver.
+    expect(screen.getAllByText(/\bOUT\b/).length).toBeGreaterThan(0);
+  });
+
+  it('missing-data WR: PARTIAL status, LOW confidence, and the fallback panel render from engine output', async () => {
+    renderWR();
+    await selectFixture(/Missing-data player/i);
+    const out = wr('missing-data');
+    expect(out.status).toBe('PARTIAL');
+    expect(out.confidence.label).toBe('LOW');
+    expect(out.fallback_log.length).toBeGreaterThan(0);
+    // Fallback panel is present with the engine's substituted-field count.
+    expect(screen.getByText(/Fallback warnings/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(new RegExp(`${out.fallback_log.length} fields substituted`, 'i')),
+    ).toBeInTheDocument();
+    // Confidence is shown exactly as the engine reports it.
+    expect(
+      screen.getByText(`${out.confidence.score.toFixed(1)} · ${out.confidence.label}`),
+    ).toBeInTheDocument();
+  });
+
+  it('missing-data WR: no NaN or undefined text leaks into the rendered UI', async () => {
+    const { container } = renderWR();
+    await selectFixture(/Missing-data player/i);
+    expect(container.textContent ?? '').not.toMatch(/NaN|undefined/);
+  });
+
+  it('switching away from a WR edge state to a healthy WR leaves no stale fallback or availability content', async () => {
+    renderWR();
+    // Enter the fallback-heavy state.
+    await selectFixture(/Missing-data player/i);
+    expect(screen.getByText(/Fallback warnings/i)).toBeInTheDocument();
+    // Return to a healthy core WR; its engine output has no fallbacks.
+    await selectFixture(/Elite target earner/i);
+    expect(wr('elite-full-time').fallback_log.length).toBe(0);
+    expect(screen.queryByText(/Fallback warnings/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/No fallback data was required/i)).toBeInTheDocument();
+    // The healthy receiver renders a non-zero Weekly EFO (stale zero cleared).
+    expect(screen.getAllByText(wrWeekly('elite-full-time')).length).toBeGreaterThan(0);
   });
 });

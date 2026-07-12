@@ -10,7 +10,11 @@ import { evaluateQuarterback } from '@/qb-model';
 import type { QBHorizon } from '@/qb-model';
 import type { Horizon } from '@/rb-model/types';
 
-import { WR_FIXTURES, getFixture as getWrFixture } from '@/pages/wr/registry';
+import {
+  WR_FIXTURES,
+  WR_EDGE_FIXTURES,
+  getFixture as getWrFixture,
+} from '@/pages/wr/registry';
 import { buildWrView } from '@/pages/wr/view';
 import { WrProjection } from '@/pages/wr/WrProjection';
 
@@ -55,24 +59,27 @@ const summary = (f: { id: string; archetype: string; input: { player_name: strin
 });
 
 // ---------- WR module ----------
+const WR_INACTIVE_STATUSES = ['OUT', 'IR', 'PUP', 'SUSPENDED'];
+
 const WR_MODULE: PositionModule = {
   position: 'WR',
   fullLabel: 'Wide Receiver',
   primary: WR_FIXTURES.map(summary),
-  edge: [],
-  edgeGroupLabel: '',
+  edge: WR_EDGE_FIXTURES.map(summary),
+  edgeGroupLabel: 'Test scenarios',
   defaultFixtureId: WR_FIXTURES[0].id,
   selectorLabel: 'Select a WR profile',
   hasFixture: (id) => !!getWrFixture(id),
   selectorData() {
     const map: Record<string, SelectorDatum> = {};
-    for (const f of WR_FIXTURES) {
+    for (const f of [...WR_FIXTURES, ...WR_EDGE_FIXTURES]) {
       try {
         const out = evaluateWideReceiver(f.input, { selected_horizon: 'WEEKLY' });
+        const inactive = WR_INACTIVE_STATUSES.includes(f.input.injury_status);
         map[f.id] = {
           weeklyEfo: out.weekly.expected_fantasy_points,
           confidenceLabel: out.confidence.label,
-          statusMarker: out.status === 'PARTIAL' ? 'PARTIAL' : undefined,
+          statusMarker: inactive ? 'OUT' : out.status === 'PARTIAL' ? 'PARTIAL' : undefined,
         };
       } catch {
         /* skip: selector shows "—" for a fixture that fails to evaluate */

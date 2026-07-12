@@ -9,8 +9,8 @@ const OPTIONS: { position: SupportedPosition; short: string; full: string }[] = 
 ];
 
 // Compact segmented control for position. Keyboard-operable (roving arrow keys +
-// Enter/Space), visible selected state, full accessible names. No implication that
-// WR, RB, TE, and QB scores are comparable across positions.
+// Enter/Space), visible selected state, full accessible names. WR, RB, TE, and QB
+// scores are position-specific and not directly comparable across positions.
 export function PositionSelector({
   selected,
   onSelect,
