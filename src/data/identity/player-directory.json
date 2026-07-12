@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "normalizationVersion": 1,
+  "generatedAt": "1970-01-01T00:00:00.000Z",
+  "effectiveSeason": null,
+  "sources": {
+    "sleeper": {
+      "url": "https://api.sleeper.app/v1/players/nfl",
+      "fetchedAt": null,
+      "checksum": null,
+      "recordCount": null,
+      "invalidRecords": null,
+      "stale": false,
+      "error": "no ingestion run yet — run `npm run ingest:identity`"
+    },
+    "nflverseRoster": {
+      "url": "https://github.com/nflverse/nflverse-data/releases/download/rosters/roster_{season}.csv",
+      "fetchedAt": null,
+      "checksum": null,
+      "recordCount": null,
+      "invalidRecords": null,
+      "stale": false,
+      "error": "no ingestion run yet — run `npm run ingest:identity`"
+    },
+    "nflversePlayers": {
+      "url": "https://github.com/nflverse/nflverse-data/releases/download/players/players.csv",
+      "fetchedAt": null,
+      "checksum": null,
+      "recordCount": null,
+      "invalidRecords": null,
+      "stale": false,
+      "error": "no ingestion run yet — run `npm run ingest:identity`"
+    }
+  },
+  "players": [],
+  "sourceIdMaps": [],
+  "review": {
+    "ambiguous": [],
+    "unmatched": [],
+    "reviewRequired": [],
+    "methodCounts": {
+      "EXISTING_MAPPING": 0,
+      "DIRECT_CROSSWALK": 0,
+      "GSIS_ID": 0,
+      "NAME_BIRTHDATE_POSITION": 0,
+      "NAME_TEAM_POSITION": 0,
+      "MANUAL": 0,
+      "NEW_IDENTITY": 0
+    }
+  }
+}
