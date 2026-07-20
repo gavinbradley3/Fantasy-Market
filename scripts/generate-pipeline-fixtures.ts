@@ -44,27 +44,24 @@ function generate(provider: 'sleeper' | 'nflverse', rawFile: string): void {
   );
 }
 
-function generateStats(): void {
-  const payload: unknown = JSON.parse(
-    readFileSync(join(STATS_RAW_DIR, 'nflverse.player_stats.sample.json'), 'utf8'),
-  );
+function generateStatsDataset(rawFile: string, dataset: string, outFile: string): void {
+  const payload: unknown = JSON.parse(readFileSync(join(STATS_RAW_DIR, rawFile), 'utf8'));
   const snapshot = buildStatsSnapshot(payload, {
-    dataset: 'player_stats_weekly',
+    dataset,
     schemaVersion: PIPELINE_SCHEMA_VERSION,
     retrievedAt: RETRIEVED_AT,
     seasons: [2024, 2025],
     weekRange: [1, 18],
-    sourceRef: 'nflverse-data/player_stats (fixture subset)',
+    sourceRef: `nflverse-data/${dataset} (fixture subset)`,
   });
   mkdirSync(STATS_SNAP_DIR, { recursive: true });
-  const out = join(STATS_SNAP_DIR, 'nflverse.player_stats.snapshot.json');
+  const out = join(STATS_SNAP_DIR, outFile);
   writeFileSync(out, JSON.stringify(snapshot, null, 2) + '\n', 'utf8');
   // eslint-disable-next-line no-console
-  console.log(
-    `wrote nflverse.player_stats.snapshot.json — ${snapshot.metadata.recordCount} rows, checksum ${snapshot.metadata.checksum}`,
-  );
+  console.log(`wrote ${outFile} — ${snapshot.metadata.recordCount} rows, checksum ${snapshot.metadata.checksum}`);
 }
 
 generate('sleeper', 'sleeper.players.sample.json');
 generate('nflverse', 'nflverse.players.sample.json');
-generateStats();
+generateStatsDataset('nflverse.player_stats.sample.json', 'player_stats_weekly', 'nflverse.player_stats.snapshot.json');
+generateStatsDataset('nflverse.snap_counts.sample.json', 'snap_counts_weekly', 'nflverse.snap_counts.snapshot.json');

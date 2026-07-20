@@ -62,6 +62,21 @@ export function buildStatsFixtureSnapshot(retrievedAt = '2026-07-01T00:00:00.000
 
 export const STATS_OPTIONS: StatsStageOptions = { currentSeason: 2025, includePostseason: false };
 
+export function rawSnapPayload(): unknown {
+  return readFixture('stats', 'raw', 'nflverse.snap_counts.sample.json');
+}
+
+export function buildSnapFixtureSnapshot(retrievedAt = '2026-07-01T00:00:00.000Z'): StatsSnapshot {
+  return buildStatsSnapshot(rawSnapPayload(), {
+    dataset: 'snap_counts_weekly',
+    schemaVersion: 1,
+    retrievedAt,
+    seasons: [2024, 2025],
+    weekRange: [1, 18],
+    sourceRef: 'fixture',
+  });
+}
+
 export const TEST_CONFIG: PipelineConfig = {
   mode: 'fixture',
   generatedAt: '2026-07-01T00:00:00.000Z',

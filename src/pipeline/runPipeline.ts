@@ -17,8 +17,9 @@ import {
   type ReadinessSummary,
 } from '@/pipeline/readiness/engineReadiness';
 import { runStatsStage, type StatsStageOptions, type StatsStageResult } from '@/pipeline/stats/runStats';
+import { runSnapStage, type SnapStageOptions, type SnapStageResult } from '@/pipeline/snaps/runSnaps';
 import type { StatsSnapshot } from '@/pipeline/stats/snapshot';
-import type { PipelineReport, RejectionCount, StaleSnapshot, StatsStageReport } from '@/pipeline/report';
+import type { PipelineReport, RejectionCount, SnapStageReport, StaleSnapshot, StatsStageReport } from '@/pipeline/report';
 import {
   PROVIDER_IDS,
   SUPPORTED_POSITIONS,
@@ -57,6 +58,12 @@ export interface PipelineInput {
   readonly statsSnapshots?: readonly StatsSnapshot[];
   readonly statsIntegrityFailures?: readonly string[];
   readonly statsOptions?: StatsStageOptions;
+
+  // Optional snap-count stage. Runs after the stats stage; merges snap
+  // supplements over metadata + stats and re-assesses readiness.
+  readonly snapSnapshots?: readonly StatsSnapshot[];
+  readonly snapIntegrityFailures?: readonly string[];
+  readonly snapOptions?: SnapStageOptions;
 }
 
 export interface PipelineResult {
@@ -66,6 +73,8 @@ export interface PipelineResult {
   readonly conflicts: readonly MetadataConflict[];
   /** Present when the stats stage ran; carries per-player field reports. */
   readonly statsResult?: StatsStageResult;
+  /** Present when the snap stage ran; carries per-player field reports. */
+  readonly snapResult?: SnapStageResult;
 }
 
 function emptyByProvider(): Record<ProviderId, number> {
@@ -147,11 +156,12 @@ export function runPipeline(input: PipelineInput): PipelineResult {
   let statsResult: StatsStageResult | undefined;
   let statsStageReport: StatsStageReport | undefined;
   let readiness = readinessBefore;
+  let mergedSupplements = supplements;
   if (input.statsSnapshots && input.statsSnapshots.length > 0 && input.statsOptions) {
     statsResult = runStatsStage(canonicalPlayers, input.statsSnapshots, input.statsOptions);
-    const merged = mergeSupplements(supplements, statsResult.supplements);
+    mergedSupplements = mergeSupplements(supplements, statsResult.supplements);
     const readinessAfter = canonicalPlayers
-      .map((p) => assessReadiness(p, merged, config.asOf))
+      .map((p) => assessReadiness(p, mergedSupplements, config.asOf))
       .sort((a, b) => a.canonicalId.localeCompare(b.canonicalId));
     statsStageReport = buildStatsStageReport(
       statsResult,
@@ -160,6 +170,26 @@ export function runPipeline(input: PipelineInput): PipelineResult {
       input.statsIntegrityFailures ?? [],
     );
     readiness = readinessAfter;
+  }
+
+  // 5c) Optional snap-count stage: run, merge snap supplements over metadata +
+  // stats, re-assess. "Before snaps" is the current (metadata+stats) readiness.
+  let snapResult: SnapStageResult | undefined;
+  let snapStageReport: SnapStageReport | undefined;
+  if (input.snapSnapshots && input.snapSnapshots.length > 0 && input.snapOptions) {
+    const readinessBeforeSnaps = readiness;
+    snapResult = runSnapStage(canonicalPlayers, input.snapSnapshots, input.snapOptions);
+    mergedSupplements = mergeSupplements(mergedSupplements, snapResult.supplements);
+    const readinessAfterSnaps = canonicalPlayers
+      .map((p) => assessReadiness(p, mergedSupplements, config.asOf))
+      .sort((a, b) => a.canonicalId.localeCompare(b.canonicalId));
+    snapStageReport = buildSnapStageReport(
+      snapResult,
+      readinessBeforeSnaps,
+      readinessAfterSnaps,
+      input.snapIntegrityFailures ?? [],
+    );
+    readiness = readinessAfterSnaps;
   }
 
   // 6) Assemble the report.
@@ -187,12 +217,15 @@ export function runPipeline(input: PipelineInput): PipelineResult {
 
   const integrityFailures = input.integrityFailures ?? [];
   const statsIntegrityFailures = input.statsIntegrityFailures ?? [];
+  const snapIntegrityFailures = input.snapIntegrityFailures ?? [];
   const ok =
     integrityFailures.length === 0 &&
     statsIntegrityFailures.length === 0 &&
+    snapIntegrityFailures.length === 0 &&
     allRecords.length > 0 &&
     resolution.duplicateCanonicalIds.length === 0 &&
-    (statsResult?.join.identityCollisions.length ?? 0) === 0;
+    (statsResult?.join.identityCollisions.length ?? 0) === 0 &&
+    (snapResult?.join.identityCollisions.length ?? 0) === 0;
 
   const report: PipelineReport = {
     ok,
@@ -221,9 +254,64 @@ export function runPipeline(input: PipelineInput): PipelineResult {
     engineUnavailablePlayers: engineUnavailable,
     notReadyReasons,
     ...(statsStageReport ? { statsStage: statsStageReport } : {}),
+    ...(snapStageReport ? { snapStage: snapStageReport } : {}),
   };
 
-  return { report, canonicalPlayers, readiness, conflicts, ...(statsResult ? { statsResult } : {}) };
+  return {
+    report,
+    canonicalPlayers,
+    readiness,
+    conflicts,
+    ...(statsResult ? { statsResult } : {}),
+    ...(snapResult ? { snapResult } : {}),
+  };
+}
+
+// Snap-stage report + before/after (metadata+stats → +snaps) readiness delta.
+function buildSnapStageReport(
+  snap: SnapStageResult,
+  before: readonly ReadinessSummary[],
+  after: readonly ReadinessSummary[],
+  integrityFailures: readonly string[],
+): SnapStageReport {
+  const beforeById = new Map(before.map((r) => [r.canonicalId, r]));
+  const remainingGaps = { stats: 0, projections: 0, context: 0 };
+  let eliminated = 0;
+  let newlyReady = 0;
+  for (const a of after) {
+    const b = beforeById.get(a.canonicalId);
+    if (b) eliminated += Math.max(0, b.missing.length - a.missing.length);
+    if (a.status === 'READY' && b && b.status !== 'READY') newlyReady += 1;
+    for (const m of a.missing) {
+      if (m.suppliedBy === 'stats') remainingGaps.stats += 1;
+      else if (m.suppliedBy === 'projections') remainingGaps.projections += 1;
+      else if (m.suppliedBy === 'context') remainingGaps.context += 1;
+    }
+  }
+  return {
+    snapshotsLoaded: snap.snapshotsLoaded,
+    snapshotIntegrityFailures: integrityFailures,
+    rowsAccepted: snap.rowsAccepted,
+    rowsRejected: snap.rowsRejected,
+    rejections: snap.rejections,
+    unsupportedPositionRows: snap.unsupportedPositionRows,
+    canonicalJoins: snap.aggregatePlayers,
+    unmatchedSnapRows: snap.join.unmatchedGsis.length,
+    canonicalPlayersWithoutSnaps: snap.join.canonicalWithoutSnaps.length,
+    canonicalPlayersWithoutGsis: snap.join.canonicalWithoutGsis.length,
+    teamMismatches: snap.join.teamMismatches.length,
+    positionMismatches: snap.join.positionMismatches.length,
+    identityCollisions: snap.join.identityCollisions.length,
+    recordsByPosition: snap.recordsByPosition,
+    directMetricsSupplied: snap.directMetricsSupplied,
+    proxyMetricsSupplied: snap.proxyMetricsSupplied,
+    readinessBeforeSnaps: before.filter((r) => r.status === 'READY').length,
+    readinessAfterSnaps: after.filter((r) => r.status === 'READY').length,
+    playersNewlyReady: newlyReady,
+    playersStillNotReady: after.filter((r) => r.status === 'NOT_READY').length,
+    missingFieldsEliminatedBySnaps: eliminated,
+    remainingGaps,
+  };
 }
 
 // Assemble the statistics-stage report and the metadata-only → +stats readiness

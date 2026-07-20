@@ -15,7 +15,7 @@
     "recordCount": 20,
     "columnSignature": "attempts,carries,completions,interceptions,passing_tds,passing_yards,player_display_name,player_id,position,receiving_air_yards,receiving_tds,receiving_yards,receiving_yards_after_catch,recent_team,receptions,rushing_tds,rushing_yards,sack_yards,sacks,season,season_type,target_share,targets,week",
     "checksum": "fe7ce45a50062d71",
-    "sourceRef": "nflverse-data/player_stats (fixture subset)"
+    "sourceRef": "nflverse-data/player_stats_weekly (fixture subset)"
   },
   "payload": [
     {

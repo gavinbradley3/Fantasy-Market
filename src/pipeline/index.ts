@@ -85,3 +85,20 @@ export type {
   PlayerStatAggregate,
   StatWindow,
 } from '@/pipeline/stats/types';
+
+// ---- snap-count stage ----
+export { parseSnaps, type SnapAdapterResult, type SnapRejectReason } from '@/pipeline/snaps/nflverse/snapAdapter';
+export { aggregateSnapWindows, snapShare, type SnapAggregateConfig } from '@/pipeline/snaps/aggregate';
+export { buildSnapSupplement, type BuiltSnapSupplement, type SnapFieldReport } from '@/pipeline/snaps/supplements';
+export { runSnapStage, type SnapStageResult, type SnapStageOptions } from '@/pipeline/snaps/runSnaps';
+export {
+  computeWrProxyRoutes,
+  isProxyAuthorized,
+  WR_ROUTE_PROXY,
+  TE_ROUTE_PROXY,
+  WR_PROXY_FACTOR,
+  type ProxyId,
+  type ProxyResult,
+} from '@/pipeline/snaps/proxyRegistry';
+export type { SnapRecord, SnapWindowAggregate, PlayerSnapAggregate, SnapWindow } from '@/pipeline/snaps/types';
+export type { SnapStageReport } from '@/pipeline/report';

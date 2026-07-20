@@ -1,0 +1,29 @@
+[
+  { "gsis_id": "00-0038542", "player_name": "Bijan Robinson", "position": "RB", "team": "ATL", "season": 2024, "week": 15, "season_type": "REG", "offense_snaps": 55, "offense_pct": 0.78 },
+  { "gsis_id": "00-0038542", "player_name": "Bijan Robinson", "position": "RB", "team": "ATL", "season": 2024, "week": 16, "season_type": "REG", "offense_snaps": 60, "offense_pct": 0.82 },
+  { "gsis_id": "00-0038542", "player_name": "Bijan Robinson", "position": "RB", "team": "ATL", "season": 2025, "week": 1, "season_type": "REG", "offense_snaps": 48, "offense_pct": 0.70 },
+  { "gsis_id": "00-0038542", "player_name": "Bijan Robinson", "position": "RB", "team": "ATL", "season": 2025, "week": 2, "season_type": "REG", "offense_snaps": 52, "offense_pct": 0.74 },
+
+  { "gsis_id": "00-0039051", "player_name": "Sam LaPorta", "position": "TE", "team": "DET", "season": 2025, "week": 1, "season_type": "REG", "offense_snaps": 40, "offense_pct": 0.62 },
+  { "gsis_id": "00-0039051", "player_name": "Sam LaPorta", "position": "TE", "team": "DET", "season": 2025, "week": 3, "season_type": "REG", "offense_snaps": 44, "offense_pct": 0.66 },
+
+  { "gsis_id": "00-0036900", "player_name": "Ja'Marr Chase", "position": "WR", "team": "CIN", "season": 2025, "week": 1, "season_type": "REG", "offense_snaps": 63, "offense_pct": 0.95 },
+  { "gsis_id": "00-0036900", "player_name": "Ja'Marr Chase", "position": "WR", "team": "CIN", "season": 2025, "week": 2, "season_type": "REG", "offense_snaps": 66, "offense_pct": 0.97 },
+
+  { "gsis_id": "00-0034857", "player_name": "Josh Allen", "position": "QB", "team": "BUF", "season": 2025, "week": 1, "season_type": "REG", "offense_snaps": 68, "offense_pct": 1.00 },
+
+  { "gsis_id": "00-0035222", "player_name": "Diontae Johnson", "position": "WR", "team": "CAR", "season": 2025, "week": 1, "season_type": "REG", "offense_snaps": 40, "offense_pct": 60 },
+  { "gsis_id": "00-0035222", "player_name": "Diontae Johnson", "position": "WR", "team": "BAL", "season": 2025, "week": 2, "season_type": "REG", "offense_snaps": 22, "offense_pct": 35 },
+
+  { "gsis_id": "00-0038542", "player_name": "Bijan Robinson", "position": "RB", "team": "ATL", "season": 2025, "week": 1, "season_type": "REG", "offense_snaps": 48, "offense_pct": 0.71 },
+
+  { "gsis_id": "00-0034857", "player_name": "Josh Allen", "position": "QB", "team": "BUF", "season": 2025, "week": 4, "season_type": "POST", "offense_snaps": 70, "offense_pct": 1.00 },
+
+  { "gsis_id": "00-9999999", "player_name": "Ghost Player", "position": "WR", "team": "FA", "season": 2025, "week": 1, "season_type": "REG", "offense_snaps": 10, "offense_pct": 0.15 },
+
+  { "gsis_id": "00-0038542", "player_name": "Bijan Robinson", "position": "RB", "team": "ATL", "season": 2023, "week": 1, "season_type": "REG", "offense_snaps": 30, "offense_pct": 0.45 },
+
+  { "gsis_id": "00-0000777", "player_name": "Nate Kicker", "position": "K", "team": "KC", "season": 2025, "week": 1, "season_type": "REG", "offense_snaps": 0, "offense_pct": 0 },
+
+  { "player_name": "No Identifier", "position": "RB", "team": "FA", "season": 2025, "week": 1, "season_type": "REG", "offense_snaps": 20, "offense_pct": 0.30 }
+]

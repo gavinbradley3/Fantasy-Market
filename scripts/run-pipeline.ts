@@ -38,6 +38,7 @@ import type { IdentityMap } from '@/pipeline/identity';
 import type { MetricsSupplements } from '@/pipeline/readiness/engineReadiness';
 import { verifyStatsSnapshot, type StatsSnapshot } from '@/pipeline/stats/snapshot';
 import type { StatsStageOptions } from '@/pipeline/stats/runStats';
+import type { SnapStageOptions } from '@/pipeline/snaps/runSnaps';
 import { DEFAULT_STALE_MAX_AGE_MS, PIPELINE_SCHEMA_VERSION } from '@/pipeline/constants';
 import { SleeperClient } from '@/services/marketData/live/sleeperClient';
 
@@ -65,6 +66,8 @@ interface Args {
   statsSnapshots: string;
   currentSeason: number;
   includePostseason: boolean;
+  snaps: boolean;
+  snapSnapshots: string;
 }
 
 function parseArgs(argv: string[]): Args {
@@ -78,6 +81,8 @@ function parseArgs(argv: string[]): Args {
     statsSnapshots: DEFAULTS.statsSnapshots,
     currentSeason: DEFAULT_CURRENT_SEASON,
     includePostseason: false,
+    snaps: false,
+    snapSnapshots: DEFAULTS.statsSnapshots,
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -100,6 +105,8 @@ function parseArgs(argv: string[]): Args {
       case '--now': args.now = next(); break;
       case '--stats': args.stats = true; break;
       case '--stats-snapshots': args.statsSnapshots = next(); break;
+      case '--snaps': args.snaps = true; break;
+      case '--snap-snapshots': args.snapSnapshots = next(); break;
       case '--season': {
         const s = Number(next());
         if (!Number.isInteger(s)) throw new Error('invalid --season');
@@ -137,18 +144,26 @@ function loadMetrics(path: string): MetricsSupplements {
   };
 }
 
-function loadStatsSnapshots(dir: string): { snapshots: StatsSnapshot[]; failures: string[] } {
+function loadNamedStatsSnapshot(dir: string, file: string): { snapshots: StatsSnapshot[]; failures: string[] } {
   const snapshots: StatsSnapshot[] = [];
   const failures: string[] = [];
-  const path = join(dir, 'nflverse.player_stats.snapshot.json');
+  const path = join(dir, file);
   if (!existsSync(path)) {
-    failures.push(`missing stats snapshot at ${path}`);
+    failures.push(`missing snapshot at ${path}`);
     return { snapshots, failures };
   }
   const result = verifyStatsSnapshot(readJson(path));
   if (result.ok) snapshots.push(result.snapshot);
   else failures.push(result.error);
   return { snapshots, failures };
+}
+
+function loadStatsSnapshots(dir: string): { snapshots: StatsSnapshot[]; failures: string[] } {
+  return loadNamedStatsSnapshot(dir, 'nflverse.player_stats.snapshot.json');
+}
+
+function loadSnapSnapshots(dir: string): { snapshots: StatsSnapshot[]; failures: string[] } {
+  return loadNamedStatsSnapshot(dir, 'nflverse.snap_counts.snapshot.json');
 }
 
 // Load + verify the committed snapshots. Integrity failures are collected (not
@@ -234,6 +249,17 @@ async function main(): Promise<number> {
     };
   }
 
+  // Optional snap-count stage (requires the stats stage; snaps layer on top).
+  let snapSnapshots: StatsSnapshot[] | undefined;
+  let snapFailures: string[] | undefined;
+  let snapOptions: SnapStageOptions | undefined;
+  if (args.snaps) {
+    const loaded = loadSnapSnapshots(args.snapSnapshots);
+    snapSnapshots = loaded.snapshots;
+    snapFailures = loaded.failures;
+    snapOptions = { currentSeason: args.currentSeason, includePostseason: args.includePostseason };
+  }
+
   const { report } = runPipeline({
     snapshots,
     integrityFailures: failures,
@@ -241,6 +267,7 @@ async function main(): Promise<number> {
     supplements: loadMetrics(args.metrics),
     config,
     ...(statsSnapshots ? { statsSnapshots, statsIntegrityFailures: statsFailures, statsOptions } : {}),
+    ...(snapSnapshots ? { snapSnapshots, snapIntegrityFailures: snapFailures, snapOptions } : {}),
   });
 
   if (args.out) {

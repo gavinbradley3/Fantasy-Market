@@ -76,6 +76,39 @@ export interface PipelineReport {
 
   // Statistics stage (present only when the stats stage ran).
   readonly statsStage?: StatsStageReport;
+
+  // Snap-count stage (present only when the snap stage ran).
+  readonly snapStage?: SnapStageReport;
+}
+
+// Snap-count stage metrics. `readinessBefore/AfterSnaps` compare readiness with
+// metadata+weekly-stats against readiness once snap supplements are merged in.
+export interface SnapStageReport {
+  readonly snapshotsLoaded: number;
+  readonly snapshotIntegrityFailures: readonly string[];
+  readonly rowsAccepted: number;
+  readonly rowsRejected: number;
+  readonly rejections: readonly StatsRejectionCount[];
+  readonly unsupportedPositionRows: number;
+
+  readonly canonicalJoins: number;
+  readonly unmatchedSnapRows: number;
+  readonly canonicalPlayersWithoutSnaps: number;
+  readonly canonicalPlayersWithoutGsis: number;
+  readonly teamMismatches: number;
+  readonly positionMismatches: number;
+  readonly identityCollisions: number;
+
+  readonly recordsByPosition: Readonly<Record<SupportedPosition, number>>;
+  readonly directMetricsSupplied: number;
+  readonly proxyMetricsSupplied: number;
+
+  readonly readinessBeforeSnaps: number;
+  readonly readinessAfterSnaps: number;
+  readonly playersNewlyReady: number;
+  readonly playersStillNotReady: number;
+  readonly missingFieldsEliminatedBySnaps: number;
+  readonly remainingGaps: { readonly stats: number; readonly projections: number; readonly context: number };
 }
 
 export interface StatsRejectionCount {
@@ -176,6 +209,31 @@ export function renderReport(report: PipelineReport): string {
     L(`    readiness before stats: ${s.readinessBeforeStats} → after stats: ${s.readinessAfterStats}`);
     L(`    newly ready: ${s.playersNewlyReady}, still not ready: ${s.playersStillNotReady}`);
     L(`    missing fields eliminated by stats: ${s.missingFieldsEliminatedByStats}`);
+    L(
+      `    remaining gaps → stats: ${s.remainingGaps.stats}, projections: ${s.remainingGaps.projections}, ` +
+        `context: ${s.remainingGaps.context}`,
+    );
+  }
+  if (report.snapStage) {
+    const s = report.snapStage;
+    L('  Snap-count stage:');
+    L(`    snapshots: ${s.snapshotsLoaded}, integrity failures: ${s.snapshotIntegrityFailures.length}`);
+    for (const f of s.snapshotIntegrityFailures) L(`      ! ${f}`);
+    L(`    rows accepted: ${s.rowsAccepted}, rejected: ${s.rowsRejected}, unsupported-position: ${s.unsupportedPositionRows}`);
+    for (const r of s.rejections) L(`      - ${r.reason}: ${r.count}`);
+    L(
+      `    joins: ${s.canonicalJoins} (unmatched: ${s.unmatchedSnapRows}, w/o snaps: ${s.canonicalPlayersWithoutSnaps}, ` +
+        `w/o gsis: ${s.canonicalPlayersWithoutGsis})`,
+    );
+    L(`    team mismatches: ${s.teamMismatches}, position mismatches: ${s.positionMismatches}, identity collisions: ${s.identityCollisions}`);
+    L(
+      `    by position: QB=${s.recordsByPosition.QB} RB=${s.recordsByPosition.RB} ` +
+        `WR=${s.recordsByPosition.WR} TE=${s.recordsByPosition.TE}`,
+    );
+    L(`    direct metrics supplied: ${s.directMetricsSupplied}, proxy metrics supplied: ${s.proxyMetricsSupplied}`);
+    L(`    readiness before snaps: ${s.readinessBeforeSnaps} → after snaps: ${s.readinessAfterSnaps}`);
+    L(`    newly ready: ${s.playersNewlyReady}, still not ready: ${s.playersStillNotReady}`);
+    L(`    missing fields eliminated by snaps: ${s.missingFieldsEliminatedBySnaps}`);
     L(
       `    remaining gaps → stats: ${s.remainingGaps.stats}, projections: ${s.remainingGaps.projections}, ` +
         `context: ${s.remainingGaps.context}`,

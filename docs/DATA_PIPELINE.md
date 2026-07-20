@@ -6,11 +6,14 @@ into stable, canonical, provenance-tracked player records and evaluates whether
 those records are ready to enter the frozen WR / RB / TE / QB valuation engines.
 
 It began as a **metadata foundation** and now includes the **nflverse statistics
-stage** (below). Later milestones add the projections and context stages.
+stage** and the **nflverse snap-count / participation stage** (below). Later
+milestones add the projections and context stages.
 
 > See [`DATA_PIPELINE_STATS.md`](./DATA_PIPELINE_STATS.md) for the statistics
-> stage in full: datasets, engine-field ownership per position, aggregation
-> windows, the derived-stat registry, and honest readiness measurement.
+> stage and [`DATA_PIPELINE_SNAPS.md`](./DATA_PIPELINE_SNAPS.md) for the
+> snap-count / participation stage: datasets, per-position field ownership,
+> the position-specific route-proxy authorization, and honest readiness
+> measurement.
 
 ## Architecture at a glance
 
