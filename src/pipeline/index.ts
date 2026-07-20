@@ -51,6 +51,7 @@ export {
   assessRBReadiness,
   assessTEReadiness,
   assessQBReadiness,
+  mergeSupplements,
   type EngineReadiness,
   type MissingRequirement,
   type ReadinessSummary,
@@ -64,4 +65,23 @@ export type {
 } from '@/pipeline/readiness/metrics';
 
 export { runPipeline, type PipelineInput, type PipelineResult, type PipelineConfig } from '@/pipeline/runPipeline';
-export { renderReport, type PipelineReport } from '@/pipeline/report';
+export { renderReport, type PipelineReport, type StatsStageReport } from '@/pipeline/report';
+
+// ---- statistics stage ----
+export { parseWeekly, type WeeklyAdapterResult, type StatRejectReason } from '@/pipeline/stats/nflverse/weeklyAdapter';
+export { aggregateWindows, type AggregateConfig } from '@/pipeline/stats/aggregate';
+export { joinStats, type StatsJoinResult } from '@/pipeline/stats/join';
+export { buildStatsSupplement, type BuiltStatsSupplement, type StatFieldReport } from '@/pipeline/stats/supplements';
+export { runStatsStage, type StatsStageResult, type StatsStageOptions } from '@/pipeline/stats/runStats';
+export {
+  buildStatsSnapshot,
+  verifyStatsSnapshot,
+  type StatsSnapshot,
+  type StatsSnapshotMetadata,
+} from '@/pipeline/stats/snapshot';
+export type {
+  WeeklyStatRecord,
+  WindowAggregate,
+  PlayerStatAggregate,
+  StatWindow,
+} from '@/pipeline/stats/types';

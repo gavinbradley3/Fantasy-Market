@@ -7,7 +7,9 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildSnapshot, type RawSnapshot } from '@/pipeline/snapshot';
+import { buildStatsSnapshot, type StatsSnapshot } from '@/pipeline/stats/snapshot';
 import type { PipelineConfig } from '@/pipeline/runPipeline';
+import type { StatsStageOptions } from '@/pipeline/stats/runStats';
 import type { IdentityMap } from '@/pipeline/identity';
 import type { ProviderId } from '@/pipeline/types';
 
@@ -42,6 +44,23 @@ export function bothFixtureSnapshots(retrievedAt?: string): RawSnapshot[] {
 export function loadIdentityMap(): IdentityMap {
   return readFixture('identity-map.json') as IdentityMap;
 }
+
+export function rawStatsPayload(): unknown {
+  return readFixture('stats', 'raw', 'nflverse.player_stats.sample.json');
+}
+
+export function buildStatsFixtureSnapshot(retrievedAt = '2026-07-01T00:00:00.000Z'): StatsSnapshot {
+  return buildStatsSnapshot(rawStatsPayload(), {
+    dataset: 'player_stats_weekly',
+    schemaVersion: 1,
+    retrievedAt,
+    seasons: [2024, 2025],
+    weekRange: [1, 18],
+    sourceRef: 'fixture',
+  });
+}
+
+export const STATS_OPTIONS: StatsStageOptions = { currentSeason: 2025, includePostseason: false };
 
 export const TEST_CONFIG: PipelineConfig = {
   mode: 'fixture',

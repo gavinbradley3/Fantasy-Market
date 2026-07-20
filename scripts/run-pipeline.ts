@@ -36,6 +36,8 @@ import { runPipeline, type PipelineConfig } from '@/pipeline/runPipeline';
 import { renderReport } from '@/pipeline/report';
 import type { IdentityMap } from '@/pipeline/identity';
 import type { MetricsSupplements } from '@/pipeline/readiness/engineReadiness';
+import { verifyStatsSnapshot, type StatsSnapshot } from '@/pipeline/stats/snapshot';
+import type { StatsStageOptions } from '@/pipeline/stats/runStats';
 import { DEFAULT_STALE_MAX_AGE_MS, PIPELINE_SCHEMA_VERSION } from '@/pipeline/constants';
 import { SleeperClient } from '@/services/marketData/live/sleeperClient';
 
@@ -44,7 +46,9 @@ const DEFAULTS = {
   snapshots: join(ROOT, 'fixtures', 'pipeline', 'snapshots'),
   identityMap: join(ROOT, 'fixtures', 'pipeline', 'identity-map.json'),
   metrics: join(ROOT, 'fixtures', 'pipeline', 'metrics.sample.json'),
+  statsSnapshots: join(ROOT, 'fixtures', 'pipeline', 'stats', 'snapshots'),
 };
+const DEFAULT_CURRENT_SEASON = 2025;
 
 type Mode = 'fixture' | 'live' | 'validate';
 
@@ -57,6 +61,10 @@ interface Args {
   metrics: string;
   outSnapshots?: string;
   now?: string;
+  stats: boolean;
+  statsSnapshots: string;
+  currentSeason: number;
+  includePostseason: boolean;
 }
 
 function parseArgs(argv: string[]): Args {
@@ -66,6 +74,10 @@ function parseArgs(argv: string[]): Args {
     snapshots: DEFAULTS.snapshots,
     identityMap: DEFAULTS.identityMap,
     metrics: DEFAULTS.metrics,
+    stats: false,
+    statsSnapshots: DEFAULTS.statsSnapshots,
+    currentSeason: DEFAULT_CURRENT_SEASON,
+    includePostseason: false,
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -86,6 +98,15 @@ function parseArgs(argv: string[]): Args {
       case '--metrics': args.metrics = next(); break;
       case '--out-snapshots': args.outSnapshots = next(); break;
       case '--now': args.now = next(); break;
+      case '--stats': args.stats = true; break;
+      case '--stats-snapshots': args.statsSnapshots = next(); break;
+      case '--season': {
+        const s = Number(next());
+        if (!Number.isInteger(s)) throw new Error('invalid --season');
+        args.currentSeason = s;
+        break;
+      }
+      case '--include-postseason': args.includePostseason = true; break;
       default:
         throw new Error(`unknown argument ${a}`);
     }
@@ -114,6 +135,20 @@ function loadMetrics(path: string): MetricsSupplements {
     te: (raw.te as MetricsSupplements['te']) ?? {},
     qb: (raw.qb as MetricsSupplements['qb']) ?? {},
   };
+}
+
+function loadStatsSnapshots(dir: string): { snapshots: StatsSnapshot[]; failures: string[] } {
+  const snapshots: StatsSnapshot[] = [];
+  const failures: string[] = [];
+  const path = join(dir, 'nflverse.player_stats.snapshot.json');
+  if (!existsSync(path)) {
+    failures.push(`missing stats snapshot at ${path}`);
+    return { snapshots, failures };
+  }
+  const result = verifyStatsSnapshot(readJson(path));
+  if (result.ok) snapshots.push(result.snapshot);
+  else failures.push(result.error);
+  return { snapshots, failures };
 }
 
 // Load + verify the committed snapshots. Integrity failures are collected (not
@@ -185,12 +220,27 @@ async function main(): Promise<number> {
     staleMaxAgeMs: DEFAULT_STALE_MAX_AGE_MS,
   };
 
+  // Optional statistics stage.
+  let statsSnapshots: StatsSnapshot[] | undefined;
+  let statsFailures: string[] | undefined;
+  let statsOptions: StatsStageOptions | undefined;
+  if (args.stats) {
+    const loaded = loadStatsSnapshots(args.statsSnapshots);
+    statsSnapshots = loaded.snapshots;
+    statsFailures = loaded.failures;
+    statsOptions = {
+      currentSeason: args.currentSeason,
+      includePostseason: args.includePostseason,
+    };
+  }
+
   const { report } = runPipeline({
     snapshots,
     integrityFailures: failures,
     identityMap: loadIdentityMap(args.identityMap),
     supplements: loadMetrics(args.metrics),
     config,
+    ...(statsSnapshots ? { statsSnapshots, statsIntegrityFailures: statsFailures, statsOptions } : {}),
   });
 
   if (args.out) {

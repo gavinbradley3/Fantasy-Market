@@ -73,6 +73,46 @@ export interface PipelineReport {
    */
   readonly engineUnavailablePlayers: number;
   readonly notReadyReasons: readonly NotReadyReason[];
+
+  // Statistics stage (present only when the stats stage ran).
+  readonly statsStage?: StatsStageReport;
+}
+
+export interface StatsRejectionCount {
+  readonly reason: string;
+  readonly count: number;
+}
+
+// Statistics-stage metrics (task §10). Present only when stats snapshots were
+// supplied. `readinessBefore/After` compare metadata(+authored)-only readiness
+// against readiness once the stats supplements are merged in.
+export interface StatsStageReport {
+  readonly snapshotsLoaded: number;
+  readonly snapshotIntegrityFailures: readonly string[];
+  readonly rowsByDatasetSeason: Readonly<Record<string, number>>;
+  readonly rowsAccepted: number;
+  readonly rowsRejected: number;
+  readonly rejections: readonly StatsRejectionCount[];
+  readonly unsupportedPositionRows: number;
+
+  readonly canonicalJoins: number;
+  readonly unmatchedStatRows: number;
+  readonly canonicalPlayersWithoutStats: number;
+  readonly canonicalPlayersWithoutGsis: number;
+  readonly positionMismatches: number;
+  readonly identityCollisions: number;
+
+  readonly recordsByPosition: Readonly<Record<SupportedPosition, number>>;
+  readonly aggregateRecordsProduced: number;
+  readonly derivedMetricsProduced: number;
+  readonly unavailableRequiredMetrics: number;
+
+  readonly readinessBeforeStats: number;
+  readonly readinessAfterStats: number;
+  readonly playersNewlyReady: number;
+  readonly playersStillNotReady: number;
+  readonly missingFieldsEliminatedByStats: number;
+  readonly remainingGaps: { readonly stats: number; readonly projections: number; readonly context: number };
 }
 
 /** A stable one-object-per-line-ish text rendering for the CLI. */
@@ -115,6 +155,31 @@ export function renderReport(report: PipelineReport): string {
   L(`    positions with no engine: ${report.engineUnavailablePlayers}`);
   for (const r of report.notReadyReasons.slice(0, 10)) {
     L(`      - ${r.canonicalId} (${r.position}): ${r.missingCount} missing [${r.sample.join(', ')}…]`);
+  }
+  if (report.statsStage) {
+    const s = report.statsStage;
+    L('  Statistics stage:');
+    L(`    snapshots: ${s.snapshotsLoaded}, integrity failures: ${s.snapshotIntegrityFailures.length}`);
+    for (const f of s.snapshotIntegrityFailures) L(`      ! ${f}`);
+    L(`    rows accepted: ${s.rowsAccepted}, rejected: ${s.rowsRejected}, unsupported-position: ${s.unsupportedPositionRows}`);
+    for (const r of s.rejections) L(`      - ${r.reason}: ${r.count}`);
+    L(
+      `    joins: ${s.canonicalJoins} (unmatched rows-gsis: ${s.unmatchedStatRows}, ` +
+        `canonical w/o stats: ${s.canonicalPlayersWithoutStats}, w/o gsis: ${s.canonicalPlayersWithoutGsis})`,
+    );
+    L(`    identity collisions: ${s.identityCollisions}, position mismatches: ${s.positionMismatches}`);
+    L(
+      `    by position: QB=${s.recordsByPosition.QB} RB=${s.recordsByPosition.RB} ` +
+        `WR=${s.recordsByPosition.WR} TE=${s.recordsByPosition.TE}`,
+    );
+    L(`    derived metrics supplied: ${s.derivedMetricsProduced}, unavailable required: ${s.unavailableRequiredMetrics}`);
+    L(`    readiness before stats: ${s.readinessBeforeStats} → after stats: ${s.readinessAfterStats}`);
+    L(`    newly ready: ${s.playersNewlyReady}, still not ready: ${s.playersStillNotReady}`);
+    L(`    missing fields eliminated by stats: ${s.missingFieldsEliminatedByStats}`);
+    L(
+      `    remaining gaps → stats: ${s.remainingGaps.stats}, projections: ${s.remainingGaps.projections}, ` +
+        `context: ${s.remainingGaps.context}`,
+    );
   }
   return lines.join('\n');
 }

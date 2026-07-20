@@ -14,13 +14,16 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildSnapshot } from '@/pipeline/snapshot';
+import { buildStatsSnapshot } from '@/pipeline/stats/snapshot';
 import { PIPELINE_SCHEMA_VERSION } from '@/pipeline/constants';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const RAW_DIR = join(ROOT, 'fixtures', 'pipeline', 'raw');
 const SNAP_DIR = join(ROOT, 'fixtures', 'pipeline', 'snapshots');
+const STATS_RAW_DIR = join(ROOT, 'fixtures', 'pipeline', 'stats', 'raw');
+const STATS_SNAP_DIR = join(ROOT, 'fixtures', 'pipeline', 'stats', 'snapshots');
 
-// Fixed capture instant for reproducibility. The fixture season is 2025.
+// Fixed capture instant for reproducibility. The fixture seasons are 2024–2025.
 const RETRIEVED_AT = '2026-07-01T00:00:00.000Z';
 const SEASON = 2025;
 
@@ -41,5 +44,27 @@ function generate(provider: 'sleeper' | 'nflverse', rawFile: string): void {
   );
 }
 
+function generateStats(): void {
+  const payload: unknown = JSON.parse(
+    readFileSync(join(STATS_RAW_DIR, 'nflverse.player_stats.sample.json'), 'utf8'),
+  );
+  const snapshot = buildStatsSnapshot(payload, {
+    dataset: 'player_stats_weekly',
+    schemaVersion: PIPELINE_SCHEMA_VERSION,
+    retrievedAt: RETRIEVED_AT,
+    seasons: [2024, 2025],
+    weekRange: [1, 18],
+    sourceRef: 'nflverse-data/player_stats (fixture subset)',
+  });
+  mkdirSync(STATS_SNAP_DIR, { recursive: true });
+  const out = join(STATS_SNAP_DIR, 'nflverse.player_stats.snapshot.json');
+  writeFileSync(out, JSON.stringify(snapshot, null, 2) + '\n', 'utf8');
+  // eslint-disable-next-line no-console
+  console.log(
+    `wrote nflverse.player_stats.snapshot.json — ${snapshot.metadata.recordCount} rows, checksum ${snapshot.metadata.checksum}`,
+  );
+}
+
 generate('sleeper', 'sleeper.players.sample.json');
 generate('nflverse', 'nflverse.players.sample.json');
+generateStats();

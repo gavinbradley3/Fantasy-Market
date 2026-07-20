@@ -300,87 +300,135 @@ function supplementMissing(
   }));
 }
 
+type MetaResult<M> =
+  | { ok: true; meta: M; present: string[] }
+  | { ok: false; missing: MissingRequirement[]; present: string[] };
+
+// Generic partial-aware assessment core. The supplement may be a FULL supplement
+// (every required key present → READY when metadata is complete) or a PARTIAL
+// one contributed by a stage such as stats (some keys present → the rest are
+// reported missing, by owning stage). A key counts as "present" when it exists
+// on the object, even if its value is null — null is the engines' defined
+// unknown for nullable fields, not a missing value.
+function assessFromSupplement<M, Full, Input>(
+  position: SupportedPosition,
+  md: MetaResult<M>,
+  supplement: Partial<Full> | null,
+  requiredKeys: readonly string[],
+  stageOf: (field: string) => PipelineStage,
+  buildInput: (supplement: Full, meta: M) => Input,
+): EngineReadiness<Input> {
+  const present = (supplement ?? {}) as Record<string, unknown>;
+  const missingKeys = requiredKeys.filter((k) => !(k in present));
+  const missing = [
+    ...(md.ok ? [] : md.missing),
+    ...supplementMissing(missingKeys, stageOf),
+  ];
+  if (!md.ok || missingKeys.length > 0) {
+    return { status: 'NOT_READY', position, presentMetadata: md.present, missing };
+  }
+  // Runtime-checked: every required key is present above, so the partial is a
+  // complete supplement. This is the single guarded cast site.
+  const complete = present as Full;
+  return { status: 'READY', position, presentMetadata: md.present, input: buildInput(complete, md.meta) };
+}
+
 // ---- per-position assessors ----
 
 export function assessWRReadiness(
   player: CanonicalPlayer,
-  supplement: WRMetricsSupplement | null,
+  supplement: Partial<WRMetricsSupplement> | null,
   asOf: string,
 ): EngineReadiness<WRMVPInput> {
-  const md = extractMetadata(player, asOf);
-  if (!supplement) {
-    const missing = [
-      ...(md.ok ? [] : md.missing),
-      ...supplementMissing(WR_REQUIRED_SUPPLEMENT, wrFieldStage),
-    ];
-    return { status: 'NOT_READY', position: 'WR', presentMetadata: md.present, missing };
-  }
-  if (!md.ok) return { status: 'NOT_READY', position: 'WR', presentMetadata: md.present, missing: md.missing };
-  const input: WRMVPInput = { ...supplement, ...md.meta };
-  return { status: 'READY', position: 'WR', presentMetadata: md.present, input };
+  return assessFromSupplement(
+    'WR',
+    extractMetadata(player, asOf),
+    supplement,
+    WR_REQUIRED_SUPPLEMENT,
+    wrFieldStage,
+    (s, meta): WRMVPInput => ({ ...s, ...meta }),
+  );
 }
 
 export function assessRBReadiness(
   player: CanonicalPlayer,
-  supplement: RBMetricsSupplement | null,
+  supplement: Partial<RBMetricsSupplement> | null,
   asOf: string,
 ): EngineReadiness<RBMVPInput> {
-  const md = extractMetadata(player, asOf);
-  if (!supplement) {
-    const missing = [
-      ...(md.ok ? [] : md.missing),
-      ...supplementMissing(RB_REQUIRED_SUPPLEMENT, rbFieldStage),
-    ];
-    return { status: 'NOT_READY', position: 'RB', presentMetadata: md.present, missing };
-  }
-  if (!md.ok) return { status: 'NOT_READY', position: 'RB', presentMetadata: md.present, missing: md.missing };
-  const input: RBMVPInput = { ...supplement, ...md.meta };
-  return { status: 'READY', position: 'RB', presentMetadata: md.present, input };
+  return assessFromSupplement(
+    'RB',
+    extractMetadata(player, asOf),
+    supplement,
+    RB_REQUIRED_SUPPLEMENT,
+    rbFieldStage,
+    (s, meta): RBMVPInput => ({ ...s, ...meta }),
+  );
 }
 
 export function assessTEReadiness(
   player: CanonicalPlayer,
-  supplement: TEMetricsSupplement | null,
+  supplement: Partial<TEMetricsSupplement> | null,
   asOf: string,
 ): EngineReadiness<TEMVPInput> {
-  const md = extractMetadata(player, asOf);
-  if (!supplement) {
-    const missing = [
-      ...(md.ok ? [] : md.missing),
-      ...supplementMissing(TE_REQUIRED_SUPPLEMENT, teFieldStage),
-    ];
-    return { status: 'NOT_READY', position: 'TE', presentMetadata: md.present, missing };
-  }
-  if (!md.ok) return { status: 'NOT_READY', position: 'TE', presentMetadata: md.present, missing: md.missing };
-  const input: TEMVPInput = { ...supplement, ...md.meta };
-  return { status: 'READY', position: 'TE', presentMetadata: md.present, input };
+  return assessFromSupplement(
+    'TE',
+    extractMetadata(player, asOf),
+    supplement,
+    TE_REQUIRED_SUPPLEMENT,
+    teFieldStage,
+    (s, meta): TEMVPInput => ({ ...s, ...meta }),
+  );
 }
 
 export function assessQBReadiness(
   player: CanonicalPlayer,
-  supplement: QBMetricsSupplement | null,
+  supplement: Partial<QBMetricsSupplement> | null,
   asOf: string,
 ): EngineReadiness<QBMVPInput> {
-  const md = extractQBMetadata(player, asOf);
-  if (!supplement) {
-    const missing = [
-      ...(md.ok ? [] : md.missing),
-      ...supplementMissing(QB_REQUIRED_SUPPLEMENT, qbFieldStage),
-    ];
-    return { status: 'NOT_READY', position: 'QB', presentMetadata: md.present, missing };
-  }
-  if (!md.ok) return { status: 'NOT_READY', position: 'QB', presentMetadata: md.present, missing: md.missing };
-  const input: QBMVPInput = { ...supplement, ...md.meta };
-  return { status: 'READY', position: 'QB', presentMetadata: md.present, input };
+  return assessFromSupplement(
+    'QB',
+    extractQBMetadata(player, asOf),
+    supplement,
+    QB_REQUIRED_SUPPLEMENT,
+    qbFieldStage,
+    (s, meta): QBMVPInput => ({ ...s, ...meta }),
+  );
 }
 
 // A supplement bundle keyed by position, used by the pipeline/tests to feed the
-// (optional) future-stage inputs. All entries default to null (metadata-only).
+// stage-supplied inputs. Entries may be PARTIAL — the stats stage contributes a
+// subset of fields, which the readiness core merges and completeness-checks.
 export interface MetricsSupplements {
-  readonly wr?: Readonly<Record<string, WRMetricsSupplement>>;
-  readonly rb?: Readonly<Record<string, RBMetricsSupplement>>;
-  readonly te?: Readonly<Record<string, TEMetricsSupplement>>;
-  readonly qb?: Readonly<Record<string, QBMetricsSupplement>>;
+  readonly wr?: Readonly<Record<string, Partial<WRMetricsSupplement>>>;
+  readonly rb?: Readonly<Record<string, Partial<RBMetricsSupplement>>>;
+  readonly te?: Readonly<Record<string, Partial<TEMetricsSupplement>>>;
+  readonly qb?: Readonly<Record<string, Partial<QBMetricsSupplement>>>;
+}
+
+// Merge two supplement bundles (e.g. authored projection/context + stats). For
+// each position/id the entries are shallow-merged with `overlay` winning, so the
+// stats stage supersedes any authored placeholder for a stats-owned field while
+// leaving projection/context fields intact.
+export function mergeSupplements(
+  base: MetricsSupplements,
+  overlay: MetricsSupplements,
+): MetricsSupplements {
+  const positions = ['wr', 'rb', 'te', 'qb'] as const;
+  const out: {
+    wr: Record<string, Partial<WRMetricsSupplement>>;
+    rb: Record<string, Partial<RBMetricsSupplement>>;
+    te: Record<string, Partial<TEMetricsSupplement>>;
+    qb: Record<string, Partial<QBMetricsSupplement>>;
+  } = { wr: {}, rb: {}, te: {}, qb: {} };
+  for (const pos of positions) {
+    const b = base[pos] ?? {};
+    const o = overlay[pos] ?? {};
+    const ids = new Set([...Object.keys(b), ...Object.keys(o)]);
+    for (const id of ids) {
+      out[pos][id] = { ...(b[id] ?? {}), ...(o[id] ?? {}) } as never;
+    }
+  }
+  return out;
 }
 
 export interface ReadinessSummary {

@@ -5,8 +5,12 @@ real-data pipeline: the boundary that turns approved free-source provider data
 into stable, canonical, provenance-tracked player records and evaluates whether
 those records are ready to enter the frozen WR / RB / TE / QB valuation engines.
 
-It is a **metadata foundation**, not the full nightly system. It establishes the
-architecture; later milestones add the stats, projections, and context stages.
+It began as a **metadata foundation** and now includes the **nflverse statistics
+stage** (below). Later milestones add the projections and context stages.
+
+> See [`DATA_PIPELINE_STATS.md`](./DATA_PIPELINE_STATS.md) for the statistics
+> stage in full: datasets, engine-field ownership per position, aggregation
+> windows, the derived-stat registry, and honest readiness measurement.
 
 ## Architecture at a glance
 
