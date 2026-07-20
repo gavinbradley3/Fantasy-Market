@@ -11,7 +11,12 @@ import type { MetricsSupplements } from '@/pipeline/readiness/engineReadiness';
 
 function metrics(): MetricsSupplements {
   const raw = readFixture('metrics.sample.json') as Record<string, unknown>;
-  return { wr: raw.wr as MetricsSupplements['wr'], rb: {}, te: {} };
+  return {
+    wr: raw.wr as MetricsSupplements['wr'],
+    rb: {},
+    te: {},
+    qb: raw.qb as MetricsSupplements['qb'],
+  };
 }
 
 describe('runPipeline (fixture, offline)', () => {
@@ -31,19 +36,22 @@ describe('runPipeline (fixture, offline)', () => {
 
   it('resolves identities per the audit priority', () => {
     const { report } = runPipeline(input);
-    expect(report.persistedMatches).toBe(1); // Chase pinned to pt_0001
-    expect(report.crossProviderMatches).toBe(4);
+    expect(report.persistedMatches).toBe(2); // Chase pinned to pt_0001, Allen to pt_0002
+    expect(report.crossProviderMatches).toBe(3); // Bijan, LaPorta, Diontae
     expect(report.ambiguousNameCollisions).toBe(1); // the two Mike Williams
     expect(report.duplicateCanonicalIds).toBe(0);
     expect(report.metadataConflicts).toBeGreaterThanOrEqual(1); // Diontae team + status
   });
 
-  it('reports engine readiness including the QB engine gap', () => {
+  it('reports four-position engine readiness (no position lacks an engine)', () => {
     const { report, readiness } = runPipeline(input);
-    expect(report.engineReadyPlayers).toBe(1); // only the supplemented WR
-    expect(report.engineUnavailablePlayers).toBe(1); // QB
+    // Supplemented WR (pt_0001) and QB (pt_0002) both reach READY.
+    expect(report.engineReadyPlayers).toBe(2);
+    expect(report.engineUnavailablePlayers).toBe(0); // all four positions have engines
     expect(readiness.find((r) => r.canonicalId === 'pt_0001')?.status).toBe('READY');
-    expect(readiness.find((r) => r.position === 'QB')?.status).toBe('ENGINE_UNAVAILABLE');
+    expect(readiness.find((r) => r.canonicalId === 'pt_0002')?.status).toBe('READY');
+    // A metadata-only QB would be NOT_READY (missing stats), never ENGINE_UNAVAILABLE.
+    expect(readiness.every((r) => r.status !== 'ENGINE_UNAVAILABLE')).toBe(true);
   });
 
   it('is deterministic: identical input yields identical output', () => {

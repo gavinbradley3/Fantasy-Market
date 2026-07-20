@@ -9,16 +9,19 @@
 //   • No value is manufactured to make an engine run. A player is READY only
 //     when its required metadata is present AND a complete supplement is given.
 //     Metadata-only players are reported NOT_READY, not force-fed.
-//   • QB has no engine in this repo yet, so QB is ENGINE_UNAVAILABLE — reported,
-//     never faked.
+//   • All four positions (WR/RB/TE/QB) have a real engine and a typed readiness
+//     assessment. A live QB record with no stats is NOT_READY (missing inputs) —
+//     never ENGINE_UNAVAILABLE.
 
 import type { CanonicalPlayer, FieldState, SupportedPosition } from '@/pipeline/types';
 import { valueOf } from '@/pipeline/provenance';
 import {
+  qbFieldStage,
   rbFieldStage,
   teFieldStage,
   wrFieldStage,
   type PipelineStage,
+  type QBMetricsSupplement,
   type RBMetricsSupplement,
   type TEMetricsSupplement,
   type WRMetricsSupplement,
@@ -26,6 +29,7 @@ import {
 import type { DraftRound, InjuryStatus, WRMVPInput } from '@/wr-model/types';
 import type { RBMVPInput } from '@/rb-model/types';
 import type { TEMVPInput } from '@/te-model/types';
+import type { QBInjuryStatus, QBMVPInput } from '@/qb-model/types';
 
 export type RequirementSource = 'metadata' | PipelineStage;
 
@@ -88,9 +92,76 @@ function toInjuryStatus(
   }
 }
 
-// The metadata fields every engine shares. Extracts them or reports which are
-// missing (name/team/age/experience are hard-required; draft round & injury
-// have engine-defined unknowns and never block).
+// QB's injury enum has no UNKNOWN/SUSPENDED. Map the four canonical states to
+// the nearest defined QB status; a suspended/inactive QB is unavailable (OUT).
+// Returns null when status is absent — QB has no "unknown" to fall back to, so
+// the caller treats a missing status as a missing required metadata field
+// rather than inventing HEALTHY.
+function toQBInjuryStatus(
+  status: CanonicalPlayer['status'],
+  injuryDesignation: CanonicalPlayer['injury_designation'],
+): QBInjuryStatus | null {
+  if (!status.present) return null;
+  switch (status.value) {
+    case 'active':
+      return 'HEALTHY';
+    case 'suspended':
+    case 'inactive':
+      return 'OUT';
+    case 'injured': {
+      const d = (valueOf(injuryDesignation) ?? '').toLowerCase();
+      if (d.includes('out')) return 'OUT';
+      if (d.includes('doubt')) return 'DOUBTFUL';
+      if (d.includes('quest')) return 'QUESTIONABLE';
+      if (d.includes('ir')) return 'IR';
+      if (d.includes('pup')) return 'PUP';
+      return 'QUESTIONABLE';
+    }
+  }
+}
+
+// The four hard-required metadata fields shared by every position (name, team,
+// age, experience). draft_round & injury_status derive with engine-defined
+// unknowns for WR/RB/TE and never block there. Returns the extracted values plus
+// present/missing lists.
+interface RequiredMetadata {
+  name: string | undefined;
+  team: string | undefined;
+  age: number | undefined;
+  seasons: number | undefined;
+}
+
+function checkRequiredMetadata(player: CanonicalPlayer): {
+  values: RequiredMetadata;
+  present: string[];
+  missing: MissingRequirement[];
+} {
+  const values: RequiredMetadata = {
+    name: valueOf(player.full_name),
+    team: valueOf(player.team),
+    age: valueOf(player.age),
+    seasons: valueOf(player.nfl_seasons_completed),
+  };
+
+  const present: string[] = [];
+  if (values.name !== undefined) present.push('full_name');
+  if (values.team !== undefined) present.push('team');
+  if (values.age !== undefined) present.push('age');
+  if (values.seasons !== undefined) present.push('nfl_seasons_completed');
+  if (player.draft_round.present) present.push('draft_round');
+  if (player.status.present) present.push('injury_status');
+
+  const missing: MissingRequirement[] = [];
+  if (values.name === undefined) missing.push({ field: 'full_name', suppliedBy: 'metadata', reason: 'no source supplied a name' });
+  if (values.team === undefined) missing.push({ field: 'team', suppliedBy: 'metadata', reason: 'no source supplied a team' });
+  if (values.age === undefined) missing.push({ field: 'age', suppliedBy: 'metadata', reason: 'no age or birth_date available' });
+  if (values.seasons === undefined) missing.push({ field: 'nfl_seasons_completed', suppliedBy: 'metadata', reason: 'no experience value available' });
+
+  return { values, present, missing };
+}
+
+// Shared metadata for WR/RB/TE (uses `as_of_timestamp`; injury has a UNKNOWN
+// fallback so it never blocks).
 interface SharedMetadata {
   player_id: string;
   player_name: string;
@@ -106,38 +177,64 @@ function extractMetadata(
   player: CanonicalPlayer,
   asOf: string,
 ): { ok: true; meta: SharedMetadata; present: string[] } | { ok: false; missing: MissingRequirement[]; present: string[] } {
-  const name = valueOf(player.full_name);
-  const team = valueOf(player.team);
-  const age = valueOf(player.age);
-  const seasons = valueOf(player.nfl_seasons_completed);
-
-  const present: string[] = [];
-  if (name !== undefined) present.push('full_name');
-  if (team !== undefined) present.push('team');
-  if (age !== undefined) present.push('age');
-  if (seasons !== undefined) present.push('nfl_seasons_completed');
-  if (player.draft_round.present) present.push('draft_round');
-  if (player.status.present) present.push('injury_status');
-
-  const missing: MissingRequirement[] = [];
-  if (name === undefined) missing.push({ field: 'full_name', suppliedBy: 'metadata', reason: 'no source supplied a name' });
-  if (team === undefined) missing.push({ field: 'team', suppliedBy: 'metadata', reason: 'no source supplied a team' });
-  if (age === undefined) missing.push({ field: 'age', suppliedBy: 'metadata', reason: 'no age or birth_date available' });
-  if (seasons === undefined) missing.push({ field: 'nfl_seasons_completed', suppliedBy: 'metadata', reason: 'no experience value available' });
-
+  const { values, present, missing } = checkRequiredMetadata(player);
   if (missing.length > 0) return { ok: false, missing, present };
   return {
     ok: true,
     present,
     meta: {
       player_id: player.identity.canonical_id,
-      player_name: name!,
-      team: team ?? null,
-      age: age!,
-      nfl_seasons_completed: seasons!,
+      player_name: values.name!,
+      team: values.team ?? null,
+      age: values.age!,
+      nfl_seasons_completed: values.seasons!,
       draft_round: toDraftRound(player.draft_round),
       injury_status: toInjuryStatus(player.status, player.injury_designation),
       as_of_timestamp: asOf,
+    },
+  };
+}
+
+// QB metadata (uses `as_of`; injury_status is required because QB has no
+// UNKNOWN state — a QB with no known status is reported not-ready, not faked).
+interface QBSharedMetadata {
+  player_id: string;
+  player_name: string;
+  team: string | null;
+  age: number;
+  nfl_seasons_completed: number;
+  draft_round: QBMVPInput['draft_round'];
+  injury_status: QBInjuryStatus;
+  as_of: string;
+}
+
+function extractQBMetadata(
+  player: CanonicalPlayer,
+  asOf: string,
+): { ok: true; meta: QBSharedMetadata; present: string[] } | { ok: false; missing: MissingRequirement[]; present: string[] } {
+  const { values, present, missing: baseMissing } = checkRequiredMetadata(player);
+  const missing = [...baseMissing];
+  const injury = toQBInjuryStatus(player.status, player.injury_designation);
+  if (injury === null) {
+    missing.push({
+      field: 'injury_status',
+      suppliedBy: 'metadata',
+      reason: 'no availability status available and QB has no UNKNOWN state',
+    });
+  }
+  if (missing.length > 0) return { ok: false, missing, present };
+  return {
+    ok: true,
+    present,
+    meta: {
+      player_id: player.identity.canonical_id,
+      player_name: values.name!,
+      team: values.team ?? null,
+      age: values.age!,
+      nfl_seasons_completed: values.seasons!,
+      draft_round: toDraftRound(player.draft_round),
+      injury_status: injury!,
+      as_of: asOf,
     },
   };
 }
@@ -177,6 +274,20 @@ const TE_REQUIRED_SUPPLEMENT = [
   'previous_targets_per_route_run', 'career_targets_per_route_run', 'career_catch_rate', 'career_yards_per_target',
   'career_yards_per_reception', 'career_yac_per_reception', 'career_red_zone_target_rate', 'career_end_zone_target_rate',
 ] as const satisfies readonly (keyof TEMetricsSupplement)[];
+
+const QB_REQUIRED_SUPPLEMENT = [
+  'career_games_played', 'career_starts', 'career_pass_attempts', 'career_rush_attempts',
+  'recent_games', 'recent_starts', 'recent_pass_attempts', 'recent_completions', 'recent_passing_yards',
+  'recent_passing_tds', 'recent_interceptions', 'recent_sacks', 'recent_rush_attempts', 'recent_rushing_yards',
+  'recent_rushing_tds', 'designed_rush_attempts', 'scrambles', 'goal_line_rush_attempts',
+  'adjusted_yards_per_attempt', 'completion_percentage_over_expected', 'explosive_pass_rate',
+  'team_dropback_share', 'expected_active_game_pass_attempts', 'expected_active_game_designed_rush_attempts',
+  'expected_active_game_scrambles', 'expected_active_game_goal_line_rush_attempts', 'offensive_environment_score',
+  'protection_context_score', 'depth_chart_status', 'role_status', 'competition_pressure', 'organizational_commitment',
+  'probability_active', 'expected_games_remaining', 'expected_games_limited', 'team_change', 'major_system_change',
+  'recent_role_change', 'prior_recent_pass_attempts', 'prior_adjusted_yards_per_attempt', 'prior_interception_rate',
+  'prior_rush_attempts_per_start',
+] as const satisfies readonly (keyof QBMetricsSupplement)[];
 
 function supplementMissing(
   fields: readonly string[],
@@ -245,12 +356,31 @@ export function assessTEReadiness(
   return { status: 'READY', position: 'TE', presentMetadata: md.present, input };
 }
 
+export function assessQBReadiness(
+  player: CanonicalPlayer,
+  supplement: QBMetricsSupplement | null,
+  asOf: string,
+): EngineReadiness<QBMVPInput> {
+  const md = extractQBMetadata(player, asOf);
+  if (!supplement) {
+    const missing = [
+      ...(md.ok ? [] : md.missing),
+      ...supplementMissing(QB_REQUIRED_SUPPLEMENT, qbFieldStage),
+    ];
+    return { status: 'NOT_READY', position: 'QB', presentMetadata: md.present, missing };
+  }
+  if (!md.ok) return { status: 'NOT_READY', position: 'QB', presentMetadata: md.present, missing: md.missing };
+  const input: QBMVPInput = { ...supplement, ...md.meta };
+  return { status: 'READY', position: 'QB', presentMetadata: md.present, input };
+}
+
 // A supplement bundle keyed by position, used by the pipeline/tests to feed the
 // (optional) future-stage inputs. All entries default to null (metadata-only).
 export interface MetricsSupplements {
   readonly wr?: Readonly<Record<string, WRMetricsSupplement>>;
   readonly rb?: Readonly<Record<string, RBMetricsSupplement>>;
   readonly te?: Readonly<Record<string, TEMetricsSupplement>>;
+  readonly qb?: Readonly<Record<string, QBMetricsSupplement>>;
 }
 
 export interface ReadinessSummary {
@@ -261,7 +391,19 @@ export interface ReadinessSummary {
   readonly missing: readonly MissingRequirement[];
 }
 
-// Position-dispatching assessment for a canonical player. QB → ENGINE_UNAVAILABLE.
+function summarize(position: SupportedPosition, id: string, r: EngineReadiness<unknown>): ReadinessSummary {
+  return {
+    position,
+    canonicalId: id,
+    status: r.status,
+    presentMetadata: r.status === 'ENGINE_UNAVAILABLE' ? [] : r.presentMetadata,
+    missing: r.status === 'NOT_READY' ? r.missing : [],
+  };
+}
+
+// Position-dispatching assessment for a canonical player. All four positions now
+// have a real engine; a metadata-only record is NOT_READY (missing stats),
+// never ENGINE_UNAVAILABLE.
 export function assessReadiness(
   player: CanonicalPlayer,
   supplements: MetricsSupplements,
@@ -269,43 +411,13 @@ export function assessReadiness(
 ): ReadinessSummary {
   const id = player.identity.canonical_id;
   switch (player.position) {
-    case 'WR': {
-      const r = assessWRReadiness(player, supplements.wr?.[id] ?? null, asOf);
-      return {
-        position: 'WR',
-        canonicalId: id,
-        status: r.status,
-        presentMetadata: r.status === 'ENGINE_UNAVAILABLE' ? [] : r.presentMetadata,
-        missing: r.status === 'NOT_READY' ? r.missing : [],
-      };
-    }
-    case 'RB': {
-      const r = assessRBReadiness(player, supplements.rb?.[id] ?? null, asOf);
-      return {
-        position: 'RB',
-        canonicalId: id,
-        status: r.status,
-        presentMetadata: r.status === 'ENGINE_UNAVAILABLE' ? [] : r.presentMetadata,
-        missing: r.status === 'NOT_READY' ? r.missing : [],
-      };
-    }
-    case 'TE': {
-      const r = assessTEReadiness(player, supplements.te?.[id] ?? null, asOf);
-      return {
-        position: 'TE',
-        canonicalId: id,
-        status: r.status,
-        presentMetadata: r.status === 'ENGINE_UNAVAILABLE' ? [] : r.presentMetadata,
-        missing: r.status === 'NOT_READY' ? r.missing : [],
-      };
-    }
+    case 'WR':
+      return summarize('WR', id, assessWRReadiness(player, supplements.wr?.[id] ?? null, asOf));
+    case 'RB':
+      return summarize('RB', id, assessRBReadiness(player, supplements.rb?.[id] ?? null, asOf));
+    case 'TE':
+      return summarize('TE', id, assessTEReadiness(player, supplements.te?.[id] ?? null, asOf));
     case 'QB':
-      return {
-        position: 'QB',
-        canonicalId: id,
-        status: 'ENGINE_UNAVAILABLE',
-        presentMetadata: [],
-        missing: [],
-      };
+      return summarize('QB', id, assessQBReadiness(player, supplements.qb?.[id] ?? null, asOf));
   }
 }

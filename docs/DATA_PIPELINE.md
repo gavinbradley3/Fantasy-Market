@@ -84,28 +84,34 @@ licensed image source, `DESIGN §15.3`).
 
 ## Engine-input readiness
 
-The readiness layer converts a canonical player into the **exact** public input
-type each engine expects (`WRMVPInput` / `RBMVPInput` / `TEMVPInput`) — no engine
-formula, threshold, type, or golden is touched. The non-metadata portion of each
-input is typed as `Omit<EngineInput, metadataKeys>`, so the engines remain the
-single source of truth for their own shapes.
+All four positions have a real, frozen engine: **WR, RB, TE, and QB**. The
+readiness layer converts a canonical player into the **exact** public input type
+each engine expects (`WRMVPInput` / `RBMVPInput` / `TEMVPInput` / `QBMVPInput`) —
+no engine formula, threshold, type, or golden is touched. The non-metadata portion
+of each input is typed as `Omit<EngineInput, metadataKeys>`, so the engines remain
+the single source of truth for their own shapes.
 
 - Metadata this milestone supplies: `player_id`, `player_name`, `team`, `age`,
   `nfl_seasons_completed`, `draft_round` (null = engine-defined unknown),
-  `injury_status` (derived from canonical status), `as_of_timestamp`.
+  `injury_status` (derived from canonical status), and the as-of date
+  (`as_of_timestamp` for WR/RB/TE, `as_of` for QB).
 - Everything else (usage, efficiency, projections, role context, and non-null
-  required fields like `career_routes` and `expected_games_remaining`) comes from
-  **future stages** — reported per field as `stats`, `projections`, or `context`.
+  required fields like `career_routes`, `expected_games_remaining`, or QB
+  `career_pass_attempts`) comes from **future stages** — reported per field as
+  `stats`, `projections`, or `context`.
 - A player is `READY` only when required metadata is present **and** a complete
   metrics supplement is provided. No value is manufactured to make an engine run.
-- **QB is `ENGINE_UNAVAILABLE`**: there is no QB engine or QB spec in the repo
-  yet. QB players still normalize and resolve identity; they are simply reported
-  as having no engine to run.
+- **QB is fully supported by the readiness architecture** — there is no
+  `ENGINE_UNAVAILABLE` state for it. A live, metadata-only QB is `NOT_READY`
+  because its stats/projections/context inputs are missing, reported per field by
+  stage. QB's injury enum has no `UNKNOWN`, so a QB with no known availability
+  status is `NOT_READY` (missing `injury_status`) rather than assumed healthy.
 
-Because this milestone has no live stats source, live records are correctly
-reported **not valuation-ready**. The boundary itself is proven end-to-end by a
-committed demonstration supplement (`fixtures/pipeline/metrics.sample.json`) that
-carries one WR through `evaluateWideReceiver` in tests and the fixture pipeline.
+Because this milestone has no live stats source, live records for every position
+are correctly reported **not valuation-ready**. The boundary is proven end-to-end
+by committed demonstration supplements (`fixtures/pipeline/metrics.sample.json`)
+that carry one WR through `evaluateWideReceiver` and one QB through
+`evaluateQuarterback` in tests and in the fixture pipeline.
 
 ## Snapshots
 
@@ -157,15 +163,23 @@ players are reported, not fatal.
 ## Current limitations / next milestone
 
 - **No stats/projections/context stages yet** — so live players are metadata-only
-  and reported not valuation-ready. This is expected.
-- **No QB engine** — QB is reported `ENGINE_UNAVAILABLE`.
+  and reported not valuation-ready for all four positions. This is expected.
 - **Live nflverse** pull (CSV → snapshot) is not implemented; live mode refreshes
   Sleeper and reuses the committed nflverse snapshot.
 - Identity resolution is strong-id-only by design; composite/fuzzy matching is a
   deliberately deferred, audit-gated future addition.
 
+Per-position input still required from later stages:
+
+- **WR / TE:** career routes, route participation, targets-per-route-run,
+  efficiency metrics, projected volume, and role context.
+- **RB:** career touches/carries/routes, snap & carry shares, rushing/receiving
+  efficiency, projected team volume, and role context.
+- **QB:** career and recent passing/rushing volume and efficiency, expected
+  active-game workload, offensive/protection context, depth-chart & role status.
+
 **Recommended next milestone:** a **stats stage** — an nflverse weekly/seasonal
-usage + efficiency adapter that produces the `stats`-owned supplement fields
-(`career_routes`, `targets_per_route_run`, efficiency metrics, …), joined to
-canonical ids by GSIS. That is the single change that moves the most WR/RB/TE
-players from `NOT_READY` to `READY`.
+usage + efficiency adapter that produces the `stats`-owned supplement fields for
+all four positions (WR/TE routes & targets, RB touches & efficiency, QB pass/rush
+volume & efficiency), joined to canonical ids by GSIS. That is the single change
+that moves the most players from `NOT_READY` to `READY`.

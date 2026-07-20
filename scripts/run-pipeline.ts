@@ -112,6 +112,7 @@ function loadMetrics(path: string): MetricsSupplements {
     wr: (raw.wr as MetricsSupplements['wr']) ?? {},
     rb: (raw.rb as MetricsSupplements['rb']) ?? {},
     te: (raw.te as MetricsSupplements['te']) ?? {},
+    qb: (raw.qb as MetricsSupplements['qb']) ?? {},
   };
 }
 

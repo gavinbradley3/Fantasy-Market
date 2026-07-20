@@ -50,6 +50,7 @@ export {
   assessWRReadiness,
   assessRBReadiness,
   assessTEReadiness,
+  assessQBReadiness,
   type EngineReadiness,
   type MissingRequirement,
   type ReadinessSummary,
@@ -59,6 +60,7 @@ export type {
   WRMetricsSupplement,
   RBMetricsSupplement,
   TEMetricsSupplement,
+  QBMetricsSupplement,
 } from '@/pipeline/readiness/metrics';
 
 export { runPipeline, type PipelineInput, type PipelineResult, type PipelineConfig } from '@/pipeline/runPipeline';

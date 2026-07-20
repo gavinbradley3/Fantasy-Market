@@ -66,6 +66,11 @@ export interface PipelineReport {
   // Engine readiness
   readonly engineReadyPlayers: number;
   readonly playersNotEngineReady: number;
+  /**
+   * Players whose position has no implemented engine at all. All four supported
+   * positions (WR/RB/TE/QB) now have engines, so this is 0; the field is kept so
+   * a future unsupported position would surface here rather than crash.
+   */
   readonly engineUnavailablePlayers: number;
   readonly notReadyReasons: readonly NotReadyReason[];
 }
@@ -107,7 +112,7 @@ export function renderReport(report: PipelineReport): string {
   L('  Engine readiness:');
   L(`    engine-ready: ${report.engineReadyPlayers}`);
   L(`    not engine-ready: ${report.playersNotEngineReady}`);
-  L(`    engine unavailable (QB): ${report.engineUnavailablePlayers}`);
+  L(`    positions with no engine: ${report.engineUnavailablePlayers}`);
   for (const r of report.notReadyReasons.slice(0, 10)) {
     L(`      - ${r.canonicalId} (${r.position}): ${r.missingCount} missing [${r.sample.join(', ')}…]`);
   }
