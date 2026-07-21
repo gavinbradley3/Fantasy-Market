@@ -26,6 +26,12 @@ export * from './environment';
 export * from './availability';
 export * from './result';
 
+// Phase 2B — projections, D1/D2, explanations, complete confidence.
+export * from './projections';
+export * from './d1';
+export * from './d2';
+export * from './explanations';
+
 import type { InferencePlayerReport, ReproducibilityId, SupportedPosition } from './types';
 
 /** Reserved orchestrator input (SPEC §25.1 / §32.2). Shape only in Phase 1. */

@@ -323,3 +323,161 @@ export const HIGH_RECENT_WORKLOAD_TOUCHES = 22;
 export const FEATURE = {
   acquiredWithinDays: 56, // "≤ 8 weeks"
 } as const;
+
+// ============================================================================
+// §2 — projection framework
+// ============================================================================
+
+export const PROJECTION = {
+  wRecentDenomGames: 4, // §2.1 linear ramp
+  wTeamDenomGames: 6, // §2.1 linear ramp
+  kTeamPreseason: 8, // §2.2
+  rookieShareBlendWeight: 0.5, // §2.3 archetype ⊕ league median
+  priorSeasonMaxGames: 17, // §2.1 preseason n cap
+} as const;
+
+/** §2.2 shrinkage constants (in each family's sample unit). */
+export const SHRINK_K = {
+  wrTprr: 150,
+  wrEfficiency: 250,
+  teTprr: 140,
+  teCatch: 120,
+  teYpt: 180,
+  teYpr: 160,
+  teYac: 180,
+  teRz: 120,
+  teEz: 160,
+  rbCarryShare: 60,
+  rbTeSnapShare: 6,
+  qbPassAtt: 180,
+} as const;
+
+/** §2.3 age/experience additive share adjustment (ROS/1yr+ only; weekly = 0). */
+export function ageShareAdj(age: number, sCareer: number): number {
+  if (age <= 28) return 0.0;
+  if (age <= 30) return -0.01 * sCareer;
+  return -0.02 * sCareer;
+}
+
+/** §2.5 draft-tier archetype share priors (rookies / no usage). */
+export const ARCHETYPE_SHARE_PRIOR = {
+  WR_target_share: { '1': 0.18, '2': 0.15, '3': 0.12, '4': 0.09, '5': 0.09, '6': 0.06, '7': 0.06, UDFA: 0.04 },
+  RB_carry_share: { '1': 0.45, '2': 0.38, '3': 0.3, '4': 0.22, '5': 0.22, '6': 0.15, '7': 0.15, UDFA: 0.1 },
+  RB_snap_share: { '1': 0.55, '2': 0.48, '3': 0.4, '4': 0.32, '5': 0.32, '6': 0.24, '7': 0.24, UDFA: 0.18 },
+  TE_target_share: { '1': 0.14, '2': 0.11, '3': 0.09, '4': 0.07, '5': 0.07, '6': 0.05, '7': 0.05, UDFA: 0.04 },
+  TE_snap_share: { '1': 0.6, '2': 0.52, '3': 0.45, '4': 0.38, '5': 0.38, '6': 0.3, '7': 0.3, UDFA: 0.25 },
+} as const satisfies Record<string, Readonly<Record<string, number>>>;
+
+/** §2.6 per-field bounds & precision. */
+export const PROJECTION_BOUNDS = {
+  target_share: { lo: 0.0, hi: 0.45, dp: 4, minGames: 2 },
+  carry_share_last4: { lo: 0.0, hi: 0.95, dp: 4, minGames: 2 },
+  snap_share_last4: { lo: 0.0, hi: 1.0, dp: 4, minGames: 2 },
+  projected_team_dropbacks: { lo: 20.0, hi: 48.0, dp: 2, minGames: 1 },
+  projected_team_non_qb_rush_attempts: { lo: 12.0, hi: 38.0, dp: 2, minGames: 1 },
+  team_points_per_drive: { lo: 0.6, hi: 3.6, dp: 2, minGames: 1 },
+  team_red_zone_trips_per_game: { lo: 1.0, hi: 6.0, dp: 2, minGames: 1 },
+  expected_active_game_pass_attempts: { lo: 8.0, hi: 45.0, dp: 2, minGames: 0 },
+  expected_active_game_designed_rush_attempts: { lo: 0.0, hi: 12.0, dp: 2, minGames: 3 },
+  expected_active_game_scrambles: { lo: 0.0, hi: 8.0, dp: 2, minGames: 3 },
+  expected_active_game_goal_line_rush_attempts: { lo: 0.0, hi: 4.0, dp: 2, minGames: 3 },
+} as const;
+
+/** §2.7 QB expected active-game maps (ENGINE_PRECEDENT — QB engine fallbacks). */
+export const EXPECTED_PASS_ATTEMPTS_BY_ROLE: Readonly<Record<string, number>> = {
+  ESTABLISHED_STARTER: 34,
+  YOUNG_COMMITTED_STARTER: 33,
+  ROOKIE_EXPECTED_STARTER: 31,
+  BRIDGE_STARTER: 31,
+  TEMPORARY_INJURY_REPLACEMENT: 30,
+  COMPETITION: 27,
+  RECENTLY_BENCHED: 18,
+  BACKUP: 8,
+};
+export const DROPBACK_SHARE_STARTER = 0.96; // DROPBACK_SHARE_BY_DEPTH[STARTER]
+export const QB_SHARE_ADJ_CLAMP = { lo: 0.5, hi: 1.05 } as const;
+
+// ============================================================================
+// §8 — D1 effective route exposure
+// ============================================================================
+
+export const D1 = {
+  wrRouteFactor: 0.97, // ENGINE_PRECEDENT — WR-only
+  rbSnapRouteFactor: 0.42, // MVP_HEURISTIC — RB-only, window field only
+  tierCeiling: { WR: 299, TE: 399 } as Readonly<Record<'WR' | 'TE', number>>,
+  routeProxyPenalty: 120,
+  minCoveredGames: 3, // WR career estimate minimum evidence
+} as const;
+
+/** §8.2 consuming-engine career-route tier penalties (×10 to 0..1000). */
+export const ROUTE_TIER_PENALTY = {
+  WR: [
+    { maxExclusive: 100, penalty: 150 },
+    { maxExclusive: 300, penalty: 80 },
+  ],
+  TE: [
+    { maxExclusive: 75, penalty: 150 },
+    { maxExclusive: 200, penalty: 100 },
+    { maxExclusive: 400, penalty: 60 },
+  ],
+} as const;
+
+// ============================================================================
+// §9 — D2 functional QB starts
+// ============================================================================
+
+export const D2 = {
+  tStart: 10, // pass_attempts threshold
+  snapMajority: 0.5, // qb_snap_share threshold
+  recentWindowGames: 17,
+  startInferencePenalty: 120,
+} as const;
+
+// ============================================================================
+// §14 / §20.F12 — explanation contract
+// ============================================================================
+
+export const EXPLANATION = {
+  positiveCount: 3,
+  negativeCount: 3,
+  minContrib: 0.01,
+} as const;
+
+/** §20.F12 categorical driver contribution constants (κ). */
+export const CATEGORICAL_KAPPA = {
+  ROLE_PROMOTED: 0.12,
+  ROLE_DEMOTED: 0.12,
+  COMPETITION_ELEVATED: 0.08,
+  COMPETITION_HIGH: 0.12,
+  ROSTER_SECURITY_LOW: 0.08,
+  ROSTER_SECURITY_HIGH: 0.06,
+  INJURY_QUESTIONABLE: 0.06,
+  INJURY_DOUBTFUL: 0.1,
+  INJURY_OUT: 0.15,
+  NEUTRAL_OR_REDUCED: 0.05,
+  OTHER: 0.05,
+} as const;
+
+/** §14 structural fragment fixed order (appended after drivers). */
+export const STRUCTURAL_FRAGMENT_ORDER = [
+  'FALLBACK_USED',
+  'MISSING_EVIDENCE',
+  'CONFIDENCE_PENALTY',
+  'SOURCE_FRESHNESS',
+  'MODEL_VERSION',
+] as const;
+
+// ============================================================================
+// §11.3 / §20.F9 — public confidence & source quality
+// ============================================================================
+
+export const PUBLIC_CONFIDENCE = {
+  coverageBase: 0.5,
+  coverageSlope: 0.5,
+  qualityBase: 0.3,
+  qualitySlope: 0.7,
+  sourceBase: 0.6,
+  sourceSlope: 0.4,
+  freshFactor: 1.0,
+  staleFactor: 0.7,
+} as const;

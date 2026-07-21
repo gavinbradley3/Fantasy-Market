@@ -5,3 +5,6 @@ export * from './types';
 export * from './weightedGeometricMean';
 export * from './aggregate';
 export * from './fieldConfidence';
+export * from './playerConfidence';
+export * from './sourceQuality';
+export * from './publicConfidence';
