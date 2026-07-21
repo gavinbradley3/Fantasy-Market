@@ -4,3 +4,4 @@
 export * from './types';
 export * from './weightedGeometricMean';
 export * from './aggregate';
+export * from './fieldConfidence';

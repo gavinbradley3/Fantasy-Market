@@ -17,6 +17,15 @@ export * from './confidence';
 export * from './supplement';
 export * from './readiness/integration';
 
+// Phase 2A — automatically inferable facts & classification families.
+export * from './features';
+export * from './roles';
+export * from './competition';
+export * from './security';
+export * from './environment';
+export * from './availability';
+export * from './result';
+
 import type { InferencePlayerReport, ReproducibilityId, SupportedPosition } from './types';
 
 /** Reserved orchestrator input (SPEC §25.1 / §32.2). Shape only in Phase 1. */
