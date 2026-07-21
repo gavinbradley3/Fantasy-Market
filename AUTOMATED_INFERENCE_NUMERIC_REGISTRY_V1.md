@@ -27,8 +27,9 @@ V1 value chosen for determinism; recalibration-eligible but binding now).
 
 | Key | Value | Source | Rationale |
 |---|---|---|---|
-| `registry_version` | `air-1.0.0` | MVP_HEURISTIC | semver; bumped per §18 policy of main spec |
+| `registry_version` | `air-1.1.0` | MVP_HEURISTIC | semver; bumped per §18 policy of main spec. **air-1.1.0** adds the F1–F12 correction closures (§20), the canonical environment reference (§21), specification fixtures (§22), and verification (§23); air-1.0.0 content in §1–§19 is unchanged except where §20 explicitly supersedes it |
 | `effective_date` | `2026-07-21` | — | issue date |
+| `env_reference_version` | `air-env-ref-1.0.0` (checksum `a1b95e93d706e130`) | §21 | canonical percentile reference (F1) |
 | `compatibility_target` | main spec `AUTOMATED_INFERENCE_LAYER_SPEC_V1` §32; engines wr-mvp-1.0, rb-mvp-1.0, te-mvp-1.0, qb-mvp-output-1.0 | ENGINE_PRECEDENT | binds to the verified 8b03353 baseline |
 | `supported_positions` | WR, RB, TE, QB | ENGINE_PRECEDENT | the four frozen engines |
 | `reproducibility_id` | `{snapshotIds[], normalizedInputChecksum, registry_version, inferenceLayerVersion, asOf, engineVersion}` | REPOSITORY_CONVENTION | extends main §18.2 with `registry_version` |
@@ -1033,4 +1034,447 @@ provenance, and serialized bytes.**
 None requires editing the main specification; each is a deferred value this registry
 was commissioned to bind. No contradiction blocks binding.
 
-*End of AUTOMATED_INFERENCE_NUMERIC_REGISTRY_V1.*
+# 20. Audit correction pass — F1–F12 binding closures (air-1.1.0)
+
+These closures **supersede** any conflicting earlier text in this registry and in
+the main spec (main §5.2/§5.3/§5.5 were patched to match; see the completion report).
+
+## 20.F1 — Canonical AIL environment references
+
+Environment percentiles (§6.2) use **one** AIL-owned reference contract,
+`air-env-ref-1.0.0` (§21), **regardless of the evaluated player's position**. The
+per-engine reference JSON/code arrays (which differ — e.g. WR `team_points_per_drive`
+has 16 values, RB has 14) are **not** used for AIL percentiles. `pct` per §1
+(mid-rank, ties `+0.5·equal`, no interpolation, clamp `[0,100]`); score rounded to
+integer (§1.1). Missing component → drop and renormalize remaining weights; all
+components missing → `INSUFFICIENT_DATA`.
+
+## 20.F2 — Confidence of null / non-evaluable fields (WGM treatment)
+
+Binding, resolving the undefined case:
+
+| Field state | conf value | In WGM? | In CRITICAL cap? | verified_share counts as verified? | source_quality counts? |
+|---|---|---|---|---|---|
+| AVAILABLE | per §10 | yes | yes | yes iff provenance DIRECT/DERIVED | yes |
+| LOW_CONFIDENCE | per §10 | yes | yes | as above | yes |
+| present-null, `INSUFFICIENT_DATA` | **200** | yes | yes (counts toward weakest-critical) | no | yes |
+| present-null, `UNAVAILABLE` | **100** | yes | yes | no | yes |
+| authorized neutral enum/bool (`NEUTRAL_DEFAULT`) | **400** | yes | yes | no | yes |
+| `NOT_APPLICABLE` | — | **excluded** | **excluded** | excluded from denominator | excluded |
+| omitted (non-nullable numeric, cannot estimate) | — | n/a (player NOT_READY) | n/a | n/a | n/a |
+
+- Fixed conf values (200 INSUFFICIENT, 100 UNAVAILABLE, 400 NEUTRAL_DEFAULT) are
+  `MVP_HEURISTIC`, chosen so an absent field lowers but does not zero the WGM.
+- **Non-critical absence does not collapse the player:** a present-null
+  *non-critical* field contributes conf 100–200 into the WGM with its (small,
+  0.5–1.0) importance weight, so the geometric mean is reduced modestly, and the
+  `weakest_critical` cap is unaffected (it ranges only over CRITICAL fields). Only a
+  present-null **critical** field pulls `weakest_critical` down to 100–200 — the
+  intended behaviour.
+- `NOT_APPLICABLE` is fully excluded (from WGM, CRITICAL set, and both public-factor
+  denominators) so a legitimately inapplicable field neither helps nor harms.
+
+## 20.F3 — Status × field-kind emission (single binding table, supersedes §12)
+
+Field-kind from the engine input type: **(a)** nullable numeric/string; **(b)**
+non-nullable numeric/string; **(c)** enum with an engine-defined neutral member that
+the registry authorizes as this field's fallback (§20.F3.1); **(d)** boolean with a
+registry-authorized safe-default (§20.F3.1).
+
+| status \ kind | (a) nullable | (b) non-nullable numeric/string | (c) enum w/ authorized neutral | (d) boolean w/ authorized default |
+|---|---|---|---|---|
+| AVAILABLE | present value | present value | present value | present value |
+| LOW_CONFIDENCE | present value | present value | present value | present value |
+| INSUFFICIENT_DATA | present-null | **omit → NOT_READY** | present neutral (`NEUTRAL_DEFAULT`) | present default (`NEUTRAL_DEFAULT`) |
+| UNAVAILABLE | present-null | **omit → NOT_READY** | present neutral (`NEUTRAL_DEFAULT`) | present default (`NEUTRAL_DEFAULT`) |
+| NOT_APPLICABLE | present-null | **omit** | present neutral | present default |
+
+Every **neutral/default emission** (kinds c,d under the bottom three statuses) carries
+exactly: `status = LOW_CONFIDENCE`; `value = the authorized neutral member/default`;
+`provenance = MODEL_CLASSIFICATION`; `confidence = 400` (§20.F2); `limitation =
+NEUTRAL_DEFAULT`; **readiness effect = present (does not fail readiness).** A neutral
+emission is never `AVAILABLE` (main §5.2 patch). This resolves the main §5.2 vs §12c
+contradiction: missing knowledge on an enum/bool becomes an explicitly-labelled
+low-confidence neutral classification, not an `AVAILABLE` fact and not an omission.
+
+### 20.F3.1 — Authorized neutral members / safe defaults (exhaustive)
+
+Only these fields may take a neutral/default emission; every other required field is
+kind (a) or (b).
+
+| Field | Kind | Neutral / default | Engine-contract member |
+|---|---|---|---|
+| `route_role_change`, `role_change`, `coaching_continuity` | c | `UNKNOWN` / `STABLE` (per enum) | yes |
+| `depth_chart_role` | c | `UNKNOWN` | yes |
+| `depth_chart_status` | c | `BACKUP` | yes (no UNKNOWN; BACKUP is the safe non-starter member) |
+| `role_status` | c | `BACKUP` | yes |
+| `prospect_type` | c | `UNKNOWN` | yes |
+| `practice_status` | c | `UNKNOWN` | yes |
+| `teammate_return_flag`, `incoming_competition_flag`, `another_receiving_te_flag`, `temporary_opportunity_flag`, `new_team_flag`, `team_change`, `major_system_change`, `recent_role_change`, `high_recent_workload_flag` | d | `false` | yes |
+
+`injury_status` is a **metadata** field (mapped from canonical status by the existing
+readiness layer), not an AIL supplement field — out of scope here; QB `injury_status`
+handling is unchanged (existing readiness maps it; a QB with no status is NOT_READY).
+
+## 20.F4 — Null-signal role classification
+
+**General rule:** any role-ladder predicate that references a **null** signal
+evaluates **false** (no numeric coercion is relied upon; a null comparand is treated
+as "predicate not satisfied"). A ladder rule whose *every* referenced signal is null
+is skipped.
+
+**Reduced ladders (activate when the position's primary routing signal is null).**
+The primary signal is `route_participation_last4` for WR/TE; if it is null, the
+full ladder cannot classify correctly, so the reduced ladder governs. Each reduced
+class carries `+CLASS_REDUCED_PENALTY = 80` confidence and limitation
+`REDUCED_SIGNAL_ROLE`.
+
+**WR reduced (route_part_l4 null) — signal `target_share`:**
+
+| # | Predicate | Class |
+|---|---|---|
+| 1 | `target_share ≥ 0.24` | `high_volume_primary` |
+| 2 | `target_share ≥ 0.18` | `secondary_starter` |
+| 3 | `target_share ≥ 0.10` | `rotational` |
+| 4 | else (incl. `target_share` null) | `uncertain` |
+
+**TE reduced (route_part_l4 null) — signals `snap_share_l4`, `target_share`:**
+
+| # | Predicate | Class |
+|---|---|---|
+| 1 | `snap_share_l4 ≥ 0.75 AND target_share ≥ 0.16` | `every_down_starter` |
+| 2 | `target_share ≥ 0.14` | `primary_receiving` |
+| 3 | `snap_share_l4 ≥ 0.65` | `blocking_heavy_starter` |
+| 4 | `snap_share_l4 ≥ 0.30` | `committee` |
+| 5 | else | `uncertain` |
+
+**RB reduced (route_part_l4 null; carry_share_l4 present) — signals
+`snap_share_l4`, `carry_share_l4`:** use RB main ladder rules 1,2,4,5,6,7 with rule 3
+(`receiving_back`) skipped (it needs route participation); if `carry_share_l4` also
+null → `uncertain`.
+
+**QB:** the QB ladders (§3.4) reference `recent_start_rate`/`career_starts` (always
+produced by §9, never null once starts resolve) and event/roster signals; if
+`recent_start_rate` is `NOT_APPLICABLE` (recent_games 0) treat it as 0 (§9.1) — no
+separate reduced ladder needed; a QB with no start resolution → `career_starts`
+omitted → NOT_READY before role is consumed.
+
+A productive WR/TE with a null routing signal but strong `target_share` therefore
+classifies as `high_volume_primary`/`primary_receiving` (not `reserve_developmental`),
+with the reduced-signal penalty — closing F4's specific failure.
+
+## 20.F5 — Freshness lifecycle (single rule; supersedes §16 degrade clause)
+
+Three states only, per source/inference family, using its `TTL` and `hard_bound`
+from the §16 table (the `2·TTL` degrade clause is **removed**):
+
+```
+age = asOf − sourceTimestamp
+age ≤ TTL                → FRESH        (p_recency = 0)
+TTL < age ≤ hard_bound   → STALE_USABLE (p_recency = 60; value kept, limitation STALE)
+age > hard_bound         → UNUSABLE     (status per field contract: nullable → present-null
+                                          INSUFFICIENT_DATA; non-nullable numeric → omit;
+                                          enum/bool → neutral default §20.F3)
+```
+Boundaries are **lower-open, upper-closed** (`≤` inclusive on the upper edge).
+`maximum_usable_age = hard_bound`. This removes the injury `age∈(10,14]` overlap
+(TTL 7, hard_bound 10): age 11 is now unambiguously UNUSABLE.
+
+## 20.F6 — Suspensions and expected games (carved out of the uniform multiply)
+
+`expected_games_remaining` for a SUSPENDED player is computed **outside** the uniform
+`avail_prob` multiply:
+```
+if suspension length known (S9):
+    remaining_suspended = min(known_suspended_games_remaining, games_left)
+    playable            = max(games_left − remaining_suspended, 0)
+    expected_games_remaining = round1( clamp(playable · 0.97 · durability, 0, games_left) )
+    // 0.97 = HEALTHY avail_prob post-reinstatement; durability per §7.2
+if suspension length unknown:
+    expected_games_remaining = 0.0   (uniform avail_prob 0.0) with limitation SUSPENSION_LENGTH_UNKNOWN
+```
+- If `remaining_suspended ≥ games_left` → `playable = 0` → `expected_games_remaining
+  = 0.0`.
+- Reinstatement assumption: HEALTHY on return (0.97), no per-week ramp (V1).
+- Durability applies to `playable` only (post-reinstatement games).
+- Confidence: `p_provenance` MODEL_ESTIMATE + limitation `SUSPENSION` (and
+  `SUSPENSION_LENGTH_UNKNOWN` when applicable).
+This closes F6: a known 2-game suspension with >2 games left no longer zeroes the
+whole ROS.
+
+## 20.F7 — Route-tier confidence input (capped value)
+
+The AIL career-route **tier** penalty (§10 / §8.2) is computed on the **capped
+emitted value** `min(estimate, TIER_CEILING[pos])` (§8.4), **not** the uncapped
+sidecar estimate. Rationale: using the capped value guarantees an estimated route
+count always lands in a *penalized* tier (WR ≤299 → `100–299` or `<100`; TE ≤399), so
+the D1 guardrail (estimates only add uncertainty) is preserved in the AIL's own
+confidence, not only in the engine's. Closes F7.
+
+## 20.F8 — Serialized field membership
+
+The serialized `fields` array contains **exactly the supplement `InferredField`s the
+AIL emits** — i.e. the non-metadata engine supplement keys (main §32.3). **Metadata
+keys do not appear in `fields`** (they are produced by the canonical pipeline, not the
+AIL). Order = **the declaration order of the engine input interface's supplement keys**
+(`WRMVPInput`/`RBMVPInput`/`TEMVPInput`/`QBMVPInput` minus the metadata keys), which is
+fixed and verifiable. The §15.1 phrase "metadata keys first" is **removed**. Closes F8.
+
+## 20.F9 — Critical sources (source_quality_factor)
+
+`critical_sources(pos)` = the deterministic set of source families feeding the
+position's CRITICAL fields (§11.2), via the field→family map:
+
+| CRITICAL field group | source family |
+|---|---|
+| snap/route/target/carry shares, career counts | nflverse weekly + snaps (+ participation for WR routes) |
+| `projected_team_*`, environment | nflverse weekly (+ pbp) + schedule |
+| `expected_games_remaining` | schedule + injury report |
+| QB `career_starts`, `expected_active_game_pass_attempts` | nflverse weekly (+ official starts feed if present) |
+
+`min_source_freshness = min over critical_sources of freshness(source)`, where
+`freshness = 1.0 if the source's age ≤ its TTL else 0.7` (§11.3). Rules:
+- a critical field with **multiple** sources uses the **freshest** (max) of its
+  sources for that field, then the position min is taken across fields;
+- an **absent** critical source → its freshness contributes `0.7` (stale-equivalent),
+  not 0, so a single missing source does not zero the factor (it already floors at
+  0.6 per §11.3);
+- a **present-null** critical field → its source(s) still contribute freshness
+  normally (the null is a data-sufficiency issue, handled in confidence, not source
+  freshness);
+- a **stale** critical source → `0.7`. Closes F9.
+
+## 20.F10 — Competition teammate set
+
+`teammates(subject) =` all players **at the subject's position** on the subject's
+**team's current roster snapshot** (the roster fact with the greatest
+`sourceTimestamp ≤ asOf`), **including** IR/PUP/NFI/SUSPENDED/PRACTICE_SQUAD/reserve
+members (each down-weighted by `health = availability_prob(state)` per §7.1, so
+IR≈0.05, suspended≈0.0), **excluding** the subject player and any FREE_AGENT (no team).
+Duplicate/team-transition: a player is a teammate only of the team on the current
+snapshot; a mid-week move (S9) with `sourceTimestamp ≤ asOf` moves the player to the
+new team's set. Ties (identical timestamps) → the roster snapshot with the
+lexicographically greatest `snapshotId`. Closes F10.
+
+## 20.F11 — Derived feature extraction (binding table)
+
+Each: source priority; as-of constraint (`sourceTimestamp ≤ asOf`); tie-break;
+missing behaviour (→ the consuming formula's fallback / null).
+
+| Feature | Extraction | Tie-break | Missing |
+|---|---|---|---|
+| `years_with_team` | count of distinct seasons the player appears on the current team in roster history ≤ asOf (current partial season counts as 1) | — | 0 |
+| `prior_season_team` | team of the player's **final regular-season game** in the most recent completed season (weekly stats) | latest week; then greatest `snapshotId` | null → `new_team_flag`/`team_change` computed as false (no evidence of change), limitation `PRIOR_TEAM_UNKNOWN` |
+| acquisition date / "acquired ≤ 8 weeks" | latest transaction (S9) of type sign/trade-in for the player with `date ≤ asOf`; "≤ 8 weeks" iff `asOf − date ≤ 56 days` | latest date | no txn → flag false |
+| "returned ≤ 8 weeks" | latest activation/return-to-active event ≤ asOf; `asOf − date ≤ 56 days` | latest | no event → false |
+| covered games (WR route proxy) | games with `sourceTimestamp ≤ asOf` whose participation/pbp snapshot supplies qualifying pass-play participation for the player | — | 0 covered → route estimate `UNAVAILABLE` (§8.3) |
+| team assignment (player changed teams) | the team on the current roster snapshot ≤ asOf; usage aggregates use the team the player was on **at each game** | greatest `snapshotId` | null team → team-dependent fields `NOT_APPLICABLE` (§23-edge) |
+| season-to-date window | games with kickoff in `[season_start, asOf)` for the current season | — | 0 games → preseason branch (§2.1) |
+| rolling l4 / l8 window | the player's most recent 4 / 8 **team** games with kickoff `< asOf` in which the player has a usage row | order by kickoff desc; ties by greatest game id | fewer than window → use available (coverage < 1) |
+| postseason games | **excluded** from all windows and career counts in V1 (regular season only; `POSTSEASON_EXCLUDED`) | — | — |
+
+Closes F11.
+
+## 20.F12 — Categorical explanation contributions
+
+Categorical driver fragments receive a **fixed contribution constant** `κ` (ranked
+against numeric drivers' `|Δ|` on the same scale, §14):
+
+| Categorical driver | κ |
+|---|---|
+| role `PROMOTED` / `DEMOTED` | 0.12 |
+| competition band ELEVATED / HIGH | 0.08 / 0.12 |
+| roster-security band LOW / HIGH | 0.08 / 0.06 |
+| injury/availability QUESTIONABLE / DOUBTFUL / OUT-tier | 0.06 / 0.10 / 0.15 |
+| `NEUTRAL_DEFAULT` / reduced-signal limitation present | 0.05 |
+| other categorical fragment | 0.05 |
+
+Inclusion threshold same as numeric drivers (`κ ≥ EXPLANATION_MIN_CONTRIB = 0.01` —
+all above qualify). Ranking: by contribution (`|Δ|` or `κ`) descending; **ties
+(including a numeric `|Δ|` equal to a categorical `κ`) break by fragment `code`
+ascending (lexicographic)** — deterministic. Structural fragments still follow their
+fixed order after drivers (§14). Closes F12.
+
+---
+
+# 21. Canonical AIL environment reference `air-env-ref-1.0.0` (F1 artifact)
+
+Percentile reference for **all** AIL environment scores, position-independent.
+Method: mid-rank `pct` (§1); ties `+0.5·equal`; no interpolation; clamp `[0,100]`;
+score rounded to integer. Arrays are ascending. Reused from frozen-engine arrays with
+matching semantics (`ENGINE_PRECEDENT`); no new values invented.
+
+| Component | Source | Array |
+|---|---|---|
+| `team_points_per_drive` | WR ref JSON (ENGINE_PRECEDENT) | `[1.2,1.35,1.45,1.55,1.65,1.75,1.85,1.95,2.05,2.15,2.25,2.35,2.5,2.65,2.8,3.0]` |
+| `projected_team_dropbacks` | WR ref JSON (ENGINE_PRECEDENT) | `[27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42]` |
+| `projected_team_non_qb_rush_attempts` | RB ref JSON (ENGINE_PRECEDENT) | `[18,19,20,21,22,23,24,25,26,27,28,29,30]` |
+| `team_red_zone_trips_per_game` | RB ref JSON (ENGINE_PRECEDENT) | `[1.8,2.1,2.4,2.7,3.0,3.2,3.4,3.6,3.9,4.2,4.5,4.8]` |
+| `adjusted_yards_per_attempt` | QB ref (ENGINE_PRECEDENT) | `[4.0,4.7,5.2,5.6,5.9,6.2,6.5,6.8,7.0,7.2,7.4,7.7,8.0,8.3,8.7,9.2,9.8,10.6]` |
+| `sack_rate` | QB ref (ENGINE_PRECEDENT) | `[0.025,0.035,0.042,0.048,0.054,0.06,0.066,0.072,0.078,0.084,0.091,0.099,0.108,0.118,0.13,0.145,0.165,0.2]` |
+
+- **Version:** `air-env-ref-1.0.0`. **Ordering for checksum:** object keys sorted
+  ascending, `reference_version` included, arrays verbatim, compact JSON
+  (`separators (',',':')`, no whitespace).
+- **Checksum:** `digest(canonical_json) = a1b95e93d706e130` (FNV-1a two-pass,
+  `pipeline/hash.ts`). The exact canonical string is reproduced in §22 fixture 1.
+- **Position-specificity:** none. The same array is used for every position that
+  passes a given component through `pct` (F1's "same AIL array regardless of position"
+  requirement). No justified position-specific override exists in V1.
+
+---
+
+# 22. Specification fixtures (deterministic worked cases)
+
+Each states expected value/status/provenance/confidence/readiness/serialized effect.
+Confidence on 0..1000; bands LOW_BAND 600 / HIGH_BAND 800.
+
+**Fx1 — same environment input, two positions, identical percentile.** Team with
+`team_points_per_drive = 2.05`. `pct(2.05, air-env-ref)` over the 16-value array:
+below = 8 (1.2…1.95), equal = 1 → `100·(8 + 0.5)/16 = 53.125 → 53`. Evaluated for a
+WR and for a QB → **both** use `air-env-ref-1.0.0` → identical component percentile
+53. Canonical env-ref JSON string:
+`{"adjusted_yards_per_attempt":[4.0,4.7,5.2,5.6,5.9,6.2,6.5,6.8,7.0,7.2,7.4,7.7,8.0,8.3,8.7,9.2,9.8,10.6],"projected_team_dropbacks":[27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42],"projected_team_non_qb_rush_attempts":[18,19,20,21,22,23,24,25,26,27,28,29,30],"reference_version":"air-env-ref-1.0.0","sack_rate":[0.025,0.035,0.042,0.048,0.054,0.06,0.066,0.072,0.078,0.084,0.091,0.099,0.108,0.118,0.13,0.145,0.165,0.2],"team_points_per_drive":[1.2,1.35,1.45,1.55,1.65,1.75,1.85,1.95,2.05,2.15,2.25,2.35,2.5,2.65,2.8,3.0],"team_red_zone_trips_per_game":[1.8,2.1,2.4,2.7,3.0,3.2,3.4,3.6,3.9,4.2,4.5,4.8]}`
+→ `digest = a1b95e93d706e130`.
+
+**Fx2 — nullable INSUFFICIENT_DATA field + WGM.** WR `average_depth_of_target`
+(nullable, non-critical, weight 1.0) has no air-yards data → `status
+INSUFFICIENT_DATA`, `value null`, `provenance null`, `conf 200` (§20.F2). It **enters
+the WGM** at weight 1.0, conf 200; it is **not** critical so `weakest_critical`
+unaffected. A player otherwise at conf 850 across 9 fields: WGM drops modestly (one
+`ln(200)` term among ten) — player stays evaluable, not collapsed. Readiness: nullable
+→ present-null → **still READY**. Serialized: field present with `value:null,
+status:"INSUFFICIENT_DATA"`.
+
+**Fx3 — non-nullable missing enum, with/without authorized neutral.** (a) `route_role_change`
+(kind c, authorized neutral `UNKNOWN`) with no window coverage → emit **present**
+`value "UNKNOWN"`, `status LOW_CONFIDENCE`, `provenance MODEL_CLASSIFICATION`, `conf
+400`, limitation `NEUTRAL_DEFAULT`; **READY**. (b) A hypothetical non-nullable numeric
+with no neutral (e.g. `career_routes` UNAVAILABLE) → **omitted** from supplement →
+**NOT_READY**. Same "missing" input, opposite readiness, per kind.
+
+**Fx4 — WR strong target share, null routes.** `route_participation_last4 = null`,
+`target_share = 0.26`. Full ladder rule 1 references null → false; primary signal null
+→ **reduced WR ladder** (§20.F4): rule 1 `target_share ≥ 0.24` → **`high_volume_primary`**
+(not `reserve_developmental`), `+CLASS_REDUCED_PENALTY 80`, limitation
+`REDUCED_SIGNAL_ROLE`. `route_role_change` from reduced signals; `route_participation_*`
+emitted present-null (nullable). Readiness unaffected by the null nullable field.
+
+**Fx5 — data at TTL, at hard bound, one beyond.** Injury source TTL 7, hard_bound 10.
+age = 7 → FRESH (`p_recency 0`). age = 10 → STALE_USABLE (`p_recency 60`, limitation
+`STALE`). age = 11 → UNUSABLE → `practice_status` (kind c) emits neutral `UNKNOWN`
+(§20.F3), `expected_games_remaining` recomputed without the stale injury signal (uses
+HEALTHY-equivalent only if no other injury evidence, else the last usable state) with
+limitation `STALE`. No `(10,14]` ambiguity (§20.F5).
+
+**Fx6 — known two-game suspension, >2 games left.** `games_left = 9`,
+`known_suspended_remaining = 2`, `durability = 1.0`. `playable = 7`;
+`expected_games_remaining = round1(7 · 0.97 · 1.0) = round1(6.79) = 6.8`. Not 0.0
+(§20.F6). Limitation `SUSPENSION`.
+
+**Fx7 — estimated WR routes above D1 ceiling.** Estimate = 1500 (proxy). Emitted
+`career_routes = min(1500, 299) = 299` (§8.4). AIL route-tier penalty uses **299** →
+`100–299` tier → −80 (§20.F7) **plus** `ROUTE_PROXY_PENALTY 120`. Sidecar records
+uncapped 1500. Engine's own `100–299` low-exposure penalty stays in force — estimate
+cannot reach the unpenalized `≥300` tier. Provenance `PROXY`.
+
+**Fx8 — QB inferred functional starts that would otherwise be "established."**
+`recent_start_rate = 0.94`, `career_starts_est = 60`, but starts `provenance =
+MODEL_ESTIMATE` (inferred). `role_status` rule 3 predicate includes `starts_official`
+(§20.D2 = provenance ∈ {DIRECT, DERIVED}) → **false** → rule 3 skipped → rule 4
+(`recent_start_rate ≥ 0.80 AND seasons ≤ 4`) or else `COMPETITION/BACKUP` →
+**not `ESTABLISHED_STARTER`**. Limitation `INFERRED_START_NOT_OFFICIAL`. With an
+official feed (`provenance DIRECT`), the same inputs → `ESTABLISHED_STARTER`.
+
+**Fx9 — metadata excluded from serialized fields.** `fields` for a WR contains the 22
+supplement `InferredField`s in `WRMVPInput` supplement-key declaration order; `player_id,
+player_name, team, age, nfl_seasons_completed, draft_round, injury_status,
+as_of_timestamp` (metadata) are **not** in `fields` (§20.F8).
+
+**Fx10 — categorical vs numeric explanation tie.** A numeric driver `target_share`
+with `|Δ| = 0.12` and a categorical `role PROMOTED` with `κ = 0.12` tie. Ranking:
+equal contribution → **tie-break by fragment `code` ascending**; codes
+`ROLE_PROMOTED` < `TARGET_SHARE_RISING` (lexicographic, `R` < `T`) → `ROLE_PROMOTED`
+first. Deterministic (§20.F12).
+
+---
+
+# 23. Post-correction verification
+
+## 23.1 Finding-closure matrix
+
+| Finding | Corrected section | Binding rule | Verification | Status |
+|---|---|---|---|---|
+| F1 | §20.F1, §21 | one `air-env-ref-1.0.0` for all positions; arrays enumerated; checksum `a1b95e93d706e130` | recomputed digest matches (§22 Fx1) | CLOSED |
+| F2 | §20.F2 | fixed conf (200/100/400), WGM membership, NOT_APPLICABLE excluded | Fx2 traced | CLOSED |
+| F3 | §20.F3 (+ main §5.2/§5.5 patch) | single emission table; neutral emission status/prov/conf/limitation defined | Fx3 traced; main-spec patched | CLOSED |
+| F4 | §20.F4 | null-predicate = false; reduced ladders per position | Fx4 traced | CLOSED |
+| F5 | §20.F5 | 3-state lifecycle; `2·TTL` clause removed | Fx5 traced | CLOSED |
+| F6 | §20.F6 | suspension carved out of uniform multiply | Fx6 traced | CLOSED |
+| F7 | §20.F7 | tier penalty uses capped value | Fx7 traced | CLOSED |
+| F8 | §20.F8 | fields = supplement-only; interface declaration order; "metadata first" removed | Fx9 traced | CLOSED |
+| F9 | §20.F9 | critical_sources map; multi-source/absent/null/stale rules | rules enumerated | CLOSED |
+| F10 | §20.F10 | exact teammate set + snapshot + inclusion list + tie-break | rule enumerated | CLOSED |
+| F11 | §20.F11 | feature-extraction table (8 features) | table enumerated | CLOSED |
+| F12 | §20.F12 | categorical κ table + cross-rank tie-break | Fx10 traced | CLOSED |
+
+## 23.2 Symbol / open-choice trace (main §5–16, §32)
+
+Every symbol previously traced in §18.1 remains singly-defined; the correction pass
+adds these and confirms one binding definition each: env percentile reference
+(§21); null-field confidence (§20.F2); emission table (§20.F3, supersedes §12);
+null-signal ladder behaviour (§20.F4); freshness lifecycle (§20.F5, supersedes §16
+degrade clause); suspension expected-games (§20.F6, supersedes §7.1 SUSPENDED prose);
+route-tier input (§20.F7); serialized field membership (§20.F8, supersedes §15.1
+"metadata first"); critical_sources (§20.F9); teammate set (§20.F10); feature
+extraction (§20.F11); categorical explanation κ (§20.F12). **Duplicated definitions:**
+the emission rule now lives in §12 **and** §20.F3 — §20.F3 is the binding superset and
+§12 is consistent with it (kinds a/b identical; §20.F3 adds the c/d neutral rows);
+the freshness rule lives in §16 (table) and §20.F5 (lifecycle) — identical thresholds,
+§20.F5 governs state transitions. No conflicting duplicates remain.
+
+## 23.3 Contradiction search
+
+- **Status/null/provenance:** main §5.2 patched; neutral emissions defined (§20.F3);
+  no INSUFFICIENT_DATA-implies-null conflict for enum/bool. ✔
+- **Readiness:** emission table (§20.F3) is the sole authority; consistent with
+  `assessFromSupplement` (present-even-null satisfied; omitted missing). ✔
+- **Confidence:** null-field conf fixed (§20.F2); route-tier input fixed (§20.F7). ✔
+- **Freshness:** single lifecycle (§20.F5); `2·TTL` removed. ✔
+- **Merge precedence:** unchanged (§13); facts win over estimates. ✔
+- **Serialization:** fields = supplement-only, interface order (§20.F8). ✔
+- **Engine-owned fallbacks:** TE route proxy still engine-owned; AIL supplies
+  `snap_share_last4`, leaves `route_participation_*` null (§7.4, §8.1). ✔
+- **Reference distributions:** single AIL env reference (§21); per-engine arrays not
+  used for AIL percentiles. ✔
+
+## 23.4 D1 / D2 recheck
+
+**D1:** WR `×0.97` authorized WR-only (§8.1); RB uses `0.42` window-only; TE
+engine-owned; `TIER_CEILING` cap keeps engine low-exposure penalties in force and the
+AIL tier penalty uses the capped value (§20.F7). No cross-position leakage. ✔
+
+**D2 (provenance corrected):** the repository provenance taxonomy is `DIRECT | DERIVED
+| FALLBACK` (`pipeline/types.ts`), plus the AIL-only `MODEL_ESTIMATE |
+MODEL_CLASSIFICATION | PROXY`; the AIL never emits `DIRECT`. **Correction:** the D2
+guardrail predicate is now `starts_official := starts.provenance ∈ {DIRECT, DERIVED}`
+(an official-starts *source fact* merges as `DIRECT`; a count computed from official
+per-game starter flags is `DERIVED`; inferred functional starts are `MODEL_ESTIMATE`).
+`ESTABLISHED_STARTER` requires `starts_official = true` (§3.4 rule 3, §20.F3-Fx8), so
+inferred (`MODEL_ESTIMATE`) starts can never reach the established tier. The prior
+"`= DERIVED`" wording (which would have excluded a legitimate `DIRECT` official feed)
+is superseded. Official vs inferred remain semantically distinct; threshold `T_START
+10`, window 17, partial/missed-game rules unchanged (§9). ✔
+
+## 23.5 Two-developer convergence
+
+With §20–§22 added and main §5.2/§5.3/§5.5 reconciled, the six Major and six Minor
+divergence sources are each resolved by a single binding rule with a worked fixture.
+**Verdict: PASS.** Two competent developers implementing the combined contract from
+identical inputs now produce materially equivalent inferred values, confidence,
+readiness, explanations, provenance, and serialized bytes; residual freedom is limited
+to the shared registry constants, which are identical by construction.
+
+---
+
+*End of AUTOMATED_INFERENCE_NUMERIC_REGISTRY_V1 (air-1.1.0).*

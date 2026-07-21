@@ -465,6 +465,18 @@ interface InferredField<T> {
   authorized proxy). `value=null`, `provenance=null`.
 - `NOT_APPLICABLE` ⇔ field undefined for the state (e.g. `recent_starts` for a QB
   with zero recent games — see S13); `value=null`, distinct from `UNAVAILABLE`.
+- **Neutral-default exemption (governs for enum/bool fields):** the `value=null,
+  provenance=null` rule above applies to kinds (a) nullable numeric/string and
+  (b) non-nullable numeric/string only. For a **non-nullable enum or boolean field
+  whose engine contract defines a neutral member** and for which the registry
+  authorizes that member as the field's fallback (Registry §12, §20.F3), the field
+  is instead emitted **present** with `status = LOW_CONFIDENCE`, `value = the
+  authorized neutral member`, `provenance = MODEL_CLASSIFICATION`, limitation
+  `NEUTRAL_DEFAULT`, and the neutral-default confidence of Registry §20.F2/F3. It is
+  never `AVAILABLE` (missing knowledge is never presented as available), and it keeps
+  the player evaluable (present, so readiness is not failed by an enum that has a
+  defined UNKNOWN/neutral state). The Numeric Registry emission matrix (§12) is the
+  single binding table.
 
 ## 5.3 Numeric precision & ordering
 
@@ -472,10 +484,11 @@ interface InferredField<T> {
   to avoid float drift. Public display maps to 0–100 by integer division rules
   (Section 16.4).
 - **Value precision:** each field declares a fixed decimal precision in the model
-  registry (shares/rates → 4 dp; per-game volumes → 2 dp; counts → integer;
-  scores 0–100 → 2 dp). Rounding is round-half-to-even at serialization only;
-  internal math is full precision. This mirrors the engines' own "store full
-  precision, round at boundary" rule (`stats/derive.ts`).
+  registry (Registry §1.1 precision table is binding; scores 0–100 → **integer**).
+  Rounding is **round half away from zero** at serialization only (Registry §1,
+  reusing `te-model/percentiles.ts roundTo`; this supersedes the earlier
+  "round-half-to-even" wording); internal math is full precision. This mirrors the
+  engines' own "store full precision, round at boundary" rule (`stats/derive.ts`).
 - **Serial ordering:** fields serialize in a fixed registry order per position;
   `inputsUsed` sorted by `featureKey`; `assumptions`/`limitations` sorted by code;
   `explanation` in emission order defined by the explanation composer (Section 17).
@@ -492,9 +505,14 @@ interface InferredField<T> {
 
 ## 5.5 Omitted vs. null
 
-- A field the AIL is responsible for is **always emitted** (never omitted) — with
-  `value:null` + a status when it cannot estimate. Omission is reserved for fields
-  outside the position's schema (e.g. QB fields on a WR record).
+- Every field the AIL is responsible for is **always represented in the
+  `InferredField` array** (never dropped from it). Whether it is then *emitted into
+  the `MetricsSupplement`* as present-value, present-null, or **omitted** is governed
+  solely by the Registry §12 emission matrix (a non-nullable numeric field that
+  cannot be estimated is omitted from the supplement → `NOT_READY`; a nullable field
+  is present-null; an authorized neutral enum/bool is present with its neutral
+  member). The earlier "never omitted from the supplement" phrasing is superseded by
+  Registry §12. Fields outside the position's schema appear in neither collection.
 - `null` value + `INSUFFICIENT_DATA`/`UNAVAILABLE`/`NOT_APPLICABLE` are distinct
   and must round-trip; a consumer must never coerce `null` to 0 (constitution
   P23; pipeline "never invent a value").

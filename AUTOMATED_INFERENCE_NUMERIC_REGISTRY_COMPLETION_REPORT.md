@@ -141,3 +141,89 @@ Both documents committed and pushed to `claude/playerticker-automated-inference-
 No main-spec edit (reconciliations documented in-registry per the task's contradiction
 rule — none rose to a binding-blocking contradiction). No engine, pipeline, or golden
 output changed. Working tree clean.
+
+---
+
+# Correction pass (registry air-1.1.0) — closing final-audit F1–F12
+
+The Final Cold-Session Registry Audit returned **PASS WITH MATERIAL CORRECTIONS**
+with six Major (F1–F6) and six Minor (F7–F12) findings. This pass applies the smallest
+deterministic corrections and re-verifies. Registry bumped `air-1.0.0 → air-1.1.0`;
+new binding content in Registry §20 (closures), §21 (canonical env reference), §22
+(fixtures), §23 (verification). Main spec patched only where a direct contradiction
+required it.
+
+## C.1 Finding-closure matrix
+
+| Finding | Fix location | Binding rule | Status |
+|---|---|---|---|
+| F1 environment refs unpinned/divergent | Reg §20.F1, §21 | one `air-env-ref-1.0.0` (checksum `a1b95e93d706e130`), position-independent, arrays enumerated from frozen-engine sources | CLOSED |
+| F2 null-field confidence undefined | Reg §20.F2 | conf 200 (INSUFFICIENT) / 100 (UNAVAILABLE) / 400 (NEUTRAL_DEFAULT); NOT_APPLICABLE excluded; WGM/critical/coverage membership fixed | CLOSED |
+| F3 §5.2 vs §12c enum/bool contradiction | Reg §20.F3 + **main §5.2/§5.5 patch** | one emission table; neutral emission = LOW_CONFIDENCE + MODEL_CLASSIFICATION + conf 400 + NEUTRAL_DEFAULT, present (READY) | CLOSED |
+| F4 null-signal role ladders | Reg §20.F4 | null predicate = false; per-position reduced ladders; productive null-route WR → high_volume_primary | CLOSED |
+| F5 stale-band vs hard-bound overlap | Reg §20.F5 | 3-state lifecycle; `2·TTL` clause removed; upper-closed boundaries | CLOSED |
+| F6 suspension vs uniform avail_prob | Reg §20.F6 | suspension carved out; `playable·0.97·durability`; unknown length → 0.0 | CLOSED |
+| F7 route-tier capped vs uncapped | Reg §20.F7 | tier penalty uses **capped** emitted value (preserves D1 guardrail) | CLOSED |
+| F8 serialized fields membership | Reg §20.F8 | fields = supplement-only; interface declaration order; "metadata first" removed | CLOSED |
+| F9 critical sources undefined | Reg §20.F9 | critical_sources map + multi/absent/null/stale rules | CLOSED |
+| F10 teammate set membership | Reg §20.F10 | roster snapshot + inclusion list (IR/PUP/PS incl., FA/self excl.) + tie-break | CLOSED |
+| F11 derived-feature extraction | Reg §20.F11 | 8-feature extraction table (source priority, as-of, tie-break, missing) | CLOSED |
+| F12 categorical explanation weights | Reg §20.F12 | κ table + cross-rank tie-break by code | CLOSED |
+
+## C.2 Main-spec contradictions reconciled (3 targeted edits)
+
+1. **§5.2** — added the neutral-default exemption so an authorized enum/bool neutral
+   member is a present `LOW_CONFIDENCE`/`MODEL_CLASSIFICATION` emission, not a null
+   (resolves F3). 2. **§5.3** — rounding changed from "half-to-even" to **half away
+   from zero** (repo `roundTo`), scores 0–100 → integer; points to Registry §1.1.
+   3. **§5.5** — "never omitted" replaced by deferral to the Registry §12/§20.F3
+   emission matrix (non-nullable numeric that cannot be estimated is omitted). No
+   other main-spec change; no engine/pipeline/golden change.
+
+## C.3 D1/D2 recheck (provenance corrected against the real taxonomy)
+
+Repository provenance is `DIRECT | DERIVED | FALLBACK` (`pipeline/types.ts`); the AIL
+adds `MODEL_ESTIMATE | MODEL_CLASSIFICATION | PROXY` and never emits `DIRECT`. The D2
+guardrail predicate was corrected from the prior report's `= DERIVED` to
+`starts_official := provenance ∈ {DIRECT, DERIVED}` (an official-starts *source fact*
+merges as `DIRECT`; the earlier wording would have wrongly excluded a real official
+feed). `ESTABLISHED_STARTER` requires `starts_official = true` (Reg §3.4 rule 3,
+§20.F3-Fx8), so inferred (`MODEL_ESTIMATE`) starts cannot reach the established tier.
+D1: WR ×0.97 WR-only, RB 0.42 window-only, TE engine-owned, `TIER_CEILING` cap +
+capped-value tier penalty preserve engine low-exposure penalties. Both verified in
+Reg §23.4.
+
+## C.4 Specification fixtures
+
+Ten deterministic worked cases added (Reg §22): env percentile cross-position (Fx1,
+`pct(2.05)=53`, digest `a1b95e93d706e130`); nullable INSUFFICIENT_DATA WGM (Fx2);
+enum neutral vs numeric-omit (Fx3); null-route WR → high_volume_primary (Fx4);
+TTL/hard-bound boundaries (Fx5); known 2-game suspension → 6.8 games (Fx6); D1 route
+cap (Fx7); inferred-start non-promotion (Fx8); metadata excluded from fields (Fx9);
+categorical/numeric explanation tie (Fx10). Arithmetic independently recomputed:
+`pct(2.05)=53.125→53`; `round1(7·0.97)=6.8`; env-ref `digest=a1b95e93d706e130`.
+
+## C.5 Validation commands & outcomes (spec-only change)
+
+| Command | Result |
+|---|---|
+| `npm run typecheck` (`tsc -b --noEmit` + te + qb) | PASS (no errors) |
+| `npm test` (`vitest run`) | **982 passed (96 files)** — unchanged |
+| `npm run build` (`tsc -b && vite build`) | PASS (exit 0; pre-existing chunk-size warning only) |
+| `git status` | only the two spec `.md` files modified; `dist/` gitignored; tree otherwise clean |
+
+No engine, pipeline, or golden-output behaviour changed (test count identical).
+
+## C.6 Final convergence verdict & readiness
+
+**PASS.** All twelve findings CLOSED with single binding rules and worked fixtures;
+symbol trace shows one binding definition each (duplicates in §12/§20.F3 and §16/§20.F5
+verified identical/superseding); contradiction search clean.
+
+Implementation-readiness (post-correction): **determinism 97**, **implementation
+precision 96**, **repository compatibility 96**, **reproducibility 98**, **overall 96**.
+Residual deductions are solely: the MVP_HEURISTIC constants remain empirically
+uncalibrated (governed by the main-spec §19 walk-forward gate; does not affect
+convergence), and full live readiness still depends on candidate sources (pbp split,
+official-starts feed) verified at implementation. Neither affects whether two
+implementations converge on identical outputs from identical inputs — they do.
