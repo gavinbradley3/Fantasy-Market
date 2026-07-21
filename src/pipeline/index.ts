@@ -112,3 +112,20 @@ export { buildParticipationSupplement, type BuiltParticipationSupplement, type P
 export { runParticipationStage, type ParticipationStageResult, type ParticipationOptions } from '@/pipeline/participation/runParticipation';
 export type { ParticipationPlay, CoverageState, CoverageInfo, PlayerParticipationAggregate } from '@/pipeline/participation/types';
 export type { ParticipationStageReport } from '@/pipeline/report';
+
+// ---- readiness-frontier audit (player-level counterfactuals) ----
+export {
+  computeFrontier,
+  SCENARIOS,
+  type FrontierReport,
+  type PlayerFrontier,
+  type PositionSummary,
+  type FieldCriticality,
+  type ScenarioId,
+} from '@/pipeline/readiness-audit/frontier';
+export { renderFrontier } from '@/pipeline/readiness-audit/render';
+export {
+  classifyField,
+  type AvailabilityClass,
+  type FieldClassification,
+} from '@/pipeline/readiness-audit/classifier';

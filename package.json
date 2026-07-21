@@ -19,7 +19,8 @@
     "pipeline:fixture": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/run-pipeline.ts --mode fixture --now 2026-07-01T00:00:00.000Z",
     "pipeline:stats": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/run-pipeline.ts --mode fixture --stats --season 2025 --now 2026-07-01T00:00:00.000Z",
     "pipeline:snaps": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/run-pipeline.ts --mode fixture --stats --snaps --season 2025 --now 2026-07-01T00:00:00.000Z",
-    "pipeline:participation": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/run-pipeline.ts --mode fixture --stats --snaps --participation --season 2025 --now 2026-07-01T00:00:00.000Z"
+    "pipeline:participation": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/run-pipeline.ts --mode fixture --stats --snaps --participation --season 2025 --now 2026-07-01T00:00:00.000Z",
+    "pipeline:readiness-audit": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/readiness-audit.ts --now 2026-07-01T00:00:00.000Z"
   },
   "dependencies": {
     "react": "^18.3.1",
