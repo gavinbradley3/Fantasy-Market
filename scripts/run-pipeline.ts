@@ -39,6 +39,7 @@ import type { MetricsSupplements } from '@/pipeline/readiness/engineReadiness';
 import { verifyStatsSnapshot, type StatsSnapshot } from '@/pipeline/stats/snapshot';
 import type { StatsStageOptions } from '@/pipeline/stats/runStats';
 import type { SnapStageOptions } from '@/pipeline/snaps/runSnaps';
+import type { ParticipationOptions } from '@/pipeline/participation/runParticipation';
 import { DEFAULT_STALE_MAX_AGE_MS, PIPELINE_SCHEMA_VERSION } from '@/pipeline/constants';
 import { SleeperClient } from '@/services/marketData/live/sleeperClient';
 
@@ -68,6 +69,8 @@ interface Args {
   includePostseason: boolean;
   snaps: boolean;
   snapSnapshots: string;
+  participation: boolean;
+  participationSnapshots: string;
 }
 
 function parseArgs(argv: string[]): Args {
@@ -83,6 +86,8 @@ function parseArgs(argv: string[]): Args {
     includePostseason: false,
     snaps: false,
     snapSnapshots: DEFAULTS.statsSnapshots,
+    participation: false,
+    participationSnapshots: DEFAULTS.statsSnapshots,
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -107,6 +112,8 @@ function parseArgs(argv: string[]): Args {
       case '--stats-snapshots': args.statsSnapshots = next(); break;
       case '--snaps': args.snaps = true; break;
       case '--snap-snapshots': args.snapSnapshots = next(); break;
+      case '--participation': args.participation = true; break;
+      case '--participation-snapshots': args.participationSnapshots = next(); break;
       case '--season': {
         const s = Number(next());
         if (!Number.isInteger(s)) throw new Error('invalid --season');
@@ -164,6 +171,10 @@ function loadStatsSnapshots(dir: string): { snapshots: StatsSnapshot[]; failures
 
 function loadSnapSnapshots(dir: string): { snapshots: StatsSnapshot[]; failures: string[] } {
   return loadNamedStatsSnapshot(dir, 'nflverse.snap_counts.snapshot.json');
+}
+
+function loadParticipationSnapshots(dir: string): { snapshots: StatsSnapshot[]; failures: string[] } {
+  return loadNamedStatsSnapshot(dir, 'nflverse.participation.snapshot.json');
 }
 
 // Load + verify the committed snapshots. Integrity failures are collected (not
@@ -260,6 +271,17 @@ async function main(): Promise<number> {
     snapOptions = { currentSeason: args.currentSeason, includePostseason: args.includePostseason };
   }
 
+  // Optional participation stage (coverage-aware WR route proxy; 2016–2023).
+  let participationSnapshots: StatsSnapshot[] | undefined;
+  let participationFailures: string[] | undefined;
+  let participationOptions: ParticipationOptions | undefined;
+  if (args.participation) {
+    const loaded = loadParticipationSnapshots(args.participationSnapshots);
+    participationSnapshots = loaded.snapshots;
+    participationFailures = loaded.failures;
+    participationOptions = { currentSeason: args.currentSeason, includePostseason: args.includePostseason };
+  }
+
   const { report } = runPipeline({
     snapshots,
     integrityFailures: failures,
@@ -268,6 +290,9 @@ async function main(): Promise<number> {
     config,
     ...(statsSnapshots ? { statsSnapshots, statsIntegrityFailures: statsFailures, statsOptions } : {}),
     ...(snapSnapshots ? { snapSnapshots, snapIntegrityFailures: snapFailures, snapOptions } : {}),
+    ...(participationSnapshots
+      ? { participationSnapshots, participationIntegrityFailures: participationFailures, participationOptions }
+      : {}),
   });
 
   if (args.out) {

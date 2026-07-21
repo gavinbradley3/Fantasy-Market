@@ -10,10 +10,10 @@ stage** and the **nflverse snap-count / participation stage** (below). Later
 milestones add the projections and context stages.
 
 > See [`DATA_PIPELINE_STATS.md`](./DATA_PIPELINE_STATS.md) for the statistics
-> stage and [`DATA_PIPELINE_SNAPS.md`](./DATA_PIPELINE_SNAPS.md) for the
-> snap-count / participation stage: datasets, per-position field ownership,
-> the position-specific route-proxy authorization, and honest readiness
-> measurement.
+> stage, [`DATA_PIPELINE_SNAPS.md`](./DATA_PIPELINE_SNAPS.md) for the snap-count
+> stage, and [`DATA_PIPELINE_PARTICIPATION.md`](./DATA_PIPELINE_PARTICIPATION.md)
+> for the coverage-aware participation stage (its feasibility audit is
+> [`PARTICIPATION_FEASIBILITY.md`](./PARTICIPATION_FEASIBILITY.md)).
 
 ## Architecture at a glance
 

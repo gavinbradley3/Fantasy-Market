@@ -18,8 +18,20 @@ import {
 } from '@/pipeline/readiness/engineReadiness';
 import { runStatsStage, type StatsStageOptions, type StatsStageResult } from '@/pipeline/stats/runStats';
 import { runSnapStage, type SnapStageOptions, type SnapStageResult } from '@/pipeline/snaps/runSnaps';
+import {
+  runParticipationStage,
+  type ParticipationOptions,
+  type ParticipationStageResult,
+} from '@/pipeline/participation/runParticipation';
 import type { StatsSnapshot } from '@/pipeline/stats/snapshot';
-import type { PipelineReport, RejectionCount, SnapStageReport, StaleSnapshot, StatsStageReport } from '@/pipeline/report';
+import type {
+  ParticipationStageReport,
+  PipelineReport,
+  RejectionCount,
+  SnapStageReport,
+  StaleSnapshot,
+  StatsStageReport,
+} from '@/pipeline/report';
 import {
   PROVIDER_IDS,
   SUPPORTED_POSITIONS,
@@ -64,6 +76,11 @@ export interface PipelineInput {
   readonly snapSnapshots?: readonly StatsSnapshot[];
   readonly snapIntegrityFailures?: readonly string[];
   readonly snapOptions?: SnapStageOptions;
+
+  // Optional participation stage. Runs after snaps; coverage-aware WR route proxy.
+  readonly participationSnapshots?: readonly StatsSnapshot[];
+  readonly participationIntegrityFailures?: readonly string[];
+  readonly participationOptions?: ParticipationOptions;
 }
 
 export interface PipelineResult {
@@ -75,6 +92,8 @@ export interface PipelineResult {
   readonly statsResult?: StatsStageResult;
   /** Present when the snap stage ran; carries per-player field reports. */
   readonly snapResult?: SnapStageResult;
+  /** Present when the participation stage ran; carries coverage field reports. */
+  readonly participationResult?: ParticipationStageResult;
 }
 
 function emptyByProvider(): Record<ProviderId, number> {
@@ -192,6 +211,25 @@ export function runPipeline(input: PipelineInput): PipelineResult {
     readiness = readinessAfterSnaps;
   }
 
+  // 5d) Optional participation stage: coverage-aware WR route proxy, layered last.
+  let participationResult: ParticipationStageResult | undefined;
+  let participationStageReport: ParticipationStageReport | undefined;
+  if (input.participationSnapshots && input.participationSnapshots.length > 0 && input.participationOptions) {
+    const readinessBeforePart = readiness;
+    participationResult = runParticipationStage(canonicalPlayers, input.participationSnapshots, input.participationOptions);
+    mergedSupplements = mergeSupplements(mergedSupplements, participationResult.supplements);
+    const readinessAfterPart = canonicalPlayers
+      .map((p) => assessReadiness(p, mergedSupplements, config.asOf))
+      .sort((a, b) => a.canonicalId.localeCompare(b.canonicalId));
+    participationStageReport = buildParticipationStageReport(
+      participationResult,
+      readinessBeforePart,
+      readinessAfterPart,
+      input.participationIntegrityFailures ?? [],
+    );
+    readiness = readinessAfterPart;
+  }
+
   // 6) Assemble the report.
   const countsByPosition = emptyByPosition();
   for (const p of canonicalPlayers) countsByPosition[p.position] += 1;
@@ -218,14 +256,17 @@ export function runPipeline(input: PipelineInput): PipelineResult {
   const integrityFailures = input.integrityFailures ?? [];
   const statsIntegrityFailures = input.statsIntegrityFailures ?? [];
   const snapIntegrityFailures = input.snapIntegrityFailures ?? [];
+  const participationIntegrityFailures = input.participationIntegrityFailures ?? [];
   const ok =
     integrityFailures.length === 0 &&
     statsIntegrityFailures.length === 0 &&
     snapIntegrityFailures.length === 0 &&
+    participationIntegrityFailures.length === 0 &&
     allRecords.length > 0 &&
     resolution.duplicateCanonicalIds.length === 0 &&
     (statsResult?.join.identityCollisions.length ?? 0) === 0 &&
-    (snapResult?.join.identityCollisions.length ?? 0) === 0;
+    (snapResult?.join.identityCollisions.length ?? 0) === 0 &&
+    (participationResult?.identityCollisions.length ?? 0) === 0;
 
   const report: PipelineReport = {
     ok,
@@ -255,6 +296,7 @@ export function runPipeline(input: PipelineInput): PipelineResult {
     notReadyReasons,
     ...(statsStageReport ? { statsStage: statsStageReport } : {}),
     ...(snapStageReport ? { snapStage: snapStageReport } : {}),
+    ...(participationStageReport ? { participationStage: participationStageReport } : {}),
   };
 
   return {
@@ -264,6 +306,51 @@ export function runPipeline(input: PipelineInput): PipelineResult {
     conflicts,
     ...(statsResult ? { statsResult } : {}),
     ...(snapResult ? { snapResult } : {}),
+    ...(participationResult ? { participationResult } : {}),
+  };
+}
+
+// Participation-stage report + before/after readiness delta.
+function buildParticipationStageReport(
+  part: ParticipationStageResult,
+  before: readonly ReadinessSummary[],
+  after: readonly ReadinessSummary[],
+  integrityFailures: readonly string[],
+): ParticipationStageReport {
+  const beforeById = new Map(before.map((r) => [r.canonicalId, r]));
+  const remainingGaps = { stats: 0, projections: 0, context: 0 };
+  let eliminated = 0;
+  let newlyReady = 0;
+  for (const a of after) {
+    const b = beforeById.get(a.canonicalId);
+    if (b) eliminated += Math.max(0, b.missing.length - a.missing.length);
+    if (a.status === 'READY' && b && b.status !== 'READY') newlyReady += 1;
+    for (const m of a.missing) {
+      if (m.suppliedBy === 'stats') remainingGaps.stats += 1;
+      else if (m.suppliedBy === 'projections') remainingGaps.projections += 1;
+      else if (m.suppliedBy === 'context') remainingGaps.context += 1;
+    }
+  }
+  return {
+    snapshotsLoaded: part.snapshotsLoaded,
+    snapshotIntegrityFailures: integrityFailures,
+    playsAccepted: part.playsAccepted,
+    playsRejected: part.playsRejected,
+    rejections: part.rejections,
+    incompletePersonnelPlays: part.incompletePersonnelPlays,
+    canonicalJoins: part.canonicalJoins,
+    unmatchedGsis: part.unmatchedGsis.length,
+    identityCollisions: part.identityCollisions.length,
+    recordsByPosition: part.recordsByPosition,
+    completeRouteValues: part.completeRouteValues,
+    partialRouteValues: part.partialRouteValues,
+    blockersSatisfied: part.blockersSatisfied,
+    readinessBefore: before.filter((r) => r.status === 'READY').length,
+    readinessAfter: after.filter((r) => r.status === 'READY').length,
+    playersNewlyReady: newlyReady,
+    playersStillNotReady: after.filter((r) => r.status === 'NOT_READY').length,
+    missingFieldsEliminated: eliminated,
+    remainingGaps,
   };
 }
 

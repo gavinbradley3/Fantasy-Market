@@ -102,3 +102,13 @@ export {
 } from '@/pipeline/snaps/proxyRegistry';
 export type { SnapRecord, SnapWindowAggregate, PlayerSnapAggregate, SnapWindow } from '@/pipeline/snaps/types';
 export type { SnapStageReport } from '@/pipeline/report';
+
+// ---- participation stage (coverage-aware WR route proxy) ----
+export { parseParticipation, type ParticipationAdapterResult, type ParticipationRejectReason } from '@/pipeline/participation/nflverse/participationAdapter';
+export { qualifyPlay } from '@/pipeline/participation/playQualification';
+export { countParticipation, type ParticipationCounts } from '@/pipeline/participation/count';
+export { computeCoverage } from '@/pipeline/participation/coverage';
+export { buildParticipationSupplement, type BuiltParticipationSupplement, type ParticipationFieldReport } from '@/pipeline/participation/supplements';
+export { runParticipationStage, type ParticipationStageResult, type ParticipationOptions } from '@/pipeline/participation/runParticipation';
+export type { ParticipationPlay, CoverageState, CoverageInfo, PlayerParticipationAggregate } from '@/pipeline/participation/types';
+export type { ParticipationStageReport } from '@/pipeline/report';

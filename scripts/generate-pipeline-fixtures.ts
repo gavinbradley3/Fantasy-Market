@@ -50,7 +50,7 @@ function generateStatsDataset(rawFile: string, dataset: string, outFile: string)
     dataset,
     schemaVersion: PIPELINE_SCHEMA_VERSION,
     retrievedAt: RETRIEVED_AT,
-    seasons: [2024, 2025],
+    seasons: [], // derived from the rows (each dataset covers different seasons)
     weekRange: [1, 18],
     sourceRef: `nflverse-data/${dataset} (fixture subset)`,
   });
@@ -65,3 +65,6 @@ generate('sleeper', 'sleeper.players.sample.json');
 generate('nflverse', 'nflverse.players.sample.json');
 generateStatsDataset('nflverse.player_stats.sample.json', 'player_stats_weekly', 'nflverse.player_stats.snapshot.json');
 generateStatsDataset('nflverse.snap_counts.sample.json', 'snap_counts_weekly', 'nflverse.snap_counts.snapshot.json');
+// Synthetic participation fixture (real data withheld — licensing uncertain, see
+// docs/PARTICIPATION_FEASIBILITY.md §5). Coverage 2016–2023.
+generateStatsDataset('nflverse.participation.sample.json', 'pbp_participation', 'nflverse.participation.snapshot.json');

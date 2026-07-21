@@ -79,6 +79,36 @@ export interface PipelineReport {
 
   // Snap-count stage (present only when the snap stage ran).
   readonly snapStage?: SnapStageReport;
+
+  // Participation stage (present only when the participation stage ran).
+  readonly participationStage?: ParticipationStageReport;
+}
+
+// Participation-stage metrics. Coverage-aware: only a COMPLETE-horizon authorized
+// proxy can satisfy a blocking field, so `blockersSatisfied` is honest.
+export interface ParticipationStageReport {
+  readonly snapshotsLoaded: number;
+  readonly snapshotIntegrityFailures: readonly string[];
+  readonly playsAccepted: number;
+  readonly playsRejected: number;
+  readonly rejections: readonly StatsRejectionCount[];
+  readonly incompletePersonnelPlays: number;
+
+  readonly canonicalJoins: number;
+  readonly unmatchedGsis: number;
+  readonly identityCollisions: number;
+  readonly recordsByPosition: Readonly<Record<SupportedPosition, number>>;
+
+  readonly completeRouteValues: number;
+  readonly partialRouteValues: number;
+  readonly blockersSatisfied: number;
+
+  readonly readinessBefore: number;
+  readonly readinessAfter: number;
+  readonly playersNewlyReady: number;
+  readonly playersStillNotReady: number;
+  readonly missingFieldsEliminated: number;
+  readonly remainingGaps: { readonly stats: number; readonly projections: number; readonly context: number };
 }
 
 // Snap-count stage metrics. `readinessBefore/AfterSnaps` compare readiness with
@@ -234,6 +264,24 @@ export function renderReport(report: PipelineReport): string {
     L(`    readiness before snaps: ${s.readinessBeforeSnaps} → after snaps: ${s.readinessAfterSnaps}`);
     L(`    newly ready: ${s.playersNewlyReady}, still not ready: ${s.playersStillNotReady}`);
     L(`    missing fields eliminated by snaps: ${s.missingFieldsEliminatedBySnaps}`);
+    L(
+      `    remaining gaps → stats: ${s.remainingGaps.stats}, projections: ${s.remainingGaps.projections}, ` +
+        `context: ${s.remainingGaps.context}`,
+    );
+  }
+  if (report.participationStage) {
+    const s = report.participationStage;
+    L('  Participation stage:');
+    L(`    snapshots: ${s.snapshotsLoaded}, integrity failures: ${s.snapshotIntegrityFailures.length}`);
+    for (const f of s.snapshotIntegrityFailures) L(`      ! ${f}`);
+    L(`    plays accepted: ${s.playsAccepted}, rejected: ${s.playsRejected}, incomplete-personnel: ${s.incompletePersonnelPlays}`);
+    for (const r of s.rejections) L(`      - ${r.reason}: ${r.count}`);
+    L(`    joins: ${s.canonicalJoins} (unmatched gsis: ${s.unmatchedGsis}, identity collisions: ${s.identityCollisions})`);
+    L(`    complete route values: ${s.completeRouteValues}, partial (non-satisfying): ${s.partialRouteValues}`);
+    L(`    blocking fields satisfied: ${s.blockersSatisfied}`);
+    L(`    readiness before: ${s.readinessBefore} → after: ${s.readinessAfter}`);
+    L(`    newly ready: ${s.playersNewlyReady}, still not ready: ${s.playersStillNotReady}`);
+    L(`    missing fields eliminated: ${s.missingFieldsEliminated}`);
     L(
       `    remaining gaps → stats: ${s.remainingGaps.stats}, projections: ${s.remainingGaps.projections}, ` +
         `context: ${s.remainingGaps.context}`,

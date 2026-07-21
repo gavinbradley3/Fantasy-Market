@@ -77,6 +77,21 @@ export function buildSnapFixtureSnapshot(retrievedAt = '2026-07-01T00:00:00.000Z
   });
 }
 
+export function rawParticipationPayload(): unknown {
+  return readFixture('stats', 'raw', 'nflverse.participation.sample.json');
+}
+
+export function buildParticipationFixtureSnapshot(retrievedAt = '2026-07-01T00:00:00.000Z'): StatsSnapshot {
+  return buildStatsSnapshot(rawParticipationPayload(), {
+    dataset: 'pbp_participation',
+    schemaVersion: 1,
+    retrievedAt,
+    seasons: [],
+    weekRange: [1, 18],
+    sourceRef: 'synthetic-fixture',
+  });
+}
+
 export const TEST_CONFIG: PipelineConfig = {
   mode: 'fixture',
   generatedAt: '2026-07-01T00:00:00.000Z',
