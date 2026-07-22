@@ -6,20 +6,22 @@
 
 import { digest, stableStringify } from '@/inference/util/checksum';
 import { IdentityResolver } from './identity';
+import { deduplicateCanonicalPlayers } from './identityMerge';
 import { compareOrdinal, sortByKey } from './ordering';
-import type {
-  DepthChartRecord,
-  GameStatRecord,
-  IngestionProvider,
-  IngestionWarning,
-  InjuryRecord,
-  NormalizedRecordBase,
-  OfficialStartRecord,
-  ParticipationRecord,
-  PlayerRecord,
-  RosterRecord,
-  ScheduleGameRecord,
-  TransactionRecord,
+import {
+  IngestionError,
+  type DepthChartRecord,
+  type GameStatRecord,
+  type IngestionProvider,
+  type IngestionWarning,
+  type InjuryRecord,
+  type NormalizedRecordBase,
+  type OfficialStartRecord,
+  type ParticipationRecord,
+  type PlayerRecord,
+  type RosterRecord,
+  type ScheduleGameRecord,
+  type TransactionRecord,
 } from './types';
 
 export interface NormalizedCollections {
@@ -75,11 +77,19 @@ export function buildSnapshot(
   const warnings: IngestionWarning[] = [];
 
   // 1. Resolve identity records first so the index knows every provider-id token.
-  const players = sortByKey(collections.players, (p) => `${p.providerRef.key}:${p.providerRef.value}`).map((p) => {
+  //    Records with no stable id token or with conflicting tokens resolve to null and
+  //    are excluded from canonical identity output (their diagnostics are collected).
+  const resolvedPlayers: PlayerRecord[] = [];
+  for (const p of sortByKey(collections.players, (p) => `${p.providerRef.key}:${p.providerRef.value}`)) {
     const res = resolver.resolve({ providerIds: p.providerIds, nameNormalized: p.nameNormalized, position: p.position, provider: p.freshness.provider });
     warnings.push(...res.warnings);
-    return withCanonical(p, res.canonicalId);
-  });
+    if (res.canonicalId !== null) resolvedPlayers.push(withCanonical(p, res.canonicalId));
+  }
+
+  // 1b. Collapse to EXACTLY ONE canonical PlayerRecord per canonical id (Correction 2),
+  //     with deterministic, order-independent field merge + provider-id union.
+  const { players, warnings: mergeWarnings } = deduplicateCanonicalPlayers(resolvedPlayers);
+  warnings.push(...mergeWarnings);
 
   // 2. Link every other record by its providerRef token.
   const index = resolver.snapshotIndex();
@@ -123,6 +133,12 @@ export function buildSnapshot(
     officialStarts: sortByKey(linked.officialStarts, (o) => `${o.canonicalId}|${o.gameId}`),
     depthCharts: sortByKey(linked.depthCharts, (d) => `${d.canonicalId}|${d.team}|${d.position}|${d.rank}`),
   };
+
+  // Enforce the snapshot invariant: exactly one canonical player record per canonical id.
+  const uniqueIds = new Set(ordered.players.map((p) => p.canonicalId));
+  if (uniqueIds.size !== ordered.players.length) {
+    throw new IngestionError('DUPLICATE_IDENTITY', `snapshot invariant violated: ${ordered.players.length} player records for ${uniqueIds.size} canonical ids`);
+  }
 
   const providersUsed = [...new Set(collections.players.map((p) => p.freshness.provider))].sort(compareOrdinal);
   const snapshotId = `snap-${digest(stableStringify(ordered))}`;

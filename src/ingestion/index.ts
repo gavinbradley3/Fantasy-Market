@@ -8,6 +8,7 @@ export * from './types';
 export * from './capabilities';
 export * from './ordering';
 export * from './identity';
+export * from './identityMerge';
 export * from './snapshot';
 export * from './evidence';
 export * from './buildInput';
