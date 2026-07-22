@@ -234,11 +234,57 @@ function compareSources(a: SourceResult, b: SourceResult): number {
 }
 
 /**
+ * Enforce the orchestration invariant: at most ONE source per logical request coordinate
+ * (provider + capability + normalized params → `requestKey`). Two sources with the same
+ * requestKey would be ingested twice and double-count records, corrupting the snapshot.
+ *
+ * Fail-fast (throws) BEFORE any network call or replay-store read, so a duplicate cannot
+ * cause transport side effects and cannot be silently coalesced. Detection and the error
+ * are input-order independent: duplicated coordinates are reported in canonical order.
+ * Mode (live vs replay) is NOT part of logical identity — a live and a replay request for
+ * the same coordinate still collide.
+ */
+function assertNoDuplicateRequests(sources: readonly RefreshRequest[]): void {
+  const seen = new Map<string, { provider: RefreshRequest['provider']; capability: ProviderCapability; count: number }>();
+  for (const s of sources) {
+    const requestKey = computeRequestKey(s.provider, s.capability, s.params ?? {});
+    const existing = seen.get(requestKey);
+    if (existing) existing.count += 1;
+    else seen.set(requestKey, { provider: s.provider, capability: s.capability, count: 1 });
+  }
+
+  const duplicates = [...seen.entries()]
+    .filter(([, v]) => v.count > 1)
+    .map(([requestKey, v]) => ({ requestKey, provider: v.provider, capability: v.capability }))
+    .sort((a, b) => (a.requestKey < b.requestKey ? -1 : a.requestKey > b.requestKey ? 1 : 0));
+
+  if (duplicates.length === 0) return;
+
+  const primary = duplicates[0];
+  throw new TransportError(
+    'DUPLICATE_REFRESH_REQUEST',
+    `refresh received ${duplicates.length} duplicated logical request coordinate(s): ${duplicates.map((d) => d.requestKey).join(', ')}`,
+    {
+      provider: primary.provider,
+      capability: primary.capability,
+      requestKey: primary.requestKey,
+      retryable: false,
+      stage: 'config',
+      detail: duplicates.map((d) => d.requestKey).join(', '),
+    },
+  );
+}
+
+/**
  * Orchestrate a complete, deterministic refresh across many provider+capability sources.
  * Each source is isolated; the snapshot is built from whatever succeeded, and the result
  * distinguishes complete success, partial success, and complete failure.
  */
 export async function refreshSources(input: RefreshInput, deps: RefreshDeps): Promise<RefreshResult> {
+  // Invariant gate: reject duplicate logical request coordinates BEFORE any source runs,
+  // so a duplicate cannot double-ingest records or cause transport side effects.
+  assertNoDuplicateRequests(input.sources);
+
   // Run every source in isolation. Completion order is irrelevant — results are sorted.
   const settled = await Promise.all(input.sources.map((req) => refreshProviderSource(req, deps)));
 
