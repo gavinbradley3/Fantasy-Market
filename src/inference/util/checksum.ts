@@ -23,7 +23,12 @@ export function stableStringify(value: unknown): string {
   return JSON.stringify(sortKeysDeep(value));
 }
 
-function sortKeysDeep(value: unknown): unknown {
+/**
+ * Recursively sort object keys (arrays preserve order — they are semantic). Returns a
+ * new value; the input is not mutated. Used to build byte-deterministic envelopes
+ * whose nested data records must not depend on construction order.
+ */
+export function sortKeysDeep(value: unknown): unknown {
   if (Array.isArray(value)) {
     return value.map(sortKeysDeep);
   }

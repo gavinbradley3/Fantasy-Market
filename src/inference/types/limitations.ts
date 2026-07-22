@@ -34,6 +34,8 @@ export const LIMITATION_CODES = {
   RETURN_TIMELINE_UNKNOWN: 'RETURN_TIMELINE_UNKNOWN',
   // REGISTRY §28.4 — exceptional incident override applied.
   INCIDENT_OVERRIDE: 'INCIDENT_OVERRIDE',
+  // SPEC §25.1 step 2 — a fact dated after `asOf` was excluded before inference.
+  FUTURE_FACT_EXCLUDED: 'FUTURE_FACT_EXCLUDED',
 } as const;
 
 export type LimitationCode = (typeof LIMITATION_CODES)[keyof typeof LIMITATION_CODES];

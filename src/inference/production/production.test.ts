@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { runInference } from '@/inference/production/runInference';
-import { ProductionValidationError, type ProductionInput } from '@/inference/production/types';
+// These tests drive the finalize path (emit → merge → readiness → engine → serialize)
+// with COMPLETE observed facts, so they use the test-only precomputed-fields entry
+// `runInferenceFromFields`. The end-to-end production path (Phase 2A/2B from normalized
+// input) is covered in `e2e.test.ts` (Cold-audit M1). The old `.checksum` is now
+// `.outputChecksum` (Cold-audit M2: the normalized-input checksum is separate).
+import { runInferenceFromFields } from '@/inference/production/runInference';
+import { ProductionValidationError, type PrecomputedFieldsInput } from '@/inference/production/types';
 import { emitSupplement } from '@/inference/production/emit';
 import { declarationOrder } from '@/inference/production/serialize';
 import { present, notProvided } from '@/pipeline/provenance';
@@ -50,7 +55,7 @@ function factsFromInput(position: SupportedPosition, input: Record<string, unkno
   return out;
 }
 
-function baseInput(position: SupportedPosition, facts: Record<string, unknown>, inferenceFields: IntermediateField<unknown>[] = []): ProductionInput {
+function baseInput(position: SupportedPosition, facts: Record<string, unknown>, inferenceFields: IntermediateField<unknown>[] = []): PrecomputedFieldsInput {
   return {
     player: player(position),
     asOf: T,
@@ -65,7 +70,7 @@ function baseInput(position: SupportedPosition, facts: Record<string, unknown>, 
 describe('Phase 3 production runInference', () => {
   it('WR baseline equivalence: facts-complete player → engine output matches direct evaluation, no AIL overwrite', () => {
     const facts = wrSupplement();
-    const res = runInference(baseInput('WR', facts));
+    const res = runInferenceFromFields(baseInput('WR', facts));
     expect(res.readinessStatus).toBe('READY');
     expect(res.engineInvoked).toBe(true);
     // observed facts preserved (AIL added nothing).
@@ -78,7 +83,7 @@ describe('Phase 3 production runInference', () => {
 
   it('QB baseline equivalence via the real engine (deterministic generated_at)', () => {
     const facts = qbSupplement();
-    const res = runInference(baseInput('QB', facts));
+    const res = runInferenceFromFields(baseInput('QB', facts));
     expect(res.engineInvoked).toBe(true);
     const direct = assessQBReadiness(player('QB'), facts as never, T);
     if (direct.status !== 'READY') throw new Error('fixture not ready');
@@ -87,7 +92,7 @@ describe('Phase 3 production runInference', () => {
 
   it('RB baseline equivalence from a complete engine-input fixture', () => {
     const facts = factsFromInput('RB', rbInput as Record<string, unknown>);
-    const res = runInference(baseInput('RB', facts));
+    const res = runInferenceFromFields(baseInput('RB', facts));
     expect(res.readinessStatus).toBe('READY');
     expect(res.engineInvoked).toBe(true);
     for (const k of Object.keys(facts)) expect(res.mergedSupplement[k]).toEqual(facts[k]);
@@ -97,12 +102,12 @@ describe('Phase 3 production runInference', () => {
     const facts = wrSupplement();
     const observedTs = facts.target_share;
     const inference = [makeField({ field: 'target_share', value: 0.99, status: 'AVAILABLE' as const, provenance: 'MODEL_ESTIMATE' as const, confidence: 640, modelId: 'm', asOf: T })];
-    const res = runInference(baseInput('WR', facts, inference));
+    const res = runInferenceFromFields(baseInput('WR', facts, inference));
     expect(res.mergedSupplement.target_share).toBe(observedTs); // fact wins over the 0.99 estimate
   });
 
   it('NOT_READY player produces a full honesty result without an engine valuation', () => {
-    const res = runInference(baseInput('WR', {})); // no facts, no inference → missing required fields
+    const res = runInferenceFromFields(baseInput('WR', {})); // no facts, no inference → missing required fields
     expect(res.readinessStatus).toBe('NOT_READY');
     expect(res.engineInvoked).toBe(false);
     expect(res.engineOutput).toBeNull();
@@ -113,24 +118,24 @@ describe('Phase 3 production runInference', () => {
   it('serialization is byte-identical across shuffled fact construction order', () => {
     const facts = wrSupplement();
     const shuffled = Object.fromEntries(Object.entries(facts).reverse());
-    const a = runInference(baseInput('WR', facts));
-    const b = runInference(baseInput('WR', shuffled));
+    const a = runInferenceFromFields(baseInput('WR', facts));
+    const b = runInferenceFromFields(baseInput('WR', shuffled));
     expect(a.serialized).toBe(b.serialized);
-    expect(a.checksum).toBe(b.checksum);
+    expect(a.outputChecksum).toBe(b.outputChecksum);
   });
 
   it('replay from identical inputs is fully identical', () => {
     const facts = wrSupplement();
-    const a = runInference(baseInput('WR', facts));
-    const b = runInference(baseInput('WR', facts));
+    const a = runInferenceFromFields(baseInput('WR', facts));
+    const b = runInferenceFromFields(baseInput('WR', facts));
     expect(a.serialized).toBe(b.serialized);
-    expect(a.checksum).toBe(b.checksum);
+    expect(a.outputChecksum).toBe(b.outputChecksum);
     expect(a.engineOutput).toEqual(b.engineOutput);
     expect(a.reproducibility).toEqual(b.reproducibility);
   });
 
   it('serialized fields follow engine-interface declaration order (supplement only, no metadata)', () => {
-    const res = runInference(baseInput('WR', wrSupplement()));
+    const res = runInferenceFromFields(baseInput('WR', wrSupplement()));
     const parsed = JSON.parse(res.serialized) as { fields: { field: string }[] };
     const order = declarationOrder('WR');
     const positions = parsed.fields.map((f) => order.indexOf(f.field));
@@ -140,13 +145,13 @@ describe('Phase 3 production runInference', () => {
   });
 
   it('validation failures throw typed errors (not swallowed)', () => {
-    expect(() => runInference({ ...baseInput('WR', {}), asOf: 'not-a-date' })).toThrow(ProductionValidationError);
+    expect(() => runInferenceFromFields({ ...baseInput('WR', {}), asOf: 'not-a-date' })).toThrow(ProductionValidationError);
     const noId = player('WR', { identity: { canonical_id: '', provider_ids: {}, name_normalized: '', newly_created: false } });
-    expect(() => runInference({ ...baseInput('WR', {}), player: noId })).toThrow(ProductionValidationError);
+    expect(() => runInferenceFromFields({ ...baseInput('WR', {}), player: noId })).toThrow(ProductionValidationError);
   });
 
   it('engine-confidence multiplication yields a public confidence label when READY', () => {
-    const res = runInference({ ...baseInput('WR', wrSupplement()), engineVersion: 'wr-mvp-1.0' });
+    const res = runInferenceFromFields({ ...baseInput('WR', wrSupplement()), engineVersion: 'wr-mvp-1.0' });
     expect(res.engineConfidence01).not.toBeNull();
     expect(res.publicConfidence.publicConfidence).not.toBeNull();
     expect(['LOW', 'MEDIUM', 'HIGH']).toContain(res.publicConfidenceLabel);

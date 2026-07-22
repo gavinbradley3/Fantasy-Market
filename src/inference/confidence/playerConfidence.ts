@@ -35,9 +35,31 @@ export function membershipConfidence(field: IntermediateField<unknown>): number 
   }
 }
 
+/**
+ * §11.2 "cosmetic flags" — boolean context flags that carry the minor (0.5) weight
+ * (Cold-audit m1). Previously these fell through to `standard` (1.0).
+ */
+const COSMETIC_FLAG_FIELDS: ReadonlySet<string> = new Set([
+  'teammate_return_flag',
+  'incoming_competition_flag',
+  'another_receiving_te_flag',
+  'temporary_opportunity_flag',
+  'new_team_flag',
+  'team_change',
+  'major_system_change',
+  'recent_role_change',
+  'high_recent_workload_flag',
+]);
+
 function importanceWeight(fieldName: string, position: SupportedPosition): number {
   if (CRITICAL_FIELDS[position].includes(fieldName)) return IMPORTANCE_WEIGHT.critical;
-  if (fieldName.startsWith('previous_') || fieldName.startsWith('career_')) return IMPORTANCE_WEIGHT.minor;
+  if (
+    fieldName.startsWith('previous_') ||
+    fieldName.startsWith('career_') ||
+    COSMETIC_FLAG_FIELDS.has(fieldName)
+  ) {
+    return IMPORTANCE_WEIGHT.minor;
+  }
   return IMPORTANCE_WEIGHT.standard;
 }
 

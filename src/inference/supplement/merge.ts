@@ -11,9 +11,30 @@
 // not modified.
 
 import { mergeSupplements, type MetricsSupplements } from '@/pipeline/readiness/engineReadiness';
+import type { SupportedPosition } from '@/inference/types';
 
 export { mergeSupplements };
 export type { MetricsSupplements };
+
+/**
+ * Canonical AIL-under-facts merge for a SINGLE player's flat supplement record
+ * (Cold-audit m2). Routes through the repository's `mergeSupplements` so there is
+ * exactly ONE merge contract: the flat records are wrapped as `MetricsSupplements`
+ * under the player's position, merged (facts overlay AIL — facts win, AIL-only fields
+ * survive, observed-null wins), then unwrapped. No second merge semantics is created.
+ */
+export function mergeFactsOverAilFlat(
+  position: SupportedPosition,
+  ailSupplement: Readonly<Record<string, unknown>>,
+  factsSupplement: Readonly<Record<string, unknown>>,
+): Record<string, unknown> {
+  const key = position.toLowerCase() as 'wr' | 'rb' | 'te' | 'qb';
+  const wrap = (rec: Readonly<Record<string, unknown>>): MetricsSupplements =>
+    ({ [key]: { __player__: { ...rec } } }) as unknown as MetricsSupplements;
+  const merged = mergeFactsOverAil(wrap(ailSupplement), wrap(factsSupplement));
+  const positionBucket = (merged as unknown as Record<string, Record<string, Record<string, unknown>>>)[key];
+  return positionBucket.__player__ ?? {};
+}
 
 /**
  * Generic per-field precedence merge (overlay wins) over two flat records. Mirrors
