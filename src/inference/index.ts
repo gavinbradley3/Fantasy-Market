@@ -32,30 +32,6 @@ export * from './d1';
 export * from './d2';
 export * from './explanations';
 
-import type { InferencePlayerReport, ReproducibilityId, SupportedPosition } from './types';
-
-/** Reserved orchestrator input (SPEC §25.1 / §32.2). Shape only in Phase 1. */
-export interface InferenceRunInput {
-  readonly asOf: string;
-  readonly snapshotIds: readonly string[];
-  readonly positions?: readonly SupportedPosition[];
-}
-
-/** Reserved orchestrator output (SPEC §25.1 step 13). Shape only in Phase 1. */
-export interface InferenceRun {
-  readonly reproducibility: ReproducibilityId;
-  readonly reports: readonly InferencePlayerReport[];
-}
-
-/**
- * Phase-2 boundary. The Phase-1 deliverable is infrastructure only; the inference
- * pipeline (SPEC §25.1 steps 4–13) is not implemented here. This stub marks the
- * boundary explicitly and fails loudly rather than returning a placeholder result.
- */
-export function runInference(input: InferenceRunInput): InferenceRun {
-  void input;
-  throw new Error(
-    'AutomatedInferenceLayer.runInference is not implemented in Phase 1 (foundation only). ' +
-      'Inference models are delivered in a later phase.',
-  );
-}
+// Phase 3 — production integration (final emission, merge, readiness, engine
+// invocation, engine-confidence, serialization) + the production runInference().
+export * from './production';

@@ -2,9 +2,9 @@
 // Uses the Phase-1 WGM aggregation engine; centralizes the null-field confidence and
 // membership rules so they match the registry regardless of how a field was built.
 
-import { aggregatePlayerConfidence } from './aggregate';
+import { aggregatePlayerConfidence, confidenceBand } from './aggregate';
 import type { ConfidenceEntry, PlayerConfidenceResult } from './types';
-import { IMPORTANCE_WEIGHT, NULL_FIELD_CONFIDENCE } from '@/inference/registry/constants';
+import { IMPORTANCE_WEIGHT, NULL_FIELD_CONFIDENCE, PLAYER_CONFIDENCE_CAP } from '@/inference/registry/constants';
 import { LIMITATION_CODES } from '@/inference/types';
 import type { IntermediateField } from '@/inference/result/types';
 import type { SupportedPosition } from '@/inference/types';
@@ -61,6 +61,11 @@ export function buildPlayerConfidence(
       weight: importanceWeight(f.field, position),
       critical: CRITICAL_FIELDS[position].includes(f.field),
     });
+  }
+  // No AIL-produced fields participate (e.g. a facts-complete player): the inference
+  // layer contributed no estimate, hence no inference uncertainty → max confidence.
+  if (entries.length === 0) {
+    return { score: PLAYER_CONFIDENCE_CAP, band: confidenceBand(PLAYER_CONFIDENCE_CAP), wgm: PLAYER_CONFIDENCE_CAP, weakestCritical: null };
   }
   return aggregatePlayerConfidence(entries);
 }
