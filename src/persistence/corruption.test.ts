@@ -55,8 +55,7 @@ describe('corruption detection', () => {
     const s = store();
     const m = await mockedSuccessfulRefresh();
     const outcome = persistRefreshResult(s, { result: m.result, inferenceBuilds: m.builds, ...META });
-    const ref = outcome.inference[0];
-    s.publish({ runId: outcome.runId, snapshotId: outcome.snapshotId!, normalizedInputChecksum: ref.normalizedInputChecksum, outputChecksum: ref.outputChecksum });
+    s.publishBoard({ runId: outcome.runId });
     // Corrupt the published snapshot bytes.
     rawDb(s).prepare('UPDATE snapshot_artifact SET serialized = ? WHERE snapshot_id = ?').run('{"players":[]}', outcome.snapshotId!);
     expect(() => s.getCurrentPublication()).toThrowError(PersistenceError);

@@ -150,6 +150,14 @@ export function persistRefreshResult(store: PersistenceStore, params: PersistRef
         persistedInference.push({ canonicalId: build.canonicalId, position: build.position, normalizedInputChecksum, outputChecksum: outcome.result.outputChecksum });
       }
     }
+
+    // Run-completeness hardening: a SUCCESS run must carry at least one inference
+    // association (otherwise there is no board to publish). Enforced here, inside the
+    // transaction, so an empty successful run is rejected AND fully rolled back. Failed and
+    // partial runs may legitimately have zero associations.
+    if (result.status === 'success' && persistedInference.length === 0) {
+      throw new PersistenceError('INVALID_ARTIFACT_SET', 'a successful run must persist at least one inference association', { stage: 'association-write', detail: runId });
+    }
   });
 
   return {

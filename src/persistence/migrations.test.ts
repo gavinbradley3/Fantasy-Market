@@ -55,4 +55,62 @@ describe('migrations', () => {
     }
     d.close();
   });
+
+  it('a failed migration does not falsely advance the recorded version, leaves no partial objects', () => {
+    const d = db();
+    // Pre-create a table migration 1 also creates → DDL collides & the migration fails.
+    d.exec('CREATE TABLE raw_payload_artifact (x INTEGER);');
+    expect(() => migrate(d, '2026-01-01T00:00:00.000Z')).toThrowError(PersistenceError);
+    const v = d.prepare('SELECT MAX(version) AS v FROM schema_migrations').get() as { v: number | null };
+    expect(v.v ?? 0).toBe(0);
+    // No migration-created table (e.g. publication) leaked out of the rolled-back transaction.
+    expect(d.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='publication'").get()).toBeUndefined();
+    d.close();
+  });
+});
+
+function columns(d: import('./sqlite/db').Database, table: string): string[] {
+  return (d.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]).map((r) => r.name);
+}
+
+describe('migration v2 — board publication', () => {
+  it('a fresh database reaches v2 with the board-shaped publication table', () => {
+    const d = db();
+    expect(migrate(d, '2026-01-01T00:00:00.000Z')).toBe(2);
+    const cols = columns(d, 'publication');
+    expect(cols).toContain('board_checksum');
+    expect(cols).toContain('entry_count');
+    expect(cols).not.toContain('normalized_input_checksum'); // v1 single-unit column is gone
+    d.close();
+  });
+
+  it('a v1 database upgrades to v2: legacy single-unit publication schema is replaced, current pointer invalidated', () => {
+    const d = db();
+    // Materialize a v1 database.
+    expect(migrate(d, '2026-01-01T00:00:00.000Z', 1)).toBe(1);
+    expect(columns(d, 'publication')).toContain('normalized_input_checksum');
+    expect(columns(d, 'publication')).not.toContain('entry_count');
+
+    // Upgrade to v2.
+    expect(migrate(d, '2026-01-02T00:00:00.000Z')).toBe(2);
+    const cols = columns(d, 'publication');
+    expect(cols).toContain('entry_count');
+    expect(cols).not.toContain('normalized_input_checksum');
+    // The current pointer is invalidated (empty) — no legacy single-unit board survives.
+    const cur = d.prepare('SELECT COUNT(*) AS c FROM current_publication').get() as { c: number };
+    expect(cur.c).toBe(0);
+    // Both migration versions are recorded.
+    const versions = (d.prepare('SELECT version FROM schema_migrations ORDER BY version').all() as { version: number }[]).map((r) => r.version);
+    expect(versions).toEqual([1, 2]);
+    d.close();
+  });
+
+  it('re-running migration on a v2 database is idempotent', () => {
+    const d = db();
+    migrate(d, '2026-01-01T00:00:00.000Z');
+    migrate(d, '2026-01-02T00:00:00.000Z');
+    const c = d.prepare('SELECT COUNT(*) AS c FROM schema_migrations').get() as { c: number };
+    expect(c.c).toBe(2);
+    d.close();
+  });
 });

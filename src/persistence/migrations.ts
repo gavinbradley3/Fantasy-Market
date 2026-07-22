@@ -134,6 +134,39 @@ const MIGRATIONS: readonly Migration[] = [
       CREATE INDEX idx_publication_published_at ON publication(published_at);
     `,
   },
+  {
+    // Migration 2 — BOARD-level publication. A publication no longer names a single
+    // (input, output) pair; it identifies the COMPLETE deterministic set of a successful
+    // run's player inference associations (which already live, immutably, in run_inference).
+    // The publication stores the board identity + entry count so retrieval can revalidate
+    // the whole set. Legacy v1 single-unit publications are NOT valid boards: this migration
+    // drops them and invalidates the old current pointer (documented unreleased-branch
+    // policy — see README "Migration policy").
+    version: 2,
+    up: `
+      DROP TABLE current_publication;
+      DROP TABLE publication;
+
+      CREATE TABLE publication (
+        publication_id            TEXT PRIMARY KEY,   -- board-<boardChecksum>
+        schema_version            TEXT NOT NULL,
+        run_id                    TEXT NOT NULL REFERENCES refresh_run(run_id),
+        snapshot_id               TEXT NOT NULL REFERENCES snapshot_artifact(snapshot_id),
+        board_checksum            TEXT NOT NULL,       -- deterministic complete-board identity
+        entry_count               INTEGER NOT NULL,    -- required board size (completeness guard)
+        published_at              TEXT NOT NULL,
+        superseded_publication_id TEXT REFERENCES publication(publication_id)
+      );
+
+      CREATE TABLE current_publication (
+        id             INTEGER PRIMARY KEY CHECK (id = 1),
+        publication_id TEXT NOT NULL REFERENCES publication(publication_id),
+        updated_at     TEXT NOT NULL
+      );
+
+      CREATE INDEX idx_publication_published_at ON publication(published_at);
+    `,
+  },
 ];
 
 /** The highest migration version this code knows how to apply. */
@@ -146,10 +179,12 @@ function currentVersion(db: Database): number {
 }
 
 /**
- * Apply all pending migrations. Idempotent. Rejects a DB whose recorded version exceeds
- * what this build understands (a newer code version wrote it).
+ * Apply pending migrations up to `target` (default: the latest this build knows). Idempotent.
+ * Rejects a DB whose recorded version exceeds what this build understands (a newer code
+ * version wrote it). The `target` parameter exists so tests can materialize an older schema
+ * (e.g. a v1 database) to exercise the upgrade path; production always uses the default.
  */
-export function migrate(db: Database, nowIso: string): number {
+export function migrate(db: Database, nowIso: string, target: number = LATEST_MIGRATION_VERSION): number {
   let version: number;
   try {
     version = currentVersion(db);
@@ -162,7 +197,7 @@ export function migrate(db: Database, nowIso: string): number {
   }
 
   for (const migration of MIGRATIONS) {
-    if (migration.version <= version) continue;
+    if (migration.version <= version || migration.version > target) continue;
     try {
       transaction(db, () => {
         db.exec(migration.up);
@@ -174,7 +209,7 @@ export function migrate(db: Database, nowIso: string): number {
     }
   }
 
-  return LATEST_MIGRATION_VERSION;
+  return Math.min(target, LATEST_MIGRATION_VERSION);
 }
 
 /** Assert the DB is at a version this build supports (used defensively on read paths). */

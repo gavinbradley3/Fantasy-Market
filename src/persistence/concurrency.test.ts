@@ -46,8 +46,7 @@ describe('concurrency & retry safety (single-process)', () => {
     const writer = open(p);
     const m = await mockedSuccessfulRefresh();
     const outcome = persistRefreshResult(writer, { result: m.result, inferenceBuilds: m.builds, ...META });
-    const ref = outcome.inference[0];
-    writer.publish({ runId: outcome.runId, snapshotId: outcome.snapshotId!, normalizedInputChecksum: ref.normalizedInputChecksum, outputChecksum: ref.outputChecksum });
+    writer.publishBoard({ runId: outcome.runId });
 
     const reader = open(p);
     expect(reader.getCurrentPublication()!.snapshot.snapshotId).toBe(outcome.snapshotId);
@@ -60,11 +59,10 @@ describe('concurrency & retry safety (single-process)', () => {
     paths.push(p);
     const c1 = open(p);
     const m = await mockedSuccessfulRefresh();
-    const outcome = persistRefreshResult(c1, { result: m.result, inferenceBuilds: m.builds, runId: 'run-x', ...META });
-    const ref = outcome.inference[0];
-    const pubA = c1.publish({ runId: 'run-x', snapshotId: outcome.snapshotId!, normalizedInputChecksum: ref.normalizedInputChecksum, outputChecksum: ref.outputChecksum });
+    persistRefreshResult(c1, { result: m.result, inferenceBuilds: m.builds, runId: 'run-x', ...META });
+    const pubA = c1.publishBoard({ runId: 'run-x' });
     const c2 = open(p);
-    const pubB = c2.publish({ runId: 'run-x', snapshotId: outcome.snapshotId!, normalizedInputChecksum: ref.normalizedInputChecksum, outputChecksum: ref.outputChecksum });
+    const pubB = c2.publishBoard({ runId: 'run-x' });
     expect(pubA.publicationId).toBe(pubB.publicationId);
     expect(c2.getPublicationHistory().length).toBe(1);
     c1.close();

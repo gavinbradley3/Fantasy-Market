@@ -36,6 +36,19 @@ recorded in `schema_migrations`; each migration runs in its own transaction so a
 cannot falsely advance the version; a DB written by a **newer** build (version > this
 code's `LATEST_MIGRATION_VERSION`) is rejected with `UNSUPPORTED_DATABASE_VERSION`.
 
+- **v1** — the base schema.
+- **v2** — board-level publication. The publication tables are replaced (`publication` now
+  identifies a *complete board*; see below).
+
+**Migration policy for legacy v1 publication data.** This branch is unreleased, so v2 does
+**not** attempt to reinterpret v1 single-unit publications as boards. The v1 `publication`
+and `current_publication` tables are dropped and recreated in board form, which
+**invalidates the old current pointer** (it becomes empty). All immutable artifact/run
+history (`raw_payload_artifact`, `snapshot_artifact`, `*_input/output_artifact`,
+`refresh_run`, `refresh_source_outcome`, `run_inference`) is untouched and remains
+readable; only the (structurally incompatible, single-unit) publication rows are discarded.
+Re-publish a run with `publishBoard()` to establish a valid current board.
+
 ## Entities
 
 | Kind | Table | Identity | Mutability |
@@ -47,7 +60,7 @@ code's `LATEST_MIGRATION_VERSION`) is rejected with `UNSUPPORTED_DATABASE_VERSIO
 | Refresh **run** (event) | `refresh_run` | generated `run_id` | append-only |
 | Source outcome | `refresh_source_outcome` | `(run_id, request_key)` | append-only |
 | Run→inference link | `run_inference` | `(run_id, canonical_id, position)` | append-only |
-| Publication | `publication` | `publication_id` | immutable |
+| **Board** publication | `publication` | `publication_id` = `board-digest(...)` | immutable |
 | Current pointer | `current_publication` | singleton `id = 1` | mutable (advances) |
 
 Immutable **artifacts** are content-addressed facts; a **run** is an event that references
@@ -58,38 +71,62 @@ them. A run may reuse a pre-existing artifact (identical content → one row).
 `persistRefreshResult()` writes an entire completed refresh in **one** transaction, in
 FK-safe order: snapshot → raw envelopes → run → source outcomes → normalized inputs →
 outputs → run/inference associations. Any failure rolls the whole run back, so a run is
-never recorded as successful with a missing artifact reference.
+never recorded as successful with a missing artifact reference. A **`success`** run that
+produced **zero** inference associations is rejected inside this transaction
+(`INVALID_ARTIFACT_SET`) — a successful run must carry a board.
 
-`store.publish()` advances the current pointer in its **own** transaction.
+`store.publishBoard()` validates and advances the current pointer in its **own**
+transaction (board row insert → pointer advance; a throw in either rolls both back).
 
-## Publication semantics
+## Board publication semantics
 
 - Publication is **separate from computation**: `refreshSources()` never writes to the DB.
   A caller persists, then explicitly publishes.
-- Only a **`success`** run may publish. **Partial and failed runs are rejected**
-  (`PUBLICATION_NOT_ALLOWED`); there is no override in Phase 6.
-- Publishing validates the complete `(snapshot, normalized-input, output)` artifact set
-  exists and is internally consistent, then advances the singleton current pointer
-  atomically. Readers see either the previous complete state or the new complete state —
-  never a mix.
+- A publication is a **complete board**: the entire, deterministically-ordered set of a
+  successful run's player inference associations (`run_inference`). It is **not** a single
+  player result. `getCurrentPublication()` returns every entry, each with its normalized
+  input + inference output, ordered by `(canonicalId, position)`.
+- The publication row stores the run, snapshot, a **board identity** (`board_checksum`), and
+  an **`entry_count`**. Retrieval revalidates the complete `run_inference` set against both
+  (recomputes the board id and checks the count) — it never trusts the header alone.
+- Only a **`success`** run with a snapshot and **≥1** association may publish. **Partial,
+  failed, snapshot-less, and empty runs are rejected** (`PUBLICATION_NOT_ALLOWED`); there is
+  no override in Phase 6.
+- Publishing validates every board entry's `(normalized-input, output)` exists, is intact,
+  and links to the run snapshot, then advances the singleton pointer atomically. Readers see
+  either the previous complete board or the new complete board — never a mix.
 - The previous publication stays in `publication` history (immutable), linked via
   `superseded_publication_id`.
 
-## Idempotency
+## Board identity
+
+`computeBoardIdentity(schemaVersion, snapshotId, entries)` → `board-digest(canonical)`
+where `canonical` is `stableStringify({schemaVersion, snapshotId, entries})` and entries are
+sorted by `(canonicalId, position)`. The id is **independent** of player computation/insert
+order but **changes** if any entry's input/output, the snapshot, or the entry set changes; a
+duplicate `(canonicalId, position)` coordinate is rejected.
+
+## Idempotency & strict retry conflicts
 
 - Content artifacts: writing identical bytes twice → one row; conflicting bytes under the
   same id → `CONFLICTING_ARTIFACT`.
-- Run persistence: pass a stable `runId` to make a retry safe — `INSERT OR IGNORE` on the
-  run, source outcomes, and associations means no duplicates.
-- Publication: the `publication_id` is deterministic (`pub-digest(runId|outputChecksum)`),
-  so re-publishing the same result reuses one row and one current pointer.
+- **Run event records** (`refresh_run`, `refresh_source_outcome`, `run_inference`): a retry
+  under the same logical key is compared field-by-field. An **identical** retry is
+  idempotent; a **conflicting** one (same key, different semantic content) throws
+  `CONFLICTING_ARTIFACT` — it is never silently dropped. (`created_at` is a persistence
+  timestamp, excluded from the run comparison; structured source diagnostics are stored as a
+  single canonical string, so key-order never causes a false conflict.)
+- Publication: the `publication_id` is the deterministic board id, so re-publishing the same
+  board reuses one row and one current pointer. A stored publication whose content differs
+  from a re-publish under the same id throws `CONFLICTING_ARTIFACT`.
 
 ## Partial / failed refresh behavior
 
 - **Failed** run: the run + source outcomes (+ any successful raw envelopes) are persisted;
-  no snapshot/input/output is required; current is **not** advanced.
-- **Partial** run: the run and whatever artifacts it produced are persisted; it is **not**
-  publishable by default.
+  no snapshot/input/output is required; zero associations is fine; current is **not**
+  advanced.
+- **Partial** run: the run and whatever artifacts it produced are persisted; zero
+  associations is allowed; it is **not** publishable by default.
 
 ## Integrity checks
 
@@ -100,8 +137,10 @@ Reads verify content, they don't trust the row:
   reproduce its `snapshot_id`;
 - normalized input: `digest(serialized)` must equal the stored byte checksum;
 - output: `digest(serialized)` must equal the stored `outputChecksum`;
+- board: the stored `run_inference` set must reproduce the publication's `board_checksum`
+  and match its `entry_count`, else `INTEGRITY_VIOLATION`;
 - unsupported persisted schema versions are rejected (`UNSUPPORTED_PERSISTED_SCHEMA`);
-- the current-publication bundle refuses to return if any member is missing or corrupt.
+- the current-board bundle refuses to return if any entry/member is missing or corrupt.
 
 The normalized-input **identity** is the production `normalizedInputChecksum` (a digest of
 the AIL's internal canonical projection, which is not reproducible from the input object
@@ -125,12 +164,11 @@ payloads, failed runs, and superseded publications are retained by design.
 
 - Single-process only; no distributed locking (out of scope).
 - `node:sqlite` is experimental.
-- Publication targets one player result `(snapshot, normalized-input, output)`; multi-result
-  publication bundles are a later concern.
 
 ## How later scheduling (Phase 7+) should call this
 
 A scheduler should: run `refreshSources(...)` → `persistRefreshResult(store, {...})` →
-(only on `success`, per policy) `store.publish({...})`. It must treat persistence and
-publication as **explicit, separate** steps and must not advance publication on a partial
-or failed run.
+(only on `success`, per policy) `store.publishBoard({ runId })`. It must treat persistence
+and publication as **explicit, separate** steps and must not advance publication on a
+partial or failed run. Retries should reuse the same `runId` — an identical retry is
+idempotent, and a conflicting one fails loudly rather than corrupting state.

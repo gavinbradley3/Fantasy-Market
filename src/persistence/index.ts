@@ -12,7 +12,7 @@
 export * from './types';
 export * from './errors';
 export { PersistenceStore } from './store';
-export type { NewNormalizedInputMeta, NewInferenceOutput, PublishParams, NowFn } from './store';
+export type { NewNormalizedInputMeta, NewInferenceOutput, PublishBoardParams, NowFn } from './store';
 export {
   persistRefreshResult,
   type PersistRefreshParams,
@@ -27,4 +27,8 @@ export {
   verifySnapshotIntegrity,
   verifyNormalizedInputIntegrity,
   verifyOutputIntegrity,
+  computeBoardIdentity,
+  orderBoardEntries,
+  type BoardEntryInput,
+  type BoardIdentity,
 } from './canonical';

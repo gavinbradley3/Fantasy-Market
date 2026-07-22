@@ -20,11 +20,11 @@ export const SCHEMA_VERSIONS = {
   snapshot: 'snapshot/1',
   normalizedInput: 'normalized-input/1',
   inferenceOutput: 'inference-output/1',
-  publication: 'publication/1',
+  publication: 'publication/2', // v2: board-level publication (a complete run's player set)
 } as const;
 
 /** Migration version this build of the code understands. Reads reject a newer DB. */
-export const MIGRATION_VERSION = 1;
+export const MIGRATION_VERSION = 2;
 
 // The supported set per artifact (a set so future versions can be added without a rewrite).
 export const SUPPORTED_RAW_ENVELOPE_SCHEMAS: ReadonlySet<string> = new Set([SCHEMA_VERSIONS.rawEnvelope]);
@@ -123,25 +123,43 @@ export interface RunInferenceRecord {
   readonly outputChecksum: string;
 }
 
+/** One player's place on a published board — the (input → output) pair for a coordinate. */
+export interface BoardEntry {
+  readonly canonicalId: string;
+  readonly position: string;
+  readonly normalizedInputChecksum: string;
+  readonly outputChecksum: string;
+}
+
 export interface PublicationRecord {
   readonly publicationId: string;
   readonly schemaVersion: string;
   readonly runId: string;
   readonly snapshotId: string;
-  readonly normalizedInputChecksum: string;
-  readonly outputChecksum: string;
+  /** Deterministic identity of the complete ordered board (digest, no `board-` prefix). */
+  readonly boardChecksum: string;
+  /** Number of player entries the board must contain — a completeness guard on read. */
+  readonly entryCount: number;
   readonly publishedAt: string;
   readonly supersededPublicationId: string | null;
 }
 
-/** A coherent, fully-verified current/historical publication bundle. */
+/** One fully-materialized, integrity-checked board entry inside a publication bundle. */
+export interface PublicationBundleEntry {
+  readonly canonicalId: string;
+  readonly position: string;
+  readonly normalizedInput: NormalizedInputRecord;
+  readonly output: InferenceOutputRecord;
+}
+
+/** A coherent, fully-verified current/historical publication bundle (a COMPLETE board). */
 export interface PublicationBundle {
   readonly publication: PublicationRecord;
   readonly run: RefreshRunRecord;
   readonly sources: readonly RefreshSourceOutcomeRecord[];
   readonly snapshot: SnapshotRecord;
-  readonly normalizedInput: NormalizedInputRecord;
-  readonly output: InferenceOutputRecord;
+  /** Every player on the board, deterministically ordered by (canonicalId, position). */
+  readonly entries: readonly PublicationBundleEntry[];
 }
 
 /** A refresh run with its ordered source outcomes and produced inference artifact refs. */
