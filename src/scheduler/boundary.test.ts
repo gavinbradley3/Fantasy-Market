@@ -47,9 +47,13 @@ describe('scheduler is a pure, portable operational layer', () => {
     // src/application/boundary.test.ts proves no browser/app file imports @/application, and the
     // production bundle is verified free of scheduler code. Every other non-scheduler file
     // remains forbidden from importing @/scheduler.
+    // src/api (Phase 9 composition root) also constructs the real Scheduler — the one permitted
+    // place, alongside src/application, that wires it. Both are Node-only and proven unreachable
+    // from the browser bundle (their boundary tests + the bundle check).
     const offenders = allFiles
       .filter((f) => !f.includes(`${join('src', 'scheduler')}`))
       .filter((f) => !f.includes(`${join('src', 'application')}`))
+      .filter((f) => !f.includes(`${join('src', 'api')}`))
       .filter((f) => /from '@\/scheduler|from '\.\.?\/scheduler/.test(readFileSync(f, 'utf8')));
     expect(offenders).toEqual([]);
   });

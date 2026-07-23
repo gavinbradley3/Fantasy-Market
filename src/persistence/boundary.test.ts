@@ -34,9 +34,13 @@ describe('persistence is a Node-only backend module', () => {
     // browser bundle: src/application/boundary.test.ts proves no browser/app file imports
     // @/application, and the production bundle is verified free of persistence code. It is the
     // one permitted importer outside src/persistence; every other file remains forbidden.
+    // src/api (Phase 9 composition root) also constructs the real PersistenceStore — the one
+    // permitted place, alongside src/application, that wires it. Both are Node-only and proven
+    // unreachable from the browser bundle (their boundary tests + the bundle check).
     const offenders = allFiles
       .filter((f) => !f.includes(`${join('src', 'persistence')}`))
       .filter((f) => !f.includes(`${join('src', 'application')}`))
+      .filter((f) => !f.includes(`${join('src', 'api')}`))
       .filter((f) => /from '@\/persistence|from '\.\.?\/persistence/.test(readFileSync(f, 'utf8')));
     expect(offenders).toEqual([]);
   });

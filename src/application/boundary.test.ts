@@ -47,9 +47,15 @@ describe('application layer holds no business logic and no heavy dependencies', 
     expect(offenders).toEqual([]);
   });
 
-  it('is not imported by any non-application source file (kept out of the app/browser bundle)', () => {
+  it('is imported only by the application layer and the Phase 9 API layer (never browser/app code)', () => {
+    // The Phase 9 internal HTTP API (src/api) is the sanctioned Node-only consumer of the
+    // application façade — the API layer's whole job is to expose it. It cannot reach the browser
+    // bundle: src/api/boundary.test.ts proves no browser/app file imports @/api, and the
+    // production bundle is verified free of application/api code. Every other non-application,
+    // non-api file remains forbidden from importing @/application.
     const offenders = allFiles
       .filter((f) => !f.includes(appDir))
+      .filter((f) => !f.includes(`${join('src', 'api')}`))
       .filter((f) => /from '@\/application|from '\.\.?\/application/.test(readFileSync(f, 'utf8')));
     expect(offenders).toEqual([]);
   });
