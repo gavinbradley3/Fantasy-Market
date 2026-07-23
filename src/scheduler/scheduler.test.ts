@@ -46,6 +46,81 @@ describe('startup lifecycle', () => {
   });
 });
 
+describe('disabled-state lifecycle invariant (Phase 7 lifecycle correction)', () => {
+  // A scheduler disabled at construction must stay disabled across any lifecycle sequence:
+  // stop() must not force it to 'stopped' (which would let a later start() re-arm it).
+  it('A. disabled + stop() + start() stays disabled, arms no timer, never executes', async () => {
+    const { scheduler, timer, pipeline } = build({ enabled: false });
+    expect(scheduler.getState()).toBe('disabled');
+    scheduler.stop();
+    expect(scheduler.getState()).toBe('disabled'); // stop() does not force 'stopped'
+    scheduler.start();
+    expect(scheduler.getState()).toBe('disabled'); // start() guard still applies
+    expect(timer.pending()).toBe(0); // no interval armed
+    timer.fireNext(); // even a stray callback must not run anything
+    await new Promise((r) => setTimeout(r, 0));
+    expect(pipeline.refresh).not.toHaveBeenCalled();
+  });
+
+  it('B. repeated stop()/start() on a disabled scheduler never leaks a timer, run, or metric', async () => {
+    const { scheduler, timer, pipeline } = build({ enabled: false });
+    for (const op of ['stop', 'start', 'stop', 'start'] as const) {
+      scheduler[op]();
+      expect(scheduler.getState()).toBe('disabled');
+      expect(timer.pending()).toBe(0);
+    }
+    await new Promise((r) => setTimeout(r, 0));
+    expect(pipeline.refresh).not.toHaveBeenCalled();
+    expect(pipeline.persist).not.toHaveBeenCalled();
+    expect(pipeline.publish).not.toHaveBeenCalled();
+    expect(scheduler.getMetrics()).toMatchObject({ executions: 0, successes: 0, failures: 0, publications: 0 });
+  });
+
+  it('E. manual trigger contract on a disabled scheduler is preserved (skipped, reason "disabled")', async () => {
+    const { scheduler, pipeline } = build({ enabled: false });
+    scheduler.stop();
+    scheduler.start();
+    const r = await scheduler.triggerNow();
+    expect(r.skipped).toBe(true);
+    expect(r.skipReason).toBe('disabled');
+    expect(pipeline.refresh).not.toHaveBeenCalled();
+    expect(scheduler.getMetrics().skipped).toBe(1); // recorded as a skip, not an execution
+  });
+});
+
+describe('enabled restart regression (unchanged by the lifecycle correction)', () => {
+  it('C. start → one timer → stop → zero timers → start → one timer → executes normally', async () => {
+    const { scheduler, timer, pipeline } = build();
+    scheduler.start();
+    expect(timer.pending()).toBe(1);
+    scheduler.stop();
+    expect(scheduler.getState()).toBe('stopped');
+    expect(timer.pending()).toBe(0);
+    scheduler.start();
+    expect(scheduler.getState()).toBe('idle');
+    expect(timer.pending()).toBe(1);
+    const r = await scheduler.triggerNow();
+    expect(r.success).toBe(true);
+    expect(pipeline.calls.map((c) => c.step)).toEqual(['refresh', 'persist', 'publish']);
+    scheduler.stop();
+  });
+
+  it('D. duplicate start()/stop() stay idempotent: no duplicate timer, no illegal transition', async () => {
+    const { scheduler, timer } = build();
+    scheduler.start();
+    scheduler.start(); // duplicate
+    expect(timer.pending()).toBe(1);
+    scheduler.stop();
+    scheduler.stop(); // duplicate
+    expect(scheduler.getState()).toBe('stopped');
+    expect(timer.pending()).toBe(0);
+    scheduler.start(); // restart after double-stop
+    expect(scheduler.getState()).toBe('idle');
+    expect(timer.pending()).toBe(1);
+    scheduler.stop();
+  });
+});
+
 describe('triggers', () => {
   it('manual trigger runs the full pipeline and updates metrics', async () => {
     const { scheduler, pipeline } = build();

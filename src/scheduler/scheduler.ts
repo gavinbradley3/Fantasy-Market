@@ -53,6 +53,13 @@ export class Scheduler<TRefresh = unknown> {
 
   /** Prevent future interval executions; an in-flight execution is allowed to finish. */
   stop(): void {
+    if (this.state.is('disabled')) {
+      // A scheduler disabled at construction is inert for its whole lifecycle: enabled === false
+      // is a configuration invariant, not a runtime state. stop() must NOT force it to 'stopped',
+      // or a later start() (whose guard only checks 'disabled') would re-arm it. Stay disabled.
+      this.cfg.logger.warn('scheduler.stop.ignored', { reason: 'disabled' });
+      return;
+    }
     if (!this.started && !this.state.is('running') && !this.state.is('backingOff')) {
       // idempotent: stopping an already-stopped scheduler
       this.started = false;
