@@ -41,8 +41,15 @@ describe('scheduler is a pure, portable operational layer', () => {
   });
 
   it('is not imported by any non-scheduler source file (kept out of the app/browser bundle)', () => {
+    // The Phase 8 application service layer (src/application) is a sanctioned Node-only consumer
+    // that drives the scheduler through its public surface (its Phase 8 dependency contract
+    // permits depending on the scheduler). It cannot reach the browser bundle:
+    // src/application/boundary.test.ts proves no browser/app file imports @/application, and the
+    // production bundle is verified free of scheduler code. Every other non-scheduler file
+    // remains forbidden from importing @/scheduler.
     const offenders = allFiles
       .filter((f) => !f.includes(`${join('src', 'scheduler')}`))
+      .filter((f) => !f.includes(`${join('src', 'application')}`))
       .filter((f) => /from '@\/scheduler|from '\.\.?\/scheduler/.test(readFileSync(f, 'utf8')));
     expect(offenders).toEqual([]);
   });

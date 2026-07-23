@@ -29,8 +29,14 @@ const persistenceFiles = allFiles.filter((f) => f.includes(`${join('src', 'persi
 
 describe('persistence is a Node-only backend module', () => {
   it('no NON-persistence source file imports @/persistence (keeps it out of the browser bundle)', () => {
+    // The Phase 8 application service layer (src/application) is a sanctioned Node-only consumer
+    // of persistence interfaces (see its Phase 8 dependency contract). It cannot reach the
+    // browser bundle: src/application/boundary.test.ts proves no browser/app file imports
+    // @/application, and the production bundle is verified free of persistence code. It is the
+    // one permitted importer outside src/persistence; every other file remains forbidden.
     const offenders = allFiles
       .filter((f) => !f.includes(`${join('src', 'persistence')}`))
+      .filter((f) => !f.includes(`${join('src', 'application')}`))
       .filter((f) => /from '@\/persistence|from '\.\.?\/persistence/.test(readFileSync(f, 'utf8')));
     expect(offenders).toEqual([]);
   });
