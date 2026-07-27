@@ -21,6 +21,7 @@ import type {
   ScheduleGameRecord,
 } from '../types';
 import { asRows, bool, num, str } from './helpers';
+import { ageFromBirthDate, derivedGameId, weekBoundaryIso } from '../weekTiming';
 
 const CAPS = new Set<Capability>(['identity', 'roster', 'schedule', 'games', 'participation', 'officialStarts']);
 
@@ -61,7 +62,9 @@ export const nflverseAdapter: ProviderAdapter = {
         nameNormalized: name.toLowerCase(),
         position: pos,
         team: normalizeTeam(str(row, 'team')),
-        age: num(row, 'age'),
+        // The provider publishes `age` on some resources and `birth_date` on others; age is
+        // derived from the birth date only when no age column was supplied.
+        age: num(row, 'age') ?? ageFromBirthDate(str(row, 'birth_date'), freshness.effectiveDate),
         nflSeasonsCompleted: num(row, 'seasons') ?? num(row, 'years_exp'),
         draftRound: num(row, 'draft_round'),
         status: normalizeStatus(str(row, 'status')),
@@ -123,27 +126,52 @@ export const nflverseAdapter: ProviderAdapter = {
     const records: GameStatRecord[] = [];
     const warnings: IngestionWarning[] = [];
     for (const row of asRows(raw)) {
-      const gsis = str(row, 'gsis_id');
-      const gameId = str(row, 'game_id');
-      const kickoffRaw = str(row, 'kickoff');
-      const team = normalizeTeam(str(row, 'team'));
+      // The provider ships this resource in two shapes. The schedule-joined shape uses
+      // gsis_id / game_id / kickoff / team; the weekly player-stats export — the ordinary
+      // nflverse download — uses player_id / season+week / recent_team and carries no
+      // timestamp. Both are accepted; the first spelling found wins, so a row that supplies
+      // real values is never overridden by a derived one.
+      const gsis = str(row, 'gsis_id') ?? str(row, 'player_id');
+      const team = normalizeTeam(str(row, 'team') ?? str(row, 'recent_team'));
+      const season = num(row, 'season');
+      const week = num(row, 'week');
       const r = ref(gsis);
-      if (!r || !gameId || !kickoffRaw || !team) {
+      if (!r || !team) {
         warnings.push({ code: 'DISCARDED_MALFORMED', provider: 'nflverse', detail: 'game stat row incomplete' });
         continue;
       }
-      let kickoff: string;
-      try {
-        kickoff = normalizeTimestamp(kickoffRaw);
-      } catch {
-        warnings.push({ code: 'MISSING_TIMESTAMP', provider: 'nflverse', detail: `bad kickoff ${kickoffRaw}` });
+
+      const gameId = str(row, 'game_id') ?? derivedGameId(season, week, team);
+      const kickoffRaw = str(row, 'kickoff');
+      // A real kickoff is always preferred. The derived week boundary is an ordering /
+      // as-of key only (see weekTiming.ts) and is never presented as an observed kickoff.
+      const derivedKickoff = kickoffRaw === null ? weekBoundaryIso(season, week) : null;
+      if (!gameId || (!kickoffRaw && !derivedKickoff)) {
+        warnings.push({
+          code: 'DISCARDED_MALFORMED',
+          provider: 'nflverse',
+          detail: 'game stat row has neither a game_id/kickoff nor a usable season+week',
+        });
         continue;
       }
+
+      let kickoff: string;
+      if (kickoffRaw !== null) {
+        try {
+          kickoff = normalizeTimestamp(kickoffRaw);
+        } catch {
+          warnings.push({ code: 'MISSING_TIMESTAMP', provider: 'nflverse', detail: `bad kickoff ${kickoffRaw}` });
+          continue;
+        }
+      } else {
+        kickoff = derivedKickoff as string;
+      }
+
       const snaps = num(row, 'snaps');
       const teamSnaps = num(row, 'team_snaps');
       records.push({
         canonicalId: null, providerRef: r, freshness, sourceTimestamp: freshness.effectiveDate,
-        gameId, kickoff, season: num(row, 'season') ?? 0, seasonType: seasonType(str(row, 'season_type')), team,
+        gameId, kickoff, season: season ?? 0, seasonType: seasonType(str(row, 'season_type')), team,
         passAttempts: num(row, 'pass_attempts') ?? num(row, 'attempts'),
         carries: num(row, 'carries'), targets: num(row, 'targets'),
         snaps, teamSnaps, qbSnapShare: snaps !== null && teamSnaps !== null && teamSnaps > 0 ? snaps / teamSnaps : num(row, 'qb_snap_share'),

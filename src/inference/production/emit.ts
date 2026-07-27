@@ -7,6 +7,7 @@
 import { emissionDecision } from '@/inference/readiness/integration';
 import type { IntermediateField } from '@/inference/result/types';
 import { LIMITATION_CODES, type LimitationCode, type SupportedPosition } from '@/inference/types';
+import { NULL_FIELD_CONFIDENCE } from '@/inference/registry/constants';
 import { SUPPLEMENT_SPEC } from './fieldKinds';
 
 export interface FieldEmission {
@@ -102,10 +103,23 @@ export function emitSupplement(
 }
 
 /**
- * The `UNAVAILABLE` inferred fields corresponding to spec fields no inference family
- * produced. They carry no value and no evidence — their entire content is the honest
- * statement "no authorized source supplied this" — and they exist so that the envelope
- * serializes a complete supplement and the confidence model sees the gap.
+ * The inferred fields corresponding to spec fields no inference family produced.
+ *
+ * Their attributes are fixed by the registry, not chosen here:
+ *
+ *   • kinds (a)/(b) — nullable and non-nullable numeric — are genuinely `UNAVAILABLE`:
+ *     no value, no provenance, and the §20.F2 confidence for a present-null UNAVAILABLE
+ *     field (100). Kind (b) is still OMITTED by the §20.F3 matrix and still blocks.
+ *
+ *   • kinds (c)/(d) — enum/bool with an authorized neutral — are NOT an absence. §20.F3
+ *     states that a neutral/default emission carries exactly `status = LOW_CONFIDENCE`,
+ *     `value = the authorized neutral member`, `provenance = MODEL_CLASSIFICATION`,
+ *     `confidence = 400` (§20.F2), `limitation = NEUTRAL_DEFAULT`. It is an explicitly
+ *     labelled low-confidence CLASSIFICATION, not an unavailable field — recording it as
+ *     `UNAVAILABLE` would understate what the layer actually decided.
+ *
+ * These flow into the serialized envelope and the confidence model, so the numbers above
+ * are the ones a reader and the weighted-geometric-mean both see.
  */
 export function unavailableFieldsFor(
   position: SupportedPosition,
@@ -117,20 +131,16 @@ export function unavailableFieldsFor(
   const produced = new Set(fields.map((f) => f.field));
   return Object.keys(spec)
     .filter((field) => !produced.has(field))
-    .map((field) => {
-      const kind = spec[field].kind;
-      // Only codes already in the authorized vocabulary are used. NEUTRAL_DEFAULT is the
-      // §20.F3 code for an enum/bool carried as its neutral member; a nullable field needs
-      // no code because `status: UNAVAILABLE` with a null value is already the complete
-      // statement, and it is serialized in the envelope.
-      const limitations: LimitationCode[] =
-        kind === 'enumNeutral' || kind === 'boolDefault' ? [LIMITATION_CODES.NEUTRAL_DEFAULT] : [];
+    .map((field): IntermediateField<unknown> => {
+      const fieldSpec = spec[field];
+      const isNeutral = fieldSpec.kind === 'enumNeutral' || fieldSpec.kind === 'boolDefault';
+      const limitations: LimitationCode[] = isNeutral ? [LIMITATION_CODES.NEUTRAL_DEFAULT] : [];
       return {
         field,
-        value: null,
-        status: 'UNAVAILABLE' as const,
-        provenance: null,
-        confidence: 0,
+        value: isNeutral ? (fieldSpec.neutral as unknown) : null,
+        status: isNeutral ? 'LOW_CONFIDENCE' : 'UNAVAILABLE',
+        provenance: isNeutral ? 'MODEL_CLASSIFICATION' : null,
+        confidence: isNeutral ? NULL_FIELD_CONFIDENCE.NEUTRAL_DEFAULT : NULL_FIELD_CONFIDENCE.UNAVAILABLE,
         limitations,
         evidence: [],
         asOf,
