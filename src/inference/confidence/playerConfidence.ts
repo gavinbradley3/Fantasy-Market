@@ -64,17 +64,34 @@ function importanceWeight(fieldName: string, position: SupportedPosition): numbe
 }
 
 /**
- * Aggregate player confidence from the emitted intermediate fields (§11.1). Fields
- * with status NOT_APPLICABLE are excluded; a present-null field contributes its
- * §20.F2 confidence; the weakest-critical cap ranges only over present CRITICAL
- * fields. Throws if no field participates.
+ * Aggregate player confidence from the emitted intermediate fields (§11.1).
+ *
+ * MEMBERSHIP (§20.F2) — two exclusions, both required by the registry table:
+ *   • `NOT_APPLICABLE` — excluded from the WGM, the CRITICAL cap, and both public-factor
+ *     denominators, so a legitimately inapplicable field neither helps nor harms.
+ *   • OMITTED fields (kind (b) non-nullable numeric the layer could not estimate) — the
+ *     §20.F2 row reads `— / n/a (player NOT_READY) / n/a`: an omitted field has no defined
+ *     confidence and does not participate. It is not silently forgiven — omission is what
+ *     makes the player NOT_READY, and it is reported through `readiness_missing`, the
+ *     `MISSING_EVIDENCE` explanation, and `honesty_state`. Counting it a second time as a
+ *     conf-100 WGM member (and, when CRITICAL, as the weakest-critical cap) would double-
+ *     penalize the same absence against a number the reader also sees.
+ *
+ * A present-null field still contributes its §20.F2 confidence, and the weakest-critical
+ * cap ranges only over the CRITICAL fields that are actually present.
+ *
+ * `omitted` is the emitter's own omission list (`EmitResult.omitted`) — membership is
+ * decided by the §20.F3 emission matrix, never re-derived from a field's status here.
  */
 export function buildPlayerConfidence(
   fields: readonly IntermediateField<unknown>[],
   position: SupportedPosition,
+  omitted: readonly string[] = [],
 ): PlayerConfidenceResult {
+  const omittedSet = new Set(omitted);
   const entries: ConfidenceEntry[] = [];
   for (const f of fields) {
+    if (omittedSet.has(f.field)) continue; // §20.F2 — omitted fields do not participate
     const conf = membershipConfidence(f);
     if (conf === null) continue; // NOT_APPLICABLE excluded
     entries.push({

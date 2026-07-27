@@ -40,7 +40,6 @@ const NFL_LIVE: RefreshRequest[] = [
   live('nflverse', 'schedule', { season: SEASON }),
   live('nflverse', 'games', { season: SEASON }),
   live('nflverse', 'participation', { season: SEASON }),
-  live('nflverse', 'officialStarts', { season: SEASON }),
 ];
 const ALL_LIVE: RefreshRequest[] = [...NFL_LIVE, live('sleeper', 'identity')];
 const ALL_REPLAY: RefreshRequest[] = ALL_LIVE.map((r) => ({ ...r, mode: 'replay' as const }));
@@ -248,7 +247,10 @@ describe('refresh — failure isolation', () => {
     registry.register({
       provider: 'manual',
       capability: 'identity',
-      buildRequest: () => ({ method: 'GET', url: 'https://example.test/manual.json', headers: {}, expectContentType: 'application/json' }),
+      prepare: () =>
+        Promise.resolve({
+          request: { method: 'GET' as const, url: 'https://example.test/manual.json', headers: {}, expectContentType: 'application/json' },
+        }),
       decode: () => [{ id: 'x' }],
       adapter: {
         provider: 'manual',

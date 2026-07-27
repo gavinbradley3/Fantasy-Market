@@ -54,11 +54,27 @@ export function normalizeTeam(raw: string | null | undefined): string | null {
   return TEAM_ALIASES[up] ?? up;
 }
 
+/**
+ * Provider status code → the four canonical statuses.
+ *
+ * The three-letter codes are nflverse's published roster-status vocabulary, mapped to the
+ * nearest canonical meaning rather than left unrecognised (an unmapped code resolves to
+ * `null`, which reads as "no status" and makes the player NOT_READY). Each mapping follows
+ * the provider's own documented meaning: the reserve/PUP codes describe a player held out
+ * through injury, the practice-squad and released codes describe a player who is simply not
+ * on the active roster, and `SUS` is an explicit suspension.
+ */
 const STATUS_MAP: Readonly<Record<string, NormalizedStatus>> = {
   ACTIVE: 'active', ACT: 'active',
   INJURED: 'injured', INJURY: 'injured',
-  SUSPENDED: 'suspended', SUSP: 'suspended',
+  SUSPENDED: 'suspended', SUSP: 'suspended', SUS: 'suspended',
   INACTIVE: 'inactive', INA: 'inactive', CUT: 'inactive', FA: 'inactive',
+  // nflverse codes: reserve / physically-unable-to-perform / reserve non-football injury.
+  RES: 'injured', PUP: 'injured', NFI: 'injured', RSN: 'injured',
+  // nflverse codes: practice squad, exempt, not-with-team, retired, reserve-retired,
+  // trade claim / traded — all "not on the active roster", none of them an injury.
+  DEV: 'inactive', EXE: 'inactive', NWT: 'inactive', RET: 'inactive', RSR: 'inactive',
+  TRC: 'inactive', TRD: 'inactive',
 };
 
 export function normalizeStatus(raw: string | null | undefined): NormalizedStatus | null {

@@ -27,9 +27,12 @@ function handler(capability: ProviderCapability): CapabilityHandler {
   return {
     provider: 'sleeper',
     capability,
-    buildRequest(ctx: RequestBuildContext) {
+    // Sleeper serves this resource at a fixed, unversioned URL and publishes no release
+    // or version index, so preparation is resolution-free: no discovery request is made.
+    // Freshness falls back to the HTTP validators the response carries.
+    prepare(ctx: RequestBuildContext) {
       const base = validateBaseUrl(ctx.config, 'sleeper');
-      return getRequest(base, path, ctx.config);
+      return Promise.resolve({ request: getRequest(base, path, ctx.config) });
     },
     // Sleeper's players resource is a keyed map; the key is the sleeper id.
     decode: (envelope) => decodeArrayOrKeyedMap(envelope, 'sleeper_id'),

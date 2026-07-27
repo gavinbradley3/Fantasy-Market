@@ -74,9 +74,9 @@ function columns(d: import('./sqlite/db').Database, table: string): string[] {
 }
 
 describe('migration v2 — board publication', () => {
-  it('a fresh database reaches v2 with the board-shaped publication table', () => {
+  it('a fresh database reaches the latest version with the board-shaped publication table', () => {
     const d = db();
-    expect(migrate(d, '2026-01-01T00:00:00.000Z')).toBe(2);
+    expect(migrate(d, '2026-01-01T00:00:00.000Z')).toBe(LATEST_MIGRATION_VERSION);
     const cols = columns(d, 'publication');
     expect(cols).toContain('board_checksum');
     expect(cols).toContain('entry_count');
@@ -91,26 +91,48 @@ describe('migration v2 — board publication', () => {
     expect(columns(d, 'publication')).toContain('normalized_input_checksum');
     expect(columns(d, 'publication')).not.toContain('entry_count');
 
-    // Upgrade to v2.
-    expect(migrate(d, '2026-01-02T00:00:00.000Z')).toBe(2);
+    // Upgrade.
+    expect(migrate(d, '2026-01-02T00:00:00.000Z')).toBe(LATEST_MIGRATION_VERSION);
     const cols = columns(d, 'publication');
     expect(cols).toContain('entry_count');
     expect(cols).not.toContain('normalized_input_checksum');
     // The current pointer is invalidated (empty) — no legacy single-unit board survives.
     const cur = d.prepare('SELECT COUNT(*) AS c FROM current_publication').get() as { c: number };
     expect(cur.c).toBe(0);
-    // Both migration versions are recorded.
+    // Every migration version is recorded, in order.
     const versions = (d.prepare('SELECT version FROM schema_migrations ORDER BY version').all() as { version: number }[]).map((r) => r.version);
-    expect(versions).toEqual([1, 2]);
+    expect(versions).toEqual(Array.from({ length: LATEST_MIGRATION_VERSION }, (_, i) => i + 1));
     d.close();
   });
 
-  it('re-running migration on a v2 database is idempotent', () => {
+  it('re-running migration on an up-to-date database is idempotent', () => {
     const d = db();
     migrate(d, '2026-01-01T00:00:00.000Z');
     migrate(d, '2026-01-02T00:00:00.000Z');
     const c = d.prepare('SELECT COUNT(*) AS c FROM schema_migrations').get() as { c: number };
-    expect(c.c).toBe(2);
+    expect(c.c).toBe(LATEST_MIGRATION_VERSION);
+    d.close();
+  });
+});
+
+describe('migration v3 — provider dataset version', () => {
+  it('adds the provider version columns to the raw payload artifact', () => {
+    const d = db();
+    migrate(d, '2026-01-01T00:00:00.000Z');
+    const cols = columns(d, 'raw_payload_artifact');
+    expect(cols).toContain('source_version');
+    expect(cols).toContain('source_last_updated');
+    d.close();
+  });
+
+  it('upgrades a v2 database in place, leaving existing captures readable', () => {
+    // The columns are nullable, so a capture written before the provider published a
+    // version stays valid and simply reports none.
+    const d = db();
+    expect(migrate(d, '2026-01-01T00:00:00.000Z', 2)).toBe(2);
+    expect(columns(d, 'raw_payload_artifact')).not.toContain('source_version');
+    expect(migrate(d, '2026-01-02T00:00:00.000Z')).toBe(3);
+    expect(columns(d, 'raw_payload_artifact')).toContain('source_version');
     d.close();
   });
 });

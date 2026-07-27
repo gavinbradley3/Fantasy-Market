@@ -21,7 +21,7 @@ import { runInference } from '@/inference/production/runInference';
 import type { ProductionResult } from '@/inference/production/types';
 import type { Clock } from './clock';
 import { systemClock } from './clock';
-import { buildEnvelope, verifyEnvelope } from './envelope';
+import { buildEnvelope, decodePayloadBytes, verifyEnvelope } from './envelope';
 import { asTransportError, TransportError } from './errors';
 import { loadReplayEnvelope } from './replay';
 import { computeRequestKey, ProviderRegistry, type TransportConfig } from './registry';
@@ -53,8 +53,17 @@ export interface RefreshInput {
   readonly sources: readonly RefreshRequest[];
   readonly policy?: RefreshPolicy;
   readonly ingestOptions?: IngestOptions;
-  /** Optional inference builds; each runs the Phase 4 entry `runInference` on the snapshot. */
-  readonly inference?: readonly BuildInputOptions[];
+  /**
+   * Optional inference builds; each runs the Phase 4 entry `runInference` on the snapshot.
+   *
+   * A SELECTOR may be supplied instead of a fixed list, for the ordinary production case
+   * where which players to value is a function of what the refresh actually ingested — a
+   * caller cannot name canonical ids before the snapshot that mints them exists. The
+   * selector must be pure, so the same snapshot always yields the same builds in the same
+   * order; the alternative (refresh, then refresh a second time with the ids) would double
+   * every fetch and every normalization for no gain.
+   */
+  readonly inference?: readonly BuildInputOptions[] | ((snapshot: NormalizedSnapshot) => readonly BuildInputOptions[]);
 }
 
 export type RefreshStatus = 'success' | 'partial' | 'failure';
@@ -92,14 +101,23 @@ export interface RefreshResult {
   readonly summary: RefreshSummary;
 }
 
-/** Derive Phase 4 freshness purely from the stored envelope, so replay reproduces it. */
+/**
+ * Derive Phase 4 freshness purely from the stored envelope, so replay reproduces it.
+ *
+ * The PROVIDER's own statement about its data wins over an HTTP transfer artifact: a
+ * release manifest that says when the dataset was last rebuilt is a fact about the data,
+ * whereas `Last-Modified`/`ETag` describe the file transfer (a CDN can rewrite both without
+ * the dataset changing). The HTTP validators remain the fallback when a provider publishes
+ * no version of its own — and remain the values used for conditional revalidation, which is
+ * a transfer concern and reads them directly off the envelope.
+ */
 function freshnessFromEnvelope(envelope: RawPayloadEnvelope): FreshnessMeta {
   return {
     provider: envelope.provider,
     fetchedAt: envelope.fetchedAt,
     effectiveDate: envelope.effectiveDate,
-    lastUpdated: envelope.lastModified ?? null,
-    sourceVersion: envelope.etag ?? envelope.sourceVersion ?? null,
+    lastUpdated: envelope.sourceLastUpdated ?? envelope.lastModified ?? null,
+    sourceVersion: envelope.sourceVersion ?? envelope.etag ?? null,
   };
 }
 
@@ -137,13 +155,37 @@ async function acquireEnvelope(request: RefreshRequest, deps: RefreshDeps): Prom
     : null;
   const conditional = prior ? { etag: prior.etag, lastModified: prior.lastModified } : undefined;
 
-  const httpRequest = handler.buildRequest({
+  // Resolve the concrete request. For a provider whose data lives behind a release or
+  // version index this performs discovery through the SAME client (one network path), and
+  // returns the provider's own version alongside the request.
+  const prepared = await handler.prepare({
     provider: request.provider,
     capability: request.capability,
     config,
     params,
     effectiveDate: request.effectiveDate,
+    io: {
+      fetchText: async (discoveryRequest) => {
+        const result = await deps.client.execute(discoveryRequest, undefined, deps.signal);
+        if (result.kind !== 'ok') {
+          throw new TransportError('DISCOVERY_FAILURE', 'discovery request did not return a payload', {
+            provider: request.provider,
+            capability: request.capability,
+            requestKey,
+            retryable: true,
+            stage: 'prepare',
+          });
+        }
+        // The client stores bytes as base64 whenever the media type is not text-like, and a
+        // release manifest is served as an opaque octet stream — so it must be decoded here
+        // rather than handed over as base64 that no parser would recognise as JSON.
+        return result.payloadEncoding === 'utf8'
+          ? result.payload
+          : new TextDecoder('utf-8').decode(decodePayloadBytes(result.payload, 'base64'));
+      },
+    },
   });
+  const httpRequest = prepared.request;
 
   const fetchedAt = clock.now();
   const outcome = await deps.client.execute(httpRequest, conditional, deps.signal);
@@ -171,6 +213,8 @@ async function acquireEnvelope(request: RefreshRequest, deps: RefreshDeps): Prom
     effectiveDate: request.effectiveDate,
     sourceUrl: stripQuery(httpRequest.url),
     outcome,
+    ...(prepared.sourceVersion !== undefined ? { sourceVersion: prepared.sourceVersion } : {}),
+    ...(prepared.sourceLastUpdated !== undefined ? { sourceLastUpdated: prepared.sourceLastUpdated } : {}),
   });
   verifyEnvelope(envelope); // sanity gate before persisting/using
   await deps.store.put(envelope);
@@ -186,7 +230,8 @@ function stripQuery(url: string): string {
 interface InternalSuccess {
   readonly result: SourceResult;
   readonly adapter: ProviderAdapter;
-  readonly capability: ProviderCapability;
+  /** The requested capability first, then any the same payload also normalizes into. */
+  readonly capabilities: readonly ProviderCapability[];
   readonly decoded: unknown;
   readonly freshness: FreshnessMeta;
 }
@@ -293,10 +338,16 @@ export async function refreshSources(input: RefreshInput, deps: RefreshDeps): Pr
   for (const result of settled) {
     if (result.outcome === 'failed' || result.decoded === undefined || !result.freshness) continue;
     const handler = deps.registry.lookup(result.provider, result.capability);
+    // A payload that also normalizes into other capabilities contributes to each of them,
+    // but only where the adapter actually advertises that capability — a declaration can
+    // never conjure a normalizer that does not exist.
+    const extra = (handler.alsoNormalizes ?? []).filter(
+      (c) => c !== result.capability && handler.adapter.capabilities.has(c),
+    );
     successes.push({
       result,
       adapter: handler.adapter,
-      capability: result.capability,
+      capabilities: [result.capability, ...[...extra].sort()],
       decoded: result.decoded,
       freshness: result.freshness,
     });
@@ -312,7 +363,7 @@ export async function refreshSources(input: RefreshInput, deps: RefreshDeps): Pr
     .map((s) => ({
       adapter: s.adapter,
       freshness: s.freshness,
-      payloads: { [s.capability]: s.decoded } as ProviderSource['payloads'],
+      payloads: Object.fromEntries(s.capabilities.map((c) => [c, s.decoded])) as ProviderSource['payloads'],
     }));
 
   let snapshot: NormalizedSnapshot | null = null;
@@ -326,7 +377,8 @@ export async function refreshSources(input: RefreshInput, deps: RefreshDeps): Pr
   // Optional inference, reusing the Phase 4 entry points only.
   const inference: InferenceOutcome[] = [];
   if (snapshot && input.inference) {
-    for (const build of input.inference) {
+    const builds = typeof input.inference === 'function' ? input.inference(snapshot) : input.inference;
+    for (const build of builds) {
       try {
         const nii = buildNormalizedInferenceInput(snapshot, build);
         if (!nii) {

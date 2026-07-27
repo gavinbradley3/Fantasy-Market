@@ -5,12 +5,13 @@
 // lookup is reused (never re-derived) so the number cannot diverge from the registry.
 
 import { present, notProvided } from '@/pipeline/provenance';
+import { toInjuryStatus } from '@/pipeline/readiness/engineReadiness';
 import type { CanonicalPlayer, CanonicalStatus, ProviderId, SupportedPosition } from '@/pipeline/types';
 import { availabilityProbability, type AvailabilityState, type InjuryStatus } from '@/inference/availability';
 import type { NormalizedEvidence } from '@/inference/production/orchestrate';
 import type { CompetitionPosition, CompetitionTeammate } from '@/inference/competition';
 import type { RosterStatus } from '@/inference/features/types';
-import { observedCountingFacts } from './observedFacts';
+import { observedCountingFacts, RECENT_GAME_WINDOW } from './observedFacts';
 import { compareOrdinal, withinAsOf } from './ordering';
 import type { NormalizedSnapshot } from './snapshot';
 import type {
@@ -48,8 +49,34 @@ function latest<T extends { sourceTimestamp: string }>(recs: readonly T[], asOf:
   return best;
 }
 
-function injuryToState(inj: InjuryRecord | null): AvailabilityState {
-  const injuryStatus = (inj?.injuryStatus ?? 'HEALTHY') as InjuryStatus;
+/**
+ * Availability state for a player, from the injury feed when one exists and from the
+ * player's own canonical status when it does not.
+ *
+ * THE FALLBACK IS NOT A DEFAULT. Assuming HEALTHY whenever no injury record is present is
+ * only safe if an injury feed is present at all. nflverse publishes none, so that assumption
+ * silently declared every released, reserve and physically-unable-to-perform player fit —
+ * while the ENGINE metadata read the same player's status and reported OUT. The engine
+ * cross-validates the pair (`probability_active` must be 0 when the status is OUT/IR/PUP)
+ * and threw the player out for contradicting itself.
+ *
+ * So when there is no injury record the status the player already carries is used, through
+ * the same `toInjuryStatus` mapper the readiness layer uses for the engine metadata. Both
+ * sides now read one source and cannot disagree. Only a player with neither an injury record
+ * nor a status falls through to UNKNOWN, which is the honest description of that case.
+ */
+function injuryToState(inj: InjuryRecord | null, player: PlayerRecord): AvailabilityState {
+  const injuryStatus: InjuryStatus =
+    inj !== null
+      ? (inj.injuryStatus as InjuryStatus)
+      : toInjuryStatus(
+          player.status !== null
+            ? { present: true, value: player.status, provenance: 'DIRECT', provider: toProviderId(player.freshness.provider), sourceTimestamp: player.sourceTimestamp }
+            : { present: false, reason: 'NOT_PROVIDED' },
+          player.injuryDesignation !== null
+            ? { present: true, value: player.injuryDesignation, provenance: 'DIRECT', provider: toProviderId(player.freshness.provider), sourceTimestamp: player.sourceTimestamp }
+            : { present: false, reason: 'NOT_PROVIDED' },
+        );
   const practice = inj?.practiceStatus ?? 'UNKNOWN';
   return { injuryStatus, practiceStatus: practice, recentlyActivated: false, freeAgent: false, practiceSquad: false };
 }
@@ -109,7 +136,7 @@ export function buildEvidenceFor(
   const gamesLeft = team
     ? snapshot.schedule.filter((s) => s.seasonType === 'REG' && (s.homeTeam === team || s.awayTeam === team) && Date.parse(s.kickoff) > Date.parse(asOf)).length
     : 0;
-  const availState = injuryToState(myInjury);
+  const availState = injuryToState(myInjury, playerRec);
   const availProb = availabilityProbability(availState);
   const suspended = availState.injuryStatus === 'SUSPENDED';
 
@@ -175,17 +202,44 @@ export function buildEvidenceFor(
 
   // --- D2 (QB starts) ---
   if (position === 'QB') {
-    const officials = snapshot.officialStarts.filter((o) => o.canonicalId === canonicalId);
     const rows = myGames.map((g) => gameRow(g));
-    const last17 = [...rows].sort((a, b) => (a.kickoff < b.kickoff ? 1 : -1)).slice(0, 17).map((r) => r.gameId);
+    // The recent window is the ENGINE's, not §9.2's 17. `recent_starts` and `recent_games`
+    // are both engine inputs, the engine bounds them to [0,8] and requires starts ≤ games,
+    // and they are only consistent with each other if one window produces both. See
+    // RECENT_GAME_WINDOW in ./observedFacts.ts for the conflict this resolves.
+    const recentGameIdList = [...rows]
+      .sort((a, b) => (a.kickoff < b.kickoff ? 1 : -1))
+      .slice(0, RECENT_GAME_WINDOW)
+      .map((r) => r.gameId);
+
+    // Official starts are counted ONLY over the games this snapshot actually holds stat
+    // evidence for.
+    //
+    // The two counters have to describe the same universe. `career_games_played` is derived
+    // from the per-game stat records that were ingested, so it spans exactly the seasons the
+    // refresh acquired. The starts resource is not season-scoped in the same way — the
+    // provider's schedule covers every season it has ever published — so counting every
+    // start record would report a career total against a single-season game total. That is
+    // not merely untidy: the QB engine rejects `career_starts > career_games_played`
+    // outright, so an unscoped count silently costs the player a valuation.
+    //
+    // Intersecting with the observed games keeps both numbers on the same window and makes
+    // the relationship true by construction. It reads as "of the games we have evidence for,
+    // how many did the provider name this player as the starter for" — which is exactly what
+    // the surrounding recent-window arithmetic already means.
+    const observedGameIds = new Set(myGames.map((g) => g.gameId));
+    const officials = snapshot.officialStarts.filter(
+      (o) => o.canonicalId === canonicalId && observedGameIds.has(o.gameId),
+    );
+
     if (officials.length > 0) {
       const startedGameIds = new Set(officials.filter((o) => o.started).map((o) => o.gameId));
-      const recentGameIds = new Set(last17);
-      const careerStarts = officials.filter((o) => o.started).length;
+      const recentGameIds = new Set(recentGameIdList);
+      const careerStarts = startedGameIds.size;
       const recentStarts = [...startedGameIds].filter((id) => recentGameIds.has(id)).length;
-      evidence.d2 = { asOf, official: { careerStarts, recentStarts, recentGames: last17.length, provenance: 'DERIVED' } };
+      evidence.d2 = { asOf, official: { careerStarts, recentStarts, recentGames: recentGameIdList.length, provenance: 'DERIVED' } };
     } else {
-      evidence.d2 = { asOf, games: rows, last17TeamGameIds: last17 };
+      evidence.d2 = { asOf, games: rows, last17TeamGameIds: recentGameIdList };
     }
   }
 

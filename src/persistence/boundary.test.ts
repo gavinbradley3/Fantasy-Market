@@ -41,6 +41,11 @@ describe('persistence is a Node-only backend module', () => {
       .filter((f) => !f.includes(`${join('src', 'persistence')}`))
       .filter((f) => !f.includes(`${join('src', 'application')}`))
       .filter((f) => !f.includes(`${join('src', 'api')}`))
+      // src/runtime is the production refresh pipeline — the injected implementation the
+      // composition root deliberately does not hard-wire, and the one module that legitimately
+      // sees both transport and persistence. It is Node-only and proven unreachable from the
+      // browser bundle by src/runtime/boundary.test.ts.
+      .filter((f) => !f.includes(`${join('src', 'runtime')}`))
       .filter((f) => /from '@\/persistence|from '\.\.?\/persistence/.test(readFileSync(f, 'utf8')));
     expect(offenders).toEqual([]);
   });

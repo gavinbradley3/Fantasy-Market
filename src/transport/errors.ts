@@ -18,6 +18,7 @@ export type TransportErrorCode =
   | 'UNEXPECTED_STATUS'
   | 'INVALID_CONTENT_TYPE'
   | 'DECODE_FAILURE'
+  | 'DISCOVERY_FAILURE'
   | 'CHECKSUM_MISMATCH'
   | 'MISSING_REPLAY_PAYLOAD'
   | 'INVALID_REVALIDATION'
@@ -28,6 +29,7 @@ export type TransportErrorCode =
 export type TransportStage =
   | 'config'
   | 'request'
+  | 'prepare'
   | 'fetch'
   | 'revalidate'
   | 'envelope'

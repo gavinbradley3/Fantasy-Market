@@ -16,10 +16,18 @@ export function buildDefaultRegistry(): ProviderRegistry {
   return registry;
 }
 
+/**
+ * nflverse's release assets are full-season exports, and the play-level participation file
+ * is the largest by a wide margin (~49 MB for a complete season, against ~8 MB for weekly
+ * stats). The cap is a real guard against an unbounded response, so it is raised to a size
+ * that admits the genuine article with headroom rather than removed.
+ */
+const NFLVERSE_MAX_BYTES = 128 * 1024 * 1024;
+
 /** Default, secret-free transport config pointing at each provider's public base URL. */
 export function defaultTransportConfig(): TransportConfig {
   return {
-    nflverse: { baseUrl: NFLVERSE_DEFAULT_BASE_URL },
+    nflverse: { baseUrl: NFLVERSE_DEFAULT_BASE_URL, maxBytes: NFLVERSE_MAX_BYTES },
     sleeper: { baseUrl: SLEEPER_DEFAULT_BASE_URL },
   };
 }

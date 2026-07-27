@@ -62,6 +62,27 @@ export function derivedGameId(season: number | null, week: number | null, team: 
 }
 
 /**
+ * Season and week read out of an nflverse game id (`2025_01_DAL_PHI`).
+ *
+ * This is PARSING the provider's own identifier, not guessing: the id's first two segments
+ * are the season and the week the provider itself assigned to the game. Some resources —
+ * the play-level participation export in particular — carry the game id and nothing else
+ * temporal, so this is the only authoritative way to place those rows in a season.
+ *
+ * Returns `null` for anything that does not match the documented shape, so a changed id
+ * convention surfaces as missing data rather than as a plausible wrong answer.
+ */
+export function parseNflverseGameId(gameId: string): { season: number; week: number } | null {
+  const m = /^(\d{4})_(\d{2})_/.exec(gameId);
+  if (!m) return null;
+  const season = Number(m[1]);
+  const week = Number(m[2]);
+  if (!Number.isInteger(season) || !Number.isInteger(week)) return null;
+  if (season < 1920 || season > 2200 || week < 1 || week > 30) return null;
+  return { season, week };
+}
+
+/**
  * Completed years between a birth date and a reference instant.
  *
  * The provider's players export publishes `birth_date` but not `age`. Age is then a

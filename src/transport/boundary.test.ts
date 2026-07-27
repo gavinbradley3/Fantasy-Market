@@ -35,7 +35,6 @@ const ALL_LIVE: RefreshRequest[] = [
   { provider: 'nflverse', capability: 'schedule', mode: 'live', effectiveDate: EFFECTIVE, params: { season: SEASON } },
   { provider: 'nflverse', capability: 'games', mode: 'live', effectiveDate: EFFECTIVE, params: { season: SEASON } },
   { provider: 'nflverse', capability: 'participation', mode: 'live', effectiveDate: EFFECTIVE, params: { season: SEASON } },
-  { provider: 'nflverse', capability: 'officialStarts', mode: 'live', effectiveDate: EFFECTIVE, params: { season: SEASON } },
   { provider: 'sleeper', capability: 'identity', mode: 'live', effectiveDate: EFFECTIVE },
 ];
 

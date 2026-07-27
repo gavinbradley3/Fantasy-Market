@@ -54,6 +54,9 @@ describe('scheduler is a pure, portable operational layer', () => {
       .filter((f) => !f.includes(`${join('src', 'scheduler')}`))
       .filter((f) => !f.includes(`${join('src', 'application')}`))
       .filter((f) => !f.includes(`${join('src', 'api')}`))
+      // src/runtime implements the RefreshPipeline the scheduler drives; it imports the
+      // scheduler only for that interface. Node-only — see src/runtime/boundary.test.ts.
+      .filter((f) => !f.includes(`${join('src', 'runtime')}`))
       .filter((f) => /from '@\/scheduler|from '\.\.?\/scheduler/.test(readFileSync(f, 'utf8')));
     expect(offenders).toEqual([]);
   });

@@ -167,6 +167,18 @@ const MIGRATIONS: readonly Migration[] = [
       CREATE INDEX idx_publication_published_at ON publication(published_at);
     `,
   },
+  {
+    // A provider that publishes its own dataset version (nflverse stamps every release with
+    // a `last_updated`) records it on the envelope. Those two columns must round-trip, because
+    // Phase 4 freshness prefers them over the HTTP validators — a capture that loses them
+    // replays with DIFFERENT freshness, which changes every record and therefore the snapshot
+    // id. Added as nullable columns so every existing capture stays readable and valid.
+    version: 3,
+    up: `
+      ALTER TABLE raw_payload_artifact ADD COLUMN source_version TEXT;
+      ALTER TABLE raw_payload_artifact ADD COLUMN source_last_updated TEXT;
+    `,
+  },
 ];
 
 /** The highest migration version this code knows how to apply. */

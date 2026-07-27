@@ -123,8 +123,9 @@ export class PersistenceStore {
       .prepare(
         `INSERT INTO raw_payload_artifact
          (payload_checksum, schema_version, provider, capability, request_key, fetched_at, effective_date,
-          source_url, http_status, content_type, etag, last_modified, payload_encoding, payload, created_at)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+          source_url, http_status, content_type, etag, last_modified, source_version, source_last_updated,
+          payload_encoding, payload, created_at)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       )
       .run(
         env.payloadChecksum,
@@ -139,6 +140,8 @@ export class PersistenceStore {
         env.contentType ?? null,
         env.etag ?? null,
         env.lastModified ?? null,
+        env.sourceVersion ?? null,
+        env.sourceLastUpdated ?? null,
         env.payloadEncoding,
         env.payload,
         this.now(),
@@ -161,6 +164,8 @@ export class PersistenceStore {
       ...(row.content_type != null ? { contentType: row.content_type as string } : {}),
       ...(row.etag != null ? { etag: row.etag as string } : {}),
       ...(row.last_modified != null ? { lastModified: row.last_modified as string } : {}),
+      ...(row.source_version != null ? { sourceVersion: row.source_version as string } : {}),
+      ...(row.source_last_updated != null ? { sourceLastUpdated: row.source_last_updated as string } : {}),
       payloadEncoding: row.payload_encoding as RawPayloadEnvelope['payloadEncoding'],
       payload: row.payload as string,
       payloadChecksum: row.payload_checksum as string,

@@ -94,19 +94,39 @@ export function validateBaseUrl(config: ProviderTransportConfig, provider: strin
   return config.baseUrl.replace(/\/+$/, '');
 }
 
+/** Per-request overrides for a provider that does not serve JSON over a JSON media type. */
+export interface GetRequestOptions {
+  /** `Accept` header. Default `application/json`. */
+  readonly accept?: string;
+  /**
+   * Expected content-type prefix. Default `application/json`. Pass `null` to skip the
+   * check for a provider that serves data under an opaque media type — the decoder's own
+   * structural validation is the real gate in that case.
+   */
+  readonly expectContentType?: string | null;
+  /** Per-request timeout override (ms), used when the config sets none. */
+  readonly timeoutMs?: number;
+  /** Capture the body as text even if the media type is opaque (see TransportRequest). */
+  readonly textPayload?: boolean;
+}
+
 /** Build a GET request against a provider base with a fixed capability path. */
 export function getRequest(
   base: string,
   path: string,
   config: ProviderTransportConfig,
+  options: GetRequestOptions = {},
 ): TransportRequest {
+  const expect = options.expectContentType === undefined ? 'application/json' : options.expectContentType;
+  const timeoutMs = config.timeoutMs ?? options.timeoutMs;
   return {
     method: 'GET',
     url: `${base}${path}`,
-    headers: { accept: 'application/json', ...(config.headers ?? {}) },
+    headers: { accept: options.accept ?? 'application/json', ...(config.headers ?? {}) },
     redactedHeaders: ['authorization', 'x-api-key', ...(config.redactedHeaders ?? [])],
-    expectContentType: 'application/json',
-    ...(config.timeoutMs !== undefined ? { timeoutMs: config.timeoutMs } : {}),
+    ...(expect !== null ? { expectContentType: expect } : {}),
+    ...(options.textPayload ? { textPayload: true } : {}),
+    ...(timeoutMs !== undefined ? { timeoutMs } : {}),
     ...(config.maxBytes !== undefined ? { maxBytes: config.maxBytes } : {}),
   };
 }

@@ -156,7 +156,11 @@ function finalize(args: FinalizeArgs): ProductionResult {
   // inputs are observed FACTS (not AIL fields), so its verifiedShare / allCriticalOfficial
   // view would mislabel a facts-complete player. No formula is reimplemented — all math
   // lives in the confidence modules (Cold-audit M1: no duplicated Phase 2B logic).
-  const playerConfidence = buildPlayerConfidence(fields, position);
+  // §20.F2 membership: fields the §20.F3 matrix OMITTED do not participate in the WGM,
+  // the weakest-critical cap, or the verified-share denominator. Their absence is already
+  // reported through readiness_missing / MISSING_EVIDENCE / honesty_state.
+  const omittedSet = new Set(emit.omitted);
+  const playerConfidence = buildPlayerConfidence(fields, position, emit.omitted);
   const sourceQuality = computeSourceQuality(position, args.freshnessBySource);
 
   const critical = CRITICAL_FIELDS[position];
@@ -164,7 +168,7 @@ function finalize(args: FinalizeArgs): ProductionResult {
   const anyCriticalOmitted = invocation.readinessStatus !== 'READY';
 
   const isOfficial = (p: string | null): boolean => p === 'DIRECT' || p === 'DERIVED';
-  const participating = fields.filter((f) => membershipConfidence(f) !== null);
+  const participating = fields.filter((f) => !omittedSet.has(f.field) && membershipConfidence(f) !== null);
   const verifiedShare =
     participating.length > 0
       ? participating.filter((f) => isOfficial(f.provenance)).length / participating.length

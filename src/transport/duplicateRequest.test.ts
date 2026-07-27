@@ -13,7 +13,7 @@ import { refreshSources, type RefreshDeps } from './refresh';
 import { TransportError } from './errors';
 import type { RawPayloadStore } from './store';
 import type { RefreshRequest } from './types';
-import { EFFECTIVE, FETCHED_AT, NFLVERSE, SEASON, defaultRoutes, json, nflverseGamesRows, routingFetch, type RouteResponse } from './__fixtures';
+import { EFFECTIVE, FETCHED_AT, SEASON, csv, defaultRoutes, nflverseAssetUrl, nflverseGamesRows, routingFetch, type RouteResponse } from './__fixtures';
 
 const CLOCK = fixedClock(FETCHED_AT);
 
@@ -97,7 +97,7 @@ describe('M1 — logical identity includes provider, capability, and normalized 
 
   it('distinct seasons are NOT rejected', async () => {
     // Provide a distinct 2024 stats route so both seasons are genuinely fetchable.
-    const season2024 = { [`${NFLVERSE}/stats/player_stats_2024.json`]: json(nflverseGamesRows) };
+    const season2024 = { [nflverseAssetUrl('games', '2024')]: csv(nflverseGamesRows) };
     const result = await refreshSources(
       { sources: [req('nflverse', 'identity'), req('nflverse', 'games', { season: '2024' }), req('nflverse', 'games', { season: '2025' })] },
       liveDeps(season2024),
@@ -183,7 +183,6 @@ describe('M1 — existing distinct-request behavior preserved', () => {
           req('nflverse', 'schedule', { season: SEASON }),
           req('nflverse', 'games', { season: SEASON }),
           req('nflverse', 'participation', { season: SEASON }),
-          req('nflverse', 'officialStarts', { season: SEASON }),
           req('sleeper', 'identity'),
         ],
       },

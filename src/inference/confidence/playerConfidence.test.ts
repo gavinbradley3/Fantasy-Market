@@ -42,4 +42,35 @@ describe('player confidence membership + aggregation (REGISTRY §11.1/§20.F2)',
     const fields = [f('target_share', 'AVAILABLE', 700), f('expected_games_remaining', 'AVAILABLE', 650)];
     expect(buildPlayerConfidence(fields, 'WR')).toEqual(buildPlayerConfidence(fields, 'WR'));
   });
+
+  // §20.F2 — the omitted row reads "— / n/a (player NOT_READY) / n/a": a kind (b) field the
+  // layer could not estimate has NO defined confidence and does not participate. Its absence
+  // is carried by readiness_missing / MISSING_EVIDENCE / honesty_state instead.
+  it('OMITTED fields are excluded from the WGM and from the weakest-critical cap', () => {
+    // career_routes is WR-CRITICAL. Left in, it caps the player at UNAVAILABLE's conf 100.
+    const fields = [
+      f('career_routes', 'UNAVAILABLE', 0),
+      f('target_share', 'AVAILABLE', 700),
+      f('expected_games_remaining', 'AVAILABLE', 650),
+    ];
+
+    const counted = buildPlayerConfidence(fields, 'WR');
+    expect(counted.weakestCritical).toBe(100);
+    expect(counted.score).toBe(100);
+
+    const excluded = buildPlayerConfidence(fields, 'WR', ['career_routes']);
+    expect(excluded.weakestCritical).toBe(650);
+    expect(excluded.score).toBeGreaterThan(counted.score);
+
+    // Identical to never having supplied the field at all — omission is not a hidden signal.
+    const absent = buildPlayerConfidence(fields.slice(1), 'WR');
+    expect(excluded).toEqual(absent);
+  });
+
+  it('omitting a non-critical field leaves the critical cap untouched', () => {
+    const fields = [f('target_share', 'AVAILABLE', 700), f('contract_security', 'UNAVAILABLE', 0)];
+    const excluded = buildPlayerConfidence(fields, 'WR', ['contract_security']);
+    expect(excluded.weakestCritical).toBe(700);
+    expect(excluded.wgm).toBe(700);
+  });
 });

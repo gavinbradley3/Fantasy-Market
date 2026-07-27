@@ -161,7 +161,7 @@ export class HttpClient {
 
       const maxBytes = request.maxBytes ?? this.defaultMaxBytes;
       const bytes = await this.readBounded(res, maxBytes, request);
-      const encoding: PayloadEncoding = isTextLike(contentType) ? 'utf8' : 'base64';
+      const encoding: PayloadEncoding = request.textPayload || isTextLike(contentType) ? 'utf8' : 'base64';
       const payload = encoding === 'utf8' ? new TextDecoder('utf-8').decode(bytes) : base64(bytes);
 
       const outcome: FetchOutcome = {

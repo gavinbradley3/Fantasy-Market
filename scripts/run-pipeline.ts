@@ -1,15 +1,22 @@
 /**
- * PlayerTicker real-data pipeline CLI.
+ * PlayerTicker OFFLINE analysis pipeline CLI (`src/pipeline`).
  *
  *   npm run pipeline -- [--mode fixture|live|validate] [options]
+ *
+ * SCOPE. This drives the standalone offline analysis pipeline over committed snapshots. It is
+ * NOT the production data path: production ingestion runs on nflverse's live releases through
+ * `src/transport` → `src/ingestion` → `src/runtime` and is driven by `npm run ingest` (see
+ * docs/NFLVERSE_INGESTION.md). The fixtures below are development inputs for this tool only;
+ * nothing that reaches a published board reads them.
  *
  * Modes:
  *   fixture   (default) load committed raw snapshots, run the full pipeline,
  *             print a report. No network, no credentials — a fresh clone can run
  *             it immediately.
  *   live      refresh Sleeper metadata over the network (reusing the app's
- *             SleeperClient), then run the pipeline. nflverse uses its committed
- *             snapshot (a live CSV pull is a future stage). Writes captured raw
+ *             SleeperClient), then run this offline pipeline. nflverse keeps its
+ *             committed snapshot here; the LIVE nflverse pull lives in the production
+ *             pipeline (`npm run ingest`), not in this tool. Writes captured raw
  *             snapshots to --out-snapshots when provided.
  *   validate  load + verify snapshot integrity and canonical validation only;
  *             exits non-zero on any integrity or validation failure.

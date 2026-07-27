@@ -20,8 +20,24 @@
 
 import type { GameStatRecord } from './types';
 
-/** Games in the "recent" window, matching the QB model's recent-form vocabulary. */
-export const RECENT_GAME_WINDOW = 17;
+/**
+ * Games in the "recent" window for ENGINE-FACING counting facts.
+ *
+ * The QB engine's input contract bounds `recent_games` to [0,8]
+ * (`src/qb-model/validation.ts`) and requires `recent_starts ≤ recent_games`, so every
+ * `recent_*` fact below is summed over the most recent EIGHT regular-season games. These
+ * fields are consumed only by the QB engine — RB/WR/TE produce career facts only — so this
+ * one constant governs all of them.
+ *
+ * KNOWN SPECIFICATION CONFLICT. REGISTRY §9.2 sets D2's recent window to 17 team games
+ * ("MVP_HEURISTIC = one season"), which is wider than the engine will accept. The two
+ * cannot both hold for a field the engine validates, and the engine is the frozen artifact
+ * that rejects the input outright, so the engine-facing window follows the engine. A player
+ * with more than eight games — that is, almost every real quarterback — cannot be valued
+ * otherwise. The conflict itself is not resolved here and is reported as an open item; this
+ * constant only decides what the engine is handed.
+ */
+export const RECENT_GAME_WINDOW = 8;
 
 type StatKey = keyof Pick<
   GameStatRecord,

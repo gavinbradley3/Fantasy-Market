@@ -68,7 +68,16 @@ function toDraftRound(field: FieldState<number>): DraftRound {
   return r >= 1 && r <= 7 ? (r as DraftRound) : null;
 }
 
-function toInjuryStatus(
+/**
+ * Canonical player status → the engines' availability enum.
+ *
+ * EXPORTED because it is the single authority for that mapping. The evidence builder needs
+ * the same answer when deriving `probability_active`: the engine cross-validates the two
+ * (a QB whose `injury_status` is OUT/IR/PUP must have `probability_active` 0), so deriving
+ * them from two different places lets a player be rejected for disagreeing with themselves.
+ * One function, one answer.
+ */
+export function toInjuryStatus(
   status: CanonicalPlayer['status'],
   injuryDesignation: CanonicalPlayer['injury_designation'],
 ): InjuryStatus {

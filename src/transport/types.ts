@@ -55,8 +55,14 @@ export interface RawPayloadEnvelope {
   readonly contentType?: string;
   readonly etag?: string;
   readonly lastModified?: string;
-  /** Provider's own last-updated stamp (ISO), when the provider advertises one. */
+  /**
+   * The provider's own version/release token for this dataset, verbatim and opaque (e.g.
+   * the raw `last_updated` text from an nflverse release manifest). Recorded so a replayed
+   * payload reports the SAME provider version it was captured at, with no network access.
+   */
   readonly sourceVersion?: string;
+  /** The provider's own last-updated instant (ISO), when it publishes one we can parse. */
+  readonly sourceLastUpdated?: string;
   readonly payloadEncoding: PayloadEncoding;
   /** The raw payload: a UTF-8 string, or base64 of the raw bytes. */
   readonly payload: string;
@@ -79,6 +85,13 @@ export interface TransportRequest {
   readonly expectContentType?: string;
   /** Hard cap on the response body in bytes; over-limit responses are rejected. */
   readonly maxBytes?: number;
+  /**
+   * Declare that this resource's body is text even though its media type does not say so.
+   * GitHub serves every release asset as `application/octet-stream`, including plain CSV, so
+   * without this the payload would be captured as base64 — a third larger on disk, opaque to
+   * anyone reading a capture, and needing a decode step before the CSV parser can see it.
+   */
+  readonly textPayload?: boolean;
   /** Per-request timeout override (ms); falls back to the client default. */
   readonly timeoutMs?: number;
 }

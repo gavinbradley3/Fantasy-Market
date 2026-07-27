@@ -62,6 +62,10 @@ export interface BuildEnvelopeParams {
   readonly effectiveDate: string;
   readonly sourceUrl?: string;
   readonly outcome: FetchOutcome;
+  /** The provider's own version token discovered while preparing the request. */
+  readonly sourceVersion?: string;
+  /** The provider's own last-updated instant (ISO) discovered while preparing. */
+  readonly sourceLastUpdated?: string;
 }
 
 /**
@@ -83,6 +87,8 @@ export function buildEnvelope(params: BuildEnvelopeParams): RawPayloadEnvelope {
     ...(outcome.contentType !== undefined ? { contentType: outcome.contentType } : {}),
     ...(outcome.etag !== undefined ? { etag: outcome.etag } : {}),
     ...(outcome.lastModified !== undefined ? { lastModified: outcome.lastModified } : {}),
+    ...(params.sourceVersion !== undefined ? { sourceVersion: params.sourceVersion } : {}),
+    ...(params.sourceLastUpdated !== undefined ? { sourceLastUpdated: params.sourceLastUpdated } : {}),
     payloadEncoding: outcome.payloadEncoding,
     payload: outcome.payload,
     payloadChecksum,

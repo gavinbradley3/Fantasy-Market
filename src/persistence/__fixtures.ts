@@ -41,10 +41,9 @@ export function live(provider: RefreshRequest['provider'], capability: RefreshRe
 export const ALL_LIVE: RefreshRequest[] = [
   live('nflverse', 'identity'),
   live('nflverse', 'roster', { season: SEASON }),
-  live('nflverse', 'schedule', { season: SEASON }),
+  live('nflverse', 'schedule'),
   live('nflverse', 'games', { season: SEASON }),
   live('nflverse', 'participation', { season: SEASON }),
-  live('nflverse', 'officialStarts', { season: SEASON }),
   live('sleeper', 'identity'),
 ];
 

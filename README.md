@@ -107,17 +107,44 @@ npm run build            # type-check + production build to dist/
 npm run preview          # serve the production build
 npm run build:te-model   # compile the TE engine (declarations) to dist-te/
 npm run generate:te-goldens   # regenerate TE golden fixtures (only after formula tests pass)
-npm run serve:api        # local internal HTTP API → http://127.0.0.1:8787 (fixture-backed)
+npm run serve:api        # local internal HTTP API → http://127.0.0.1:8787
+npm run ingest -- --seasons 2025          # ingest nflverse's CURRENT releases, publish a board
+npm run ingest -- --seasons 2025 --mode replay   # re-run from captured payloads, no network
 ```
+
+### Ingesting real nflverse data
+
+`npm run ingest` runs the production pipeline against nflverse's live releases:
+
+```
+release discovery (timestamp.json) → asset fetch → checksummed capture → CSV decode
+→ Phase 4 adapters → identity → snapshot → inference → readiness → engines
+→ persistence → publication
+```
+
+Every raw payload is captured under `.local/captures`, so `--mode replay` reproduces the same
+snapshot id, the same output checksums and the same board with the network unused;
+`--verify-replay` does both and fails if they diverge. Career counting stats span exactly the
+seasons passed to `--seasons` and nothing more, so widening that list is the only thing that
+widens the career window.
+
+`npm run serve:api` drives the same pipeline. Set `PLAYERTICKER_REPLAY_ONLY=1` to serve entirely
+from previously captured payloads.
+
+Release map, CSV decoding rules, freshness handling, and what live data can and cannot support
+per position: [`docs/NFLVERSE_INGESTION.md`](docs/NFLVERSE_INGESTION.md).
 
 ### Running the app against the real API
 
 The Board reads the real published market over HTTP. Two processes:
 
 ```bash
-PLAYERTICKER_SEED=1 npm run serve:api   # API on :8787, publishes one fixture board if empty
+PLAYERTICKER_SEED=1 npm run serve:api   # API on :8787, ingests + publishes a board if empty
 npm run dev                             # app on :5173, proxies /api → :8787
 ```
+
+The first seed performs a live ingestion and takes a few minutes. To work offline afterwards,
+add `PLAYERTICKER_REPLAY_ONLY=1`.
 
 Then open <http://localhost:5173/board>. With no API running, The Board shows an honest error
 state — it never falls back to demo players. Full contract, environment variables, CORS and
@@ -142,7 +169,11 @@ API together without configuration.
 | `PLAYERTICKER_PORT` / `PLAYERTICKER_HOST` | API | `8787` / `127.0.0.1` | Where `npm run serve:api` listens |
 | `PLAYERTICKER_DB` | API | `.local/playerticker.db` | SQLite database path |
 | `PLAYERTICKER_ALLOWED_ORIGINS` | API | unset (CORS off) | Browser origins allowed to call the API directly |
-| `PLAYERTICKER_SEED` | API | unset | `1` publishes one fixture board on startup if none exists |
+| `PLAYERTICKER_SEED` | API | unset | `1` runs one refresh on startup if nothing is published |
+| `PLAYERTICKER_SEASONS` | API | `2025` | Comma-separated seasons to ingest; career stats span exactly these |
+| `PLAYERTICKER_CAPTURES` | API | `.local/captures` | Where raw provider payloads are captured for replay |
+| `PLAYERTICKER_REPLAY_ONLY` | API | unset | `1` serves from captured payloads only, never the network |
+| `PLAYERTICKER_AS_OF` | API | refresh time | Pin the valuation as-of instant for a reproducible run |
 
 No host or port is hard-coded in frontend source. See
 [`docs/FRONTEND_API_CONTRACT.md`](docs/FRONTEND_API_CONTRACT.md).
@@ -213,6 +244,7 @@ No host or port is hard-coded in frontend source. See
 | Area | Status | Notes |
 | --- | --- | --- |
 | Core application (market terminal) | Verified | Demo Market SPA; build + tests pass |
+| Live nflverse ingestion | Operating | Production pipeline runs on current nflverse releases; captures replay byte-identically |
 | Live Sleeper metadata | Fixture-tested | Overlay tested against fixtures; live API not exercised in CI |
 | QB model | Missing | No spec, no implementation |
 | RB model | Implemented, spec missing | Engine + goldens pass; `RB_VALUATION_MODEL_v1.1_FINAL.md` not recovered |
