@@ -104,12 +104,31 @@ describe('GET /publication', () => {
     expect(r.status).toBe(200);
     const body = r.body as { publication: { publicationId: string }; entries: unknown[] };
     expect(body.publication.publicationId).toBe('pub-1');
-    expect(body.entries).toEqual([
+    expect(body.entries).toMatchObject([
       { canonicalId: 'p:aaa', position: 'QB', normalizedInputChecksum: 'ni-1', outputChecksum: 'out-1' },
       { canonicalId: 'p:bbb', position: 'WR', normalizedInputChecksum: 'ni-2', outputChecksum: 'out-2' },
     ]);
     // No serialized payloads / schema versions leaked.
     expect(JSON.stringify(body)).not.toContain('serialized');
+  });
+
+  it('projects display fields as null (never placeholders) when the artifacts carry none', async () => {
+    // This bundle fixture has no serialized artifacts at all — the honest projection is a full
+    // set of nulls, not zeros, empty strings, or omitted keys.
+    const { get } = build();
+    const body = (await get('/publication')).body as { entries: Record<string, unknown>[] };
+    expect(body.entries[0]).toMatchObject({
+      name: null,
+      team: null,
+      age: null,
+      composites: null,
+      confidenceScore: null,
+      volatilityScore: null,
+      honestyState: null,
+      readiness: null,
+      engineInvoked: false,
+      limitations: [],
+    });
   });
   it('returns 404 when nothing is published', async () => {
     const { api, handle } = build();
@@ -160,6 +179,36 @@ describe('routing errors', () => {
     const r = await post('/scheduler');
     expect(r.status).toBe(405);
     expect((r.body as { error: { code: string } }).error.code).toBe('METHOD_NOT_ALLOWED');
+  });
+});
+
+describe('malformed percent-encoding in the path (Phase 10 hardening)', () => {
+  // `decodeURIComponent('%zz')` throws a URIError. That is a malformed REQUEST, so it must map
+  // to the existing 400 response rather than falling through to the catch-all 500.
+  it('/publication/%zz → 400, not 500', async () => {
+    const { get } = build();
+    const r = await get('/publication/%zz');
+    expect(r.status).toBe(400);
+    expect((r.body as { error: { code: string } }).error.code).toBe('INVALID_REQUEST');
+  });
+
+  it('rejects malformed encoding on any segment, routable or not', async () => {
+    const { get } = build();
+    for (const path of ['/%zz', '/history/%e0%a4%a', '/publication/ok%2', '/%C0%80/x']) {
+      expect((await get(path)).status).toBe(400);
+    }
+  });
+
+  it('still decodes VALID percent-encoding into path params', async () => {
+    const { get, handle } = build();
+    await get('/publication/pub%2D1'); // %2D === '-'
+    expect(handle.calls).toContain('publications.publicationMetadata:pub-1');
+  });
+
+  it('leaves well-formed paths completely unaffected', async () => {
+    const { get } = build();
+    expect((await get('/health')).status).toBe(200);
+    expect((await get('/publication/history')).status).toBe(200);
   });
 });
 

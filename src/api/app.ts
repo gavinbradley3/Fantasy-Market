@@ -6,7 +6,7 @@
 
 import type { ApplicationService } from '@/application';
 import type { ApiRequest, ApiResponse } from './dto';
-import { toErrorResponse } from './middleware/errors';
+import { BadRequestError, toErrorResponse } from './middleware/errors';
 import { health } from './routes/health';
 import { schedulerStatus } from './routes/scheduler';
 import { currentExecution, refreshHistory, triggerRefresh } from './routes/refresh';
@@ -45,6 +45,25 @@ const ROUTES: readonly Route[] = [
   { method: 'GET', segments: seg('/history/:runId'), handler: runByRunId },
 ];
 
+/**
+ * A malformed percent-escape (e.g. `/publication/%zz`) makes `decodeURIComponent` throw a
+ * `URIError`. That is a MALFORMED REQUEST, not an internal fault, so it is translated to the
+ * existing bad-request response here — before matching — rather than falling through to the
+ * catch-all 500. Matching semantics are unchanged: static segments still compare raw and only
+ * `:param` segments are decoded.
+ */
+function assertDecodablePath(path: string): void {
+  for (const part of seg(path)) {
+    try {
+      decodeURIComponent(part);
+    } catch {
+      throw new BadRequestError('request path contains malformed percent-encoding', [
+        'every path segment must be valid percent-encoded UTF-8',
+      ]);
+    }
+  }
+}
+
 function match(method: string, path: string): { route: Route; params: Record<string, string> } | null {
   const parts = seg(path);
   for (const route of ROUTES) {
@@ -75,6 +94,7 @@ export class ApiApp {
 
   async handle(req: ApiRequest): Promise<ApiResponse> {
     try {
+      assertDecodablePath(req.path);
       const matched = match(req.method.toUpperCase(), req.path);
       if (!matched) {
         const status = this.pathExists(req.path) ? 405 : 404;

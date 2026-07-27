@@ -9,7 +9,13 @@
     "isolatedModules": true,
     "moduleDetection": "force",
     "noEmit": true,
-    "strict": true
+    "strict": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
   },
-  "include": ["vite.config.ts", "vitest.config.ts"]
+  // The local API entry point is typechecked here (it is Node-side, never part of the browser
+  // bundle). The older generator scripts keep their existing status.
+  "include": ["vite.config.ts", "vitest.config.ts", "scripts/serve-api.ts"]
 }

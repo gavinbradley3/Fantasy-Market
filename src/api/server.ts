@@ -39,23 +39,71 @@ export async function toApiRequest(req: IncomingMessage): Promise<ApiRequest> {
   return { method, path: url.pathname, query, body };
 }
 
-function send(res: ServerResponse, status: number, body: unknown): void {
+function send(res: ServerResponse, status: number, body: unknown, extraHeaders: Record<string, string> = {}): void {
   const payload = JSON.stringify(body ?? null);
-  res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'content-length': Buffer.byteLength(payload) });
+  res.writeHead(status, {
+    'content-type': 'application/json; charset=utf-8',
+    'content-length': Buffer.byteLength(payload),
+    ...extraHeaders,
+  });
   res.end(payload);
 }
 
+export interface HttpServerOptions {
+  /**
+   * Exact origins allowed to call this API from a browser (e.g. `http://localhost:5173`).
+   *
+   * DEVELOPMENT SEAM ONLY, and deliberately minimal: the frontend dev server and this API run
+   * on different ports, which makes every browser read a cross-origin request. Rather than a
+   * middleware framework, this adds the two headers that unblocks — and only for origins the
+   * operator listed explicitly. `*` is never sent, an unlisted origin gets no CORS headers at
+   * all (the browser then blocks it), and no credentials are ever allowed. Omitted/empty =
+   * CORS entirely off, which is the correct configuration when the API is reverse-proxied
+   * behind the same origin as the app.
+   */
+  readonly allowedOrigins?: readonly string[];
+}
+
+/** The CORS headers for one request, or `{}` when the request's origin is not allowed. */
+export function corsHeadersFor(
+  origin: string | undefined,
+  allowedOrigins: readonly string[] = [],
+): Record<string, string> {
+  if (!origin || !allowedOrigins.includes(origin)) return {};
+  return {
+    'access-control-allow-origin': origin, // echo the matched origin, never '*'
+    'access-control-allow-methods': 'GET, POST, OPTIONS',
+    'access-control-allow-headers': 'content-type',
+    'access-control-max-age': '600',
+    vary: 'Origin', // the response differs per origin, so it must not be cached across them
+  };
+}
+
 /** Wrap an ApiApp in a node:http server. Call `.listen(port)` to start; nothing else here. */
-export function createHttpServer(app: ApiApp): Server {
+export function createHttpServer(app: ApiApp, options: HttpServerOptions = {}): Server {
+  const allowedOrigins = options.allowedOrigins ?? [];
   return createServer((req, res) => {
     void (async () => {
+      const origin = Array.isArray(req.headers.origin) ? req.headers.origin[0] : req.headers.origin;
+      const cors = corsHeadersFor(origin, allowedOrigins);
       try {
+        // Preflight is answered by the adapter: it is a transport concern and never reaches
+        // the router, so no route has to know CORS exists.
+        if ((req.method ?? '').toUpperCase() === 'OPTIONS') {
+          if (Object.keys(cors).length === 0) {
+            send(res, 403, { error: { code: 'ORIGIN_NOT_ALLOWED', message: 'origin is not allowed' } });
+            return;
+          }
+          res.writeHead(204, cors); // 204 carries no body
+          res.end();
+          return;
+        }
         const apiReq = await toApiRequest(req);
         const { status, body } = await app.handle(apiReq);
-        send(res, status, body);
+        send(res, status, body, cors);
       } catch (err) {
         const { status, body } = toErrorResponse(err);
-        send(res, status, body);
+        send(res, status, body, cors);
       }
     })();
   });

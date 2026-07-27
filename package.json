@@ -11,6 +11,7 @@
     "typecheck": "tsc -b --noEmit && tsc -p tsconfig.te.json && tsc -p tsconfig.qb.json",
     "test": "vitest run",
     "test:watch": "vitest",
+    "serve:api": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/serve-api.ts",
     "build:te-model": "tsc -p tsconfig.build.json",
     "generate:te-goldens": "tsx scripts/generate-te-goldens.ts",
     "generate:qb-goldens": "tsx scripts/generate-qb-goldens.ts",

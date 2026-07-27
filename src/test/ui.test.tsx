@@ -1,7 +1,12 @@
-// UI behaviour tests (Phase 10): dependency injection, loading / error /
-// success lifecycles, async watchlist add, and the root error boundary.
-// Everything renders against an INJECTED service — nothing here (or in any
-// component under test) imports the mock singleton, because none exists.
+// UI behaviour tests: dependency injection, loading / error / success lifecycles, async
+// watchlist add, and the root error boundary. Everything renders against an INJECTED service —
+// nothing here (or in any component under test) imports the mock singleton, because none
+// exists.
+//
+// These exercise the DEMO MARKET surfaces, which still consume `MarketDataService`. The
+// injected-service lifecycle is driven through MarketPage, because The Board moved to the real
+// published API in Phase 10 and no longer reads this service at all — its own lifecycle
+// (loading / success / empty / error / retry) is covered in `src/pages/BoardPage.test.tsx`.
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -17,7 +22,7 @@ import { memoryStorage } from '@/services/storage/storage';
 import type { MarketDataService } from '@/services/marketData/types';
 import { AppErrorBoundary } from '@/components/states/ErrorBoundary';
 import { WatchlistButton } from '@/components/market/WatchlistButton';
-import BoardPage from '@/pages/BoardPage';
+import MarketPage from '@/pages/MarketPage';
 import { useAppStore } from '@/store/useAppStore';
 
 // Explicit delegation wrapper: build a service from the deterministic mock
@@ -51,39 +56,44 @@ beforeEach(() => {
   useAppStore.setState({ watchlist: [], portfolio: [], format: 'dyn_sf_half' });
 });
 
-describe('BoardPage lifecycle through an injected service', () => {
-  it('renders a loading state while the board fetch is pending', () => {
-    const hanging = svcWith({ getBoard: () => new Promise(() => {}) });
-    renderWith(hanging, <BoardPage />);
-    expect(screen.getByLabelText('Loading market data')).toBeInTheDocument();
+describe('Demo Market lifecycle through an injected service', () => {
+  it('renders a loading state while the movers fetch is pending', () => {
+    const hanging = svcWith({ getMovers: () => new Promise(() => {}) });
+    renderWith(hanging, <MarketPage />);
+    expect(screen.getByLabelText('Loading movers')).toBeInTheDocument();
   });
 
   it('renders an error state with retry when the injected service fails', async () => {
     const failing = svcWith({
+      getMovers: () => Promise.reject(new Error('network down')),
       getBoard: () => Promise.reject(new Error('network down')),
       getMarketStatus: () => Promise.reject(new Error('network down')),
     });
-    renderWith(failing, <BoardPage />);
-    expect(await screen.findByText(/board couldn't load/i)).toBeInTheDocument();
+    renderWith(failing, <MarketPage />);
+    expect(await screen.findByText(/movers couldn't load/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
   });
 
   it('renders real rows on success (data flows only through the injected service)', async () => {
-    renderWith(svcWith(), <BoardPage />);
-    // Appears in both the desktop table and the mobile card list (jsdom
-    // applies no responsive CSS, so both render).
-    const allens = await screen.findAllByText('Josh Allen');
-    expect(allens.length).toBeGreaterThan(0);
-    expect(await screen.findByText(/players match/i)).toBeInTheDocument();
+    const service = svcWith();
+    const expected = (await service.getMovers('dyn_sf_half')).blueChips[0].player.displayName;
+    renderWith(service, <MarketPage />);
+    // Names can appear in several panels (jsdom applies no responsive CSS).
+    expect((await screen.findAllByText(expected)).length).toBeGreaterThan(0);
+    expect(await screen.findByText('Blue Chips')).toBeInTheDocument();
   });
 
   it('a stubbed service fully controls what the UI shows', async () => {
-    // Two-player stub proves the page renders injected data, not a singleton.
+    // A renamed player proves the page renders injected data, not a singleton.
     const base = new MockMarketDataService();
-    const twoRows = (await base.getBoard('dyn_sf_half')).slice(0, 2);
-    const stub = svcWith({ getBoard: async () => twoRows });
-    renderWith(stub, <BoardPage />);
-    expect(await screen.findByText(/^2$/)).toBeInTheDocument(); // "2 players match"
+    const real = await base.getMovers('dyn_sf_half');
+    const renamed = real.blueChips.slice(0, 1).map((row) => ({
+      ...row,
+      player: { ...row.player, displayName: 'Injected Only Player' },
+    }));
+    const stub = svcWith({ getMovers: async () => ({ ...real, blueChips: renamed }) });
+    renderWith(stub, <MarketPage />);
+    expect((await screen.findAllByText('Injected Only Player')).length).toBeGreaterThan(0);
   });
 
   it('LiveMarketDataService injects through the same provider; with Sleeper down it renders full demo fallback', async () => {
@@ -96,10 +106,10 @@ describe('BoardPage lifecycle through an injected service', () => {
         storage: memoryStorage(),
       }),
     });
-    renderWith(live, <BoardPage />);
-    // Deterministic demo board renders with authored metadata — no crash.
-    const allens = await screen.findAllByText('Josh Allen');
-    expect(allens.length).toBeGreaterThan(0);
+    const expected = (await live.getMovers('dyn_sf_half')).blueChips[0].player.displayName;
+    renderWith(live, <MarketPage />);
+    // Deterministic demo data renders with authored metadata — no crash.
+    expect((await screen.findAllByText(expected)).length).toBeGreaterThan(0);
   });
 });
 

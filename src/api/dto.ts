@@ -12,6 +12,7 @@ import type {
   SchedulerStatus,
 } from '@/application';
 import type { PublicationBundle, RefreshRunView } from '@/persistence';
+import { projectPublishedPlayer, type PublishedPlayerProjection } from './publicationProjection';
 
 /** A framework-agnostic normalized request (built by the node:http adapter or tests). */
 export interface ApiRequest {
@@ -50,8 +51,13 @@ export interface RefreshAckResponse {
   readonly publicationId: string | null;
 }
 
-/** One projected board entry (identity + content checksums only — no serialized payloads). */
-export interface BoardEntryResponse {
+/**
+ * One projected board entry: identity + content checksums + the display fields the entry's
+ * own published artifacts already carry (see `publicationProjection.ts`). Serialized payloads,
+ * schema versions and integrity digests of the underlying records are still never leaked, and
+ * nothing here is computed — an absent field is `null`, never a placeholder value.
+ */
+export interface BoardEntryResponse extends PublishedPlayerProjection {
   readonly canonicalId: string;
   readonly position: string;
   readonly normalizedInputChecksum: string;
@@ -113,6 +119,7 @@ export function toPublicationResponse(bundle: PublicationBundle, metadata: Publi
       position: e.position,
       normalizedInputChecksum: e.normalizedInput.checksum,
       outputChecksum: e.output.checksum,
+      ...projectPublishedPlayer(e.normalizedInput.serialized, e.output.serialized),
     })),
   };
 }
@@ -143,3 +150,4 @@ export function toRunResponse(view: RefreshRunView): RunResponse {
 }
 
 export type { HealthReport, SchedulerStatus, PublicationMetadata, RefreshExecutionResult };
+export type { PublishedCompositesResponse, PublishedPlayerProjection } from './publicationProjection';

@@ -44,13 +44,47 @@ Composition root (composition.ts):
 | `POST /refresh` | `RefreshService.triggerRefresh()` | ack: accepted/skipped + reason + runId |
 | `GET /refresh/current` | `RefreshService.currentExecution()` | |
 | `GET /refresh/history?limit=` | `RefreshService.executionHistory()` | default 25, max 500 |
-| `GET /publication` | `PublicationService.currentPublication()` | projected board; 404 if none |
+| `GET /publication` | `PublicationService.currentPublication()` | projected board + per-player display fields; 404 if none |
 | `GET /publication/history?limit=` | `PublicationService.publicationHistory()` | |
 | `GET /publication/:id` | `PublicationService.publicationMetadata()` | 404 if unknown |
 | `GET /history/:runId` | `HistoryService.byRunId()` | projected run; 404 if unknown |
 
 Static routes are registered before parameterized siblings, so `/publication/history` is never
-captured by `/publication/:id`.
+captured by `/publication/:id`. A path segment whose percent-encoding cannot be decoded (e.g.
+`/publication/%zz`) is a **malformed request**: it is translated to the existing `400` response
+before matching, never allowed to fall through to the catch-all `500`.
+
+### `GET /publication` display projection
+
+Each board entry carries its identity and content checksums **plus** the display fields its own
+published artifacts already contain (`publicationProjection.ts`): name/team/age/status from the
+persisted normalized inference input, and composites/confidence/volatility/honesty from the
+persisted production envelope. This is a projection, not a computation — a field an artifact
+does not carry is `null`, never a placeholder — and it reads both artifacts structurally, so
+the API still imports no valuation or inference code. Serialized payloads, schema versions and
+artifact integrity digests are still never leaked.
+
+## Lifecycle and resource ownership
+
+```
+composed = composeApi({...})          // owns: Scheduler + PersistenceStore
+server   = createHttpServer(api, {})  // owned by the CALLER — not by composed
+```
+
+* `ComposedApi.close()` stops the scheduler and closes the persistence store. It is
+  **idempotent**: a second call is a no-op and never throws, so an explicit shutdown may race a
+  SIGINT/SIGTERM handler safely. `composed.closed` reports whether it has run.
+* `ComposedApi` never holds a server reference and therefore cannot close one. The caller that
+  called `createHttpServer` owns the socket and must `server.close()` it — server first, then
+  `composed.close()`. `scripts/serve-api.ts` is the reference implementation.
+
+## Development CORS
+
+`createHttpServer(api, { allowedOrigins })` is an opt-in, deliberately minimal development
+seam for running the frontend and the API on different ports. It echoes only a **configured**
+origin (never `*`), sends `Vary: Origin`, never enables credentials, answers preflight from an
+allowed origin with `204`, and sends no CORS headers at all when `allowedOrigins` is empty —
+the correct configuration when the API is reverse-proxied behind the app's own origin.
 
 ## Error mapping
 
@@ -91,9 +125,19 @@ transport/ingestion coupling.
 `boundary.test.ts` enforces that the API imports no valuation/transport/ingestion/inference
 code, that only `composition.ts` touches scheduler/persistence runtime, and that **no
 browser/app file imports `@/api`** — so the Node-only API never reaches the browser bundle
-(also verified by the production-bundle check).
+(also verified by the production-bundle check). The mirror-image check on the browser side
+lives in `src/services/api/boundary.test.ts`.
 
-## Deferred (out of scope for Phase 9)
+`frontendIntegration.test.ts` lives in this directory for exactly that reason: it drives the
+browser's own API client against the real composed stack over a real socket, and a test file
+outside `src/api` could not import `@/api` without weakening the rule above.
+
+## Deferred (out of scope)
 
 Authentication, authorization, rate limiting, caching, WebSockets, GraphQL, background workers,
-production monitoring, deployment/Docker, and frontend integration.
+production monitoring, and deployment/Docker.
+
+## Frontend integration
+
+See [`docs/FRONTEND_API_CONTRACT.md`](../../docs/FRONTEND_API_CONTRACT.md) for the contract the
+browser app depends on, and `scripts/serve-api.ts` for the local development server.

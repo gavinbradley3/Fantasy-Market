@@ -7,7 +7,7 @@
 // browser/app code (enforced by boundary.test.ts).
 
 export { ApiApp, createApiApp, type RouteContext } from './app';
-export { createHttpServer, toApiRequest } from './server';
+export { createHttpServer, corsHeadersFor, toApiRequest, type HttpServerOptions } from './server';
 export { composeApi, type ApiCompositionConfig, type ComposedApi } from './composition';
 export { toErrorResponse, NotFoundError, BadRequestError } from './middleware/errors';
 export type {
@@ -19,4 +19,6 @@ export type {
   BoardEntryResponse,
   RunResponse,
   RunSourceResponse,
+  PublishedCompositesResponse,
+  PublishedPlayerProjection,
 } from './dto';

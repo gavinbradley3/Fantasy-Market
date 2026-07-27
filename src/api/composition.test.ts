@@ -90,6 +90,116 @@ describe('composeApi wires the real stack with zero adapters', () => {
   });
 });
 
+describe('ComposedApi.close() is idempotent (Phase 10 hardening)', () => {
+  it('a second and third close are no-ops that do not throw', () => {
+    const dbPath = tempDbPath(); paths.push(dbPath);
+    const composed = composeApi({ dbPath, pipeline: trivialPipeline(), transport });
+    expect(composed.closed).toBe(false);
+    composed.close();
+    expect(composed.closed).toBe(true);
+    expect(() => composed.close()).not.toThrow();
+    expect(() => composed.close()).not.toThrow();
+  });
+
+  it('close() stops the scheduler it started', () => {
+    const dbPath = tempDbPath(); paths.push(dbPath);
+    const composed = composeApi({ dbPath, pipeline: trivialPipeline(), transport, autoStart: true });
+    expect(composed.scheduler.isRunning() || composed.scheduler.getState() !== 'stopped').toBe(true);
+    composed.close();
+    expect(composed.scheduler.getState()).toBe('stopped');
+    expect(() => composed.close()).not.toThrow();
+  });
+});
+
+describe('malformed percent-encoding over a real socket', () => {
+  it('/publication/%zz answers 400, not 500', async () => {
+    const dbPath = tempDbPath(); paths.push(dbPath);
+    const composed = composeApi({ dbPath, pipeline: trivialPipeline(), transport });
+    const server = createHttpServer(composed.api);
+    await new Promise<void>((resolve) => server.listen(0, resolve));
+    const { port } = server.address() as AddressInfo;
+    try {
+      const r = await fetch(`http://127.0.0.1:${port}/publication/%zz`);
+      expect(r.status).toBe(400);
+      expect((await r.json() as { error: { code: string } }).error.code).toBe('INVALID_REQUEST');
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+      composed.close();
+    }
+  });
+});
+
+describe('development CORS (explicit, opt-in, never wildcard)', () => {
+  const ORIGIN = 'http://localhost:5173';
+
+  async function withServer(
+    allowedOrigins: readonly string[],
+    body: (port: number) => Promise<void>,
+  ): Promise<void> {
+    const dbPath = tempDbPath(); paths.push(dbPath);
+    const composed = composeApi({ dbPath, pipeline: trivialPipeline(), transport });
+    const server = createHttpServer(composed.api, { allowedOrigins });
+    await new Promise<void>((resolve) => server.listen(0, resolve));
+    try {
+      await body((server.address() as AddressInfo).port);
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+      composed.close();
+    }
+  }
+
+  it('echoes an allowed origin (and never "*") on a normal response', async () => {
+    await withServer([ORIGIN], async (port) => {
+      const r = await fetch(`http://127.0.0.1:${port}/health`, { headers: { origin: ORIGIN } });
+      expect(r.status).toBe(200);
+      expect(r.headers.get('access-control-allow-origin')).toBe(ORIGIN);
+      expect(r.headers.get('access-control-allow-origin')).not.toBe('*');
+      expect(r.headers.get('vary')).toContain('Origin');
+      // Credentials are never enabled for this development seam.
+      expect(r.headers.get('access-control-allow-credentials')).toBeNull();
+    });
+  });
+
+  it('sends no CORS headers to an origin that was not configured', async () => {
+    await withServer([ORIGIN], async (port) => {
+      const r = await fetch(`http://127.0.0.1:${port}/health`, { headers: { origin: 'http://evil.example' } });
+      expect(r.status).toBe(200); // the API still answers; the BROWSER is what blocks it
+      expect(r.headers.get('access-control-allow-origin')).toBeNull();
+    });
+  });
+
+  it('answers a preflight for an allowed origin with 204 + methods/headers', async () => {
+    await withServer([ORIGIN], async (port) => {
+      const r = await fetch(`http://127.0.0.1:${port}/publication`, {
+        method: 'OPTIONS',
+        headers: { origin: ORIGIN, 'access-control-request-method': 'GET' },
+      });
+      expect(r.status).toBe(204);
+      expect(r.headers.get('access-control-allow-origin')).toBe(ORIGIN);
+      expect(r.headers.get('access-control-allow-methods')).toContain('GET');
+      expect(r.headers.get('access-control-allow-headers')).toContain('content-type');
+    });
+  });
+
+  it('refuses a preflight from an unconfigured origin', async () => {
+    await withServer([ORIGIN], async (port) => {
+      const r = await fetch(`http://127.0.0.1:${port}/publication`, {
+        method: 'OPTIONS',
+        headers: { origin: 'http://evil.example', 'access-control-request-method': 'GET' },
+      });
+      expect(r.status).toBe(403);
+    });
+  });
+
+  it('is entirely off by default — no CORS headers at all', async () => {
+    await withServer([], async (port) => {
+      const r = await fetch(`http://127.0.0.1:${port}/health`, { headers: { origin: ORIGIN } });
+      expect(r.status).toBe(200);
+      expect(r.headers.get('access-control-allow-origin')).toBeNull();
+    });
+  });
+});
+
 describe('node:http adapter serves the composed app over a real socket', () => {
   it('answers GET /health and POST /refresh with JSON', async () => {
     const dbPath = tempDbPath(); paths.push(dbPath);

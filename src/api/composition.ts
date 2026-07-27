@@ -29,14 +29,34 @@ export interface ApiCompositionConfig {
   readonly autoStart?: boolean;
 }
 
-/** The fully-wired API plus handles for lifecycle management and tests. */
+/**
+ * The fully-wired API plus handles for lifecycle management and tests.
+ *
+ * RESOURCE OWNERSHIP — deliberately split, and the split is load-bearing:
+ *
+ *   • `ComposedApi` owns the resources it CONSTRUCTED: the scheduler and the persistence
+ *     store. `close()` stops the scheduler's interval timer and closes the SQLite handle.
+ *   • `ComposedApi` does NOT own any HTTP server. `createHttpServer(composed.api)` returns a
+ *     `node:http.Server` to its CALLER, and that caller owns the socket: it decides when to
+ *     `listen()` and is responsible for `server.close()`. The composition root never holds a
+ *     reference to a server, so it cannot close one.
+ *
+ * A shutdown handler therefore closes BOTH, server first (stop accepting work), then the
+ * composed backend resources.
+ */
 export interface ComposedApi {
   readonly api: ApiApp;
   readonly application: ApplicationService;
   readonly scheduler: Scheduler;
   readonly store: PersistenceStore;
-  /** Stop the scheduler and close the store. Idempotent-safe for shutdown. */
+  /**
+   * Stop the scheduler and close the persistence store. IDEMPOTENT: calling it more than once
+   * (e.g. an explicit shutdown racing a signal handler, or a test `finally` after an early
+   * close) is a no-op and never throws. It does NOT close any HTTP server — see above.
+   */
   close(): void;
+  /** Whether `close()` has already run. */
+  readonly closed: boolean;
 }
 
 export function composeApi(config: ApiCompositionConfig): ComposedApi {
@@ -54,12 +74,23 @@ export function composeApi(config: ApiCompositionConfig): ComposedApi {
   if (config.autoStart) scheduler.start();
 
   const api = createApiApp(application);
+
+  // Closed-state guard: shutdown is frequently driven from more than one place (an explicit
+  // call plus SIGINT/SIGTERM handlers), so a second close must be inert rather than stopping a
+  // stopped scheduler or closing an already-closed SQLite handle.
+  let closed = false;
+
   return {
     api,
     application,
     scheduler,
     store,
+    get closed() {
+      return closed;
+    },
     close() {
+      if (closed) return;
+      closed = true;
       scheduler.stop();
       store.close();
     },

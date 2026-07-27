@@ -37,19 +37,31 @@ export function LoadingSkeleton({ className }: { className?: string }) {
   return <div className={cn('animate-pulse rounded-card bg-elevated/60', className)} aria-hidden />;
 }
 
-export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
+export function ErrorState({
+  message,
+  detail,
+  onRetry,
+  retryLabel = 'Retry',
+}: {
+  message: string;
+  /** Optional second line: what the reader can do, or what is known. Never internal detail. */
+  detail?: string;
+  onRetry?: () => void;
+  retryLabel?: string;
+}) {
   return (
     <div
       role="alert"
       className="rounded-card border border-down/40 bg-down/5 px-4 py-6 text-center text-sm text-text-secondary"
     >
-      <p className="mb-3 text-text-primary">{message}</p>
+      <p className="mb-1 text-text-primary">{message}</p>
+      {detail && <p className="mb-3 text-xs text-text-secondary">{detail}</p>}
       {onRetry && (
         <button
           onClick={onRetry}
-          className="rounded-control border border-border-subtle px-3 py-1.5 text-text-primary transition hover:bg-elevated"
+          className="mt-2 rounded-control border border-border-subtle px-3 py-1.5 text-text-primary transition hover:bg-elevated"
         >
-          Retry
+          {retryLabel}
         </button>
       )}
     </div>

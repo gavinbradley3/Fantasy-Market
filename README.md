@@ -52,12 +52,15 @@ The repository contains two layers that are deliberately kept separate:
 │   ├── valuation-models/         # canonical model specifications (see table below)
 │   ├── *_MVP_IMPLEMENTATION_*    # per-engine implementation plans & decision logs
 │   ├── *_MVP_TEST_REPORT.md      # per-engine test reports
+│   ├── FRONTEND_API_CONTRACT.md  # what the browser reads from the internal HTTP API
 │   └── *_UI_*                    # WR/RB UI integration plans & QA reports
 ├── src/
 │   ├── app/ components/ pages/   # SPA (React Router; pages/player-model is the shared model UI)
 │   ├── config/                   # market weights/thresholds + taxonomy (Methodology renders from these)
 │   ├── data/                     # authored ~140-player pool (engine inputs, not outputs)
 │   ├── services/
+│   │   ├── api/                  # browser-safe HTTP client for the internal API (no React, no Node)
+│   │   ├── publication/          # publication adapter + usePublishedMarket (the published-market seam)
 │   │   ├── marketEngine/         # pure deterministic market math
 │   │   ├── marketData/           # MarketDataService interface; mock/ demo core; live/ Sleeper overlay
 │   │   └── query/ storage/ thesis/
@@ -67,7 +70,7 @@ The repository contains two layers that are deliberately kept separate:
 │   └── te-model/                 # TE engine (standalone layout; see tests/ and fixtures/ below)
 ├── tests/te-model/               # TE engine test suite
 ├── fixtures/te/                  # TE input fixtures + expected/ golden outputs
-├── scripts/                      # golden/snapshot generators (WR, RB, TE)
+├── scripts/                      # golden/snapshot generators (WR, RB, TE) + serve-api.ts (local API)
 └── package.json / tsconfig.*     # tsconfig.te.json typechecks the TE engine with its original settings
 ```
 
@@ -104,7 +107,21 @@ npm run build            # type-check + production build to dist/
 npm run preview          # serve the production build
 npm run build:te-model   # compile the TE engine (declarations) to dist-te/
 npm run generate:te-goldens   # regenerate TE golden fixtures (only after formula tests pass)
+npm run serve:api        # local internal HTTP API → http://127.0.0.1:8787 (fixture-backed)
 ```
+
+### Running the app against the real API
+
+The Board reads the real published market over HTTP. Two processes:
+
+```bash
+PLAYERTICKER_SEED=1 npm run serve:api   # API on :8787, publishes one fixture board if empty
+npm run dev                             # app on :5173, proxies /api → :8787
+```
+
+Then open <http://localhost:5173/board>. With no API running, The Board shows an honest error
+state — it never falls back to demo players. Full contract, environment variables, CORS and
+troubleshooting: [`docs/FRONTEND_API_CONTRACT.md`](docs/FRONTEND_API_CONTRACT.md).
 
 There is no lint step: no ESLint configuration has ever existed in this repository, so no `lint`
 script is exposed. Adding a linter is an open, optional task.
@@ -115,17 +132,37 @@ model change.
 
 ## Environment configuration
 
-None. There are no required environment variables and no `.env` files; the app is a static SPA. The
-only environment usage is Vite's built-in `import.meta.env.DEV` for dev-only logging.
+No variable is *required* — the Demo Market surfaces need none, and the defaults wire the local
+API together without configuration.
+
+| Variable | Side | Default | Purpose |
+|---|---|---|---|
+| `VITE_PLAYERTICKER_API_URL` | frontend | unset → `/api` in dev, the app's origin in a build | Base URL of the internal HTTP API |
+| `PLAYERTICKER_API_PROXY_TARGET` | Vite dev | `http://127.0.0.1:8787` | Where the dev server proxies `/api` |
+| `PLAYERTICKER_PORT` / `PLAYERTICKER_HOST` | API | `8787` / `127.0.0.1` | Where `npm run serve:api` listens |
+| `PLAYERTICKER_DB` | API | `.local/playerticker.db` | SQLite database path |
+| `PLAYERTICKER_ALLOWED_ORIGINS` | API | unset (CORS off) | Browser origins allowed to call the API directly |
+| `PLAYERTICKER_SEED` | API | unset | `1` publishes one fixture board on startup if none exists |
+
+No host or port is hard-coded in frontend source. See
+[`docs/FRONTEND_API_CONTRACT.md`](docs/FRONTEND_API_CONTRACT.md).
 
 ## Architecture summary
 
 - **Stack:** React 18 · Vite · TypeScript · Tailwind · React Router · Zustand · Recharts · Vitest.
-  Static SPA, deployable to any static host. No backend; persistence is versioned `localStorage`.
-- **One data door:** the UI reads only through the `MarketDataService` interface. The composition
-  root (`src/main.tsx`) injects one concrete service — currently `LiveMarketDataService`, which wraps
-  the deterministic `MockMarketDataService` core and overlays Sleeper metadata. Swap back to
-  `new MockMarketDataService()` to force pure demo mode.
+  Browser-side persistence is versioned `localStorage`; the internal HTTP API (Node) is a separate
+  process the app reaches over HTTP only.
+- **Two data paths, deliberately separate.**
+  - *The published market* (`/board`): `GET /publication` → `src/services/api` (browser-safe HTTP
+    client) → `src/services/publication` (adapter + `usePublishedMarket`) → the page. This is real
+    backend data and has **no demo fallback** — an API failure shows an error state.
+  - *The Demo Market* (`/market` movers, stock card, watchlist, portfolio): the `MarketDataService`
+    interface, injected at the composition root (`src/main.tsx`) as `LiveMarketDataService`, which
+    wraps the deterministic `MockMarketDataService` core and overlays Sleeper metadata. These
+    surfaces depend on fields no publication carries and stay explicitly labelled as simulated.
+- **Browser boundary:** no browser-facing file imports `@/api`, `@/application`, `@/scheduler` or
+  `@/persistence`; the browser holds no valuation, scheduler or persistence logic. Enforced by
+  `src/services/api/boundary.test.ts` and the backend layers' own boundary tests.
 - **Deterministic boundary:** every market number (price, movement, volatility, signals, …) comes
   from pure, config-driven functions in `src/services/marketEngine/` seeded from
   `src/config/market.ts` and `src/data/pool.ts`. The live layer overlays identity facts only —
@@ -141,7 +178,12 @@ only environment usage is Vite's built-in `import.meta.env.DEV` for dev-only log
 - The engines' bundled **reference distributions are provisional**, fixture-grade constants for the
   hobby MVP — not fitted to real historical NFL data; calibration is future work.
 - Live Sleeper metadata is informational overlay only; it **never changes deterministic
-  valuations**, and the app degrades to full demo mode when the API is unreachable.
+  valuations**, and the Demo Market surfaces degrade to full demo mode when Sleeper is unreachable.
+- **The published market currently carries identity but no valuations.** Publications produced by
+  the pipeline today have `readiness: NOT_READY` for every player, because the inference layer's
+  readiness frontier is not yet crossed with the data ingestion can supply. The Board renders that
+  honestly — an em-dash and an `UNAVAILABLE` badge per player — rather than showing a zero, an
+  estimate, or a demo price. It has **no demo fallback**: an API failure shows an error state.
 - The **RB specification and the Foundation document are missing** from the repository (see the
   table above). The RB engine exists without its binding specification, so **RB model changes are
   blocked** until `RB_VALUATION_MODEL_v1.1_FINAL.md` is recovered — or formally reconstructed and

@@ -16,6 +16,9 @@ npm-debug.log*
 .vscode/
 *.local
 
+# local API server state (scripts/serve-api.ts)
+.local/
+
 # scratch / smoke-test artifacts
 _shot_*.png
 _smoke.mjs
