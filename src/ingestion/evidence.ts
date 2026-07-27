@@ -10,6 +10,7 @@ import { availabilityProbability, type AvailabilityState, type InjuryStatus } fr
 import type { NormalizedEvidence } from '@/inference/production/orchestrate';
 import type { CompetitionPosition, CompetitionTeammate } from '@/inference/competition';
 import type { RosterStatus } from '@/inference/features/types';
+import { observedCountingFacts } from './observedFacts';
 import { compareOrdinal, withinAsOf } from './ordering';
 import type { NormalizedSnapshot } from './snapshot';
 import type {
@@ -188,9 +189,20 @@ export function buildEvidenceFor(
     }
   }
 
-  // --- facts (observed practice_status enum, when injury present) ---
-  const facts: Record<string, unknown> = {};
+  // --- observed facts ---
+  // Counting stats aggregated from the per-game records already in this snapshot. These are
+  // DIRECT observations, so they are supplied as FACTS and win over any AIL estimate for the
+  // same field. A column no game supplied is left out entirely rather than summed to zero.
+  const facts: Record<string, unknown> = { ...observedCountingFacts(position, myGames) };
   const factTimestamps: Record<string, string> = {};
+  const newestGame = myGames.reduce<string | undefined>(
+    (m, g) => (m === undefined || g.sourceTimestamp > m ? g.sourceTimestamp : m),
+    undefined,
+  );
+  if (newestGame !== undefined) {
+    for (const key of Object.keys(facts)) factTimestamps[key] = newestGame;
+  }
+  // Observed practice_status enum, when an injury record is present.
   if (myInjury) {
     facts.practice_status = myInjury.practiceStatus;
     factTimestamps.practice_status = myInjury.sourceTimestamp;

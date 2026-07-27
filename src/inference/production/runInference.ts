@@ -26,7 +26,7 @@ import { mergeFactsOverAilFlat } from '@/inference/supplement/merge';
 import { isSupportedPosition } from '@/pipeline/types';
 import { LIMITATION_CODES, type HonestyState, type LimitationCode, type SupportedPosition } from '@/inference/types';
 import type { IntermediateField } from '@/inference/result/types';
-import { emitSupplement } from './emit';
+import { emitSupplement, unavailableFieldsFor } from './emit';
 import { invokeEngine } from './engineAdapter';
 import {
   buildInferredFieldStructures,
@@ -119,7 +119,26 @@ interface FinalizeArgs {
  */
 function finalize(args: FinalizeArgs): ProductionResult {
   const registry = loadRegistry();
-  const { position, fields } = args;
+  const { position } = args;
+
+  // Complete the supplement DECISION before emitting. Every field in the position's spec
+  // that no inference family produced — and that no observed fact will supply — becomes an
+  // explicit `UNAVAILABLE` field, so the binding §20.F3 matrix applies to the whole spec
+  // rather than only to the fields some family happened to cover. Fields the caller supplies
+  // as observed FACTS are excluded: facts win the merge below, and recording an UNAVAILABLE
+  // decision for a field we actually observed would understate the evidence.
+  //
+  // These fields are carried in `fields` from here on, so they are serialized in the envelope
+  // and are visible to the confidence model — an unavailable input must cost confidence, not
+  // be silently absent.
+  const observedOrProduced: IntermediateField<unknown>[] = [
+    ...args.fields,
+    ...Object.keys(args.facts).map((field) => ({ field }) as IntermediateField<unknown>),
+  ];
+  const fields: readonly IntermediateField<unknown>[] = [
+    ...args.fields,
+    ...unavailableFieldsFor(position, observedOrProduced, args.asOf, registry.registryVersion),
+  ];
 
   // Emit final AIL supplement (§20.F3 matrix).
   const emit = emitSupplement(position, fields);

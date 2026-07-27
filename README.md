@@ -161,8 +161,16 @@ No host or port is hard-coded in frontend source. See
     wraps the deterministic `MockMarketDataService` core and overlays Sleeper metadata. These
     surfaces depend on fields no publication carries and stay explicitly labelled as simulated.
 - **Browser boundary:** no browser-facing file imports `@/api`, `@/application`, `@/scheduler` or
-  `@/persistence`; the browser holds no valuation, scheduler or persistence logic. Enforced by
-  `src/services/api/boundary.test.ts` and the backend layers' own boundary tests.
+  `@/persistence`, so no scheduler or persistence logic reaches the browser. On valuation the line
+  is drawn per path, and the distinction is load-bearing:
+  - *The published-market frontend does not contain or run valuation logic.* Everything on `/board`
+    — the API client, the publication adapter, the provider and the page — only reads, orders and
+    formats values the backend already published. Enforced by `src/services/api/boundary.test.ts`.
+  - *The existing demo Player Model route still runs valuation engines in the browser.* `/player-model`
+    (and the `src/pages/{qb,rb,wr,te}/` modules behind it) imports `@/wr-model`, `@/rb-model`,
+    `@/te-model` and `@/qb-model` and evaluates them client-side over committed fixtures, so the
+    production bundle does ship those engines. This is legacy/demo model tooling, is labelled as
+    fictional in the UI, and is deliberately out of scope for the published-market path.
 - **Deterministic boundary:** every market number (price, movement, volatility, signals, …) comes
   from pure, config-driven functions in `src/services/marketEngine/` seeded from
   `src/config/market.ts` and `src/data/pool.ts`. The live layer overlays identity facts only —

@@ -131,6 +131,21 @@ export interface GameStatRecord extends NormalizedRecordBase {
   readonly snaps: number | null;
   readonly teamSnaps: number | null;
   readonly qbSnapShare: number | null;
+  // Box-score counting columns the provider's weekly player-stats resource already
+  // publishes alongside the ones above (see src/pipeline/stats/nflverse/weeklySchema.ts).
+  // They are carried verbatim — no derivation happens at ingestion — so that the evidence
+  // builder can aggregate real career/recent windows instead of leaving those engine
+  // inputs undecided. A provider that omits a column yields null, never 0.
+  readonly completions: number | null;
+  readonly passingYards: number | null;
+  readonly passingTds: number | null;
+  readonly interceptions: number | null;
+  readonly sacks: number | null;
+  readonly rushingYards: number | null;
+  readonly rushingTds: number | null;
+  readonly receptions: number | null;
+  readonly receivingYards: number | null;
+  readonly receivingTds: number | null;
 }
 
 /** Route/participation record (paid/limited coverage; drives WR/RB proxies). */

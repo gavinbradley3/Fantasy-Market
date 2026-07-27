@@ -154,11 +154,25 @@ describe('E2E production runInference (normalized input; Phase 2A/2B/D1/D2 run i
     delete facts.route_participation_last4;
     delete facts.route_participation_last8;
     const res = runInference(normInput('TE', facts, { teRole: { gamesObservedL4: 4, preseasonPriorAvailable: false, routePartL4: null, snapShareL4: 0.8, targetShare: 0.14 } }));
-    // The AIL leaves route_participation_* to the engine (never emits it).
-    expect('route_participation_last4' in res.ailSupplement).toBe(false);
-    // Readiness/engine follow the frozen contract (engine owns its snap proxy).
+    // The AIL still does not OWN the fallback: it computes no route-participation value.
+    // Under §20.F3 it now records an explicit unavailable DECISION (null) instead of
+    // omitting the key, which is what lets the engine run its own documented snap proxy.
+    expect(res.ailSupplement.route_participation_last4).toBeNull();
+    expect(res.ailSupplement.route_participation_last8).toBeNull();
+    expect(res.inferredFields.find((f) => f.field === 'route_participation_last4')?.status).toBe('UNAVAILABLE');
+    // The two paths now legitimately DIFFER, and the difference is the point of the
+    // §20.F3 completion: assessing the raw facts sees a supplement where nobody decided
+    // route participation, so it is NOT_READY; the AIL path recorded an explicit
+    // unavailable decision, so the engine may run its own documented snap proxy.
     const direct = assessTEReadiness(player('TE'), facts as never, T);
-    expect(res.readinessStatus).toBe(direct.status);
+    expect(direct.status).toBe('NOT_READY');
+    if (direct.status === 'NOT_READY') {
+      expect(direct.missing.map((m) => m.field)).toContain('route_participation_last4');
+    }
+    expect(res.readinessStatus).toBe('READY');
+    // ...and the engine, not the AIL, produced the value behind that fallback.
+    expect(res.engineInvoked).toBe(true);
+    expect(res.mergedSupplement.route_participation_last4).toBeNull();
   });
 
   // --- QB ---

@@ -11,7 +11,7 @@ import { declarationOrder } from '@/inference/production/serialize';
 import { present, notProvided } from '@/pipeline/provenance';
 import type { CanonicalPlayer, SupportedPosition } from '@/pipeline/types';
 import { readFixture } from '@/pipeline/test-support';
-import { METADATA_KEYS } from '@/inference/production/fieldKinds';
+import { METADATA_KEYS, SUPPLEMENT_SPEC } from '@/inference/production/fieldKinds';
 import { assessWRReadiness, assessQBReadiness } from '@/pipeline/readiness/engineReadiness';
 import { evaluateWideReceiver } from '@/wr-model';
 import { evaluateQuarterback } from '@/qb-model';
@@ -159,6 +159,28 @@ describe('Phase 3 production runInference', () => {
 
   it('emitSupplement never emits metadata (engine adapts to AIL, not vice-versa)', () => {
     const r = emitSupplement('WR', []);
-    expect(Object.keys(r.supplement)).toHaveLength(0);
+    // Metadata is owned by the canonical pipeline and must never appear in the supplement,
+    // no matter what the AIL decided about the supplement fields themselves.
+    for (const key of METADATA_KEYS.WR) expect(key in r.supplement).toBe(false);
+  });
+
+  it('emitSupplement applies the §20.F3 matrix to EVERY spec field, not only produced ones', () => {
+    // With no inference fields at all, every supplement field is UNAVAILABLE, and the binding
+    // matrix decides each one by kind. Nothing is left undecided.
+    const r = emitSupplement('WR', []);
+    const spec = SUPPLEMENT_SPEC.WR;
+    const nullable = Object.keys(spec).filter((k) => spec[k].kind === 'nullable');
+    const neutral = Object.keys(spec).filter((k) => spec[k].kind === 'enumNeutral' || spec[k].kind === 'boolDefault');
+    const blocking = Object.keys(spec).filter((k) => spec[k].kind === 'nonNullableNumeric');
+
+    for (const k of nullable) expect(r.supplement[k]).toBeNull();
+    for (const k of neutral) expect(r.supplement[k]).toBe(spec[k].neutral);
+    // The blocking fields are still OMITTED — readiness must still fail on them.
+    for (const k of blocking) {
+      expect(k in r.supplement).toBe(false);
+      expect(r.omitted).toContain(k);
+    }
+    expect(blocking).toEqual(['career_routes', 'expected_games_remaining']);
+    expect(Object.keys(r.supplement).sort()).toEqual([...nullable, ...neutral].sort());
   });
 });

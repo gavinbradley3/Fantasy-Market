@@ -28,8 +28,24 @@ describe('ingestion → runInference (end-to-end)', () => {
     expect(res.d1Diagnostics).not.toBeNull();
     // schedule → expected games remaining is an emitted inferred field.
     expect(res.inferredFields.some((f) => f.field === 'expected_games_remaining')).toBe(true);
-    // a live WR without complete observed facts is honestly NOT_READY (frontier).
-    expect(res.readinessStatus).toBe('NOT_READY');
+    // Phase 11 — the frontier is crossed for this WR, and it is crossed HONESTLY.
+    // Both of the WR engine's non-nullable inputs (career_routes, expected_games_remaining)
+    // come from the inference layer; every remaining input is an explicit §20.F3 unavailable
+    // decision, so the engine runs its own documented fallbacks rather than being fed
+    // invented data.
+    expect(res.readinessStatus).toBe('READY');
+    expect(res.engineInvoked).toBe(true);
+    expect(res.engineOutput).not.toBeNull();
+    // The cost of those fallbacks is visible, not hidden: low confidence, limited honesty,
+    // and a fallback log the engine itself produced.
+    expect(res.honestyState).toBe('LIMITED');
+    expect(res.publicConfidenceLabel).toBe('LOW');
+    const out = res.engineOutput as unknown as { confidence: { score: number }; fallback_log: unknown[] };
+    expect(out.confidence.score).toBeLessThan(30);
+    expect(out.fallback_log.length).toBeGreaterThan(0);
+    // Nothing was invented for the unavailable inputs — they are null in the supplement.
+    expect(res.mergedSupplement.target_share).toBeNull();
+    expect(res.mergedSupplement.catch_rate_over_expected).toBeNull();
     expect(res.serialized.length).toBeGreaterThan(0);
     expect(res.normalizedInputChecksum).not.toBe(res.outputChecksum);
     // no provider-specific key leaked into the merged supplement.

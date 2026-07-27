@@ -6,7 +6,7 @@
 
 import { emissionDecision } from '@/inference/readiness/integration';
 import type { IntermediateField } from '@/inference/result/types';
-import type { SupportedPosition } from '@/inference/types';
+import { LIMITATION_CODES, type LimitationCode, type SupportedPosition } from '@/inference/types';
 import { SUPPLEMENT_SPEC } from './fieldKinds';
 
 export interface FieldEmission {
@@ -31,10 +31,12 @@ export function emitSupplement(
   const supplement: Record<string, unknown> = {};
   const omitted: string[] = [];
   const emissions: FieldEmission[] = [];
+  const decided = new Set<string>();
 
   for (const f of fields) {
     const fieldSpec = spec[f.field];
     if (!fieldSpec) continue; // not a supplement field (diagnostic / internal)
+    decided.add(f.field);
 
     const decision = emissionDecision(f.status, fieldSpec.kind);
     if (decision === 'omit') {
@@ -61,5 +63,79 @@ export function emitSupplement(
     emissions.push({ field: f.field, decision, value });
   }
 
+  // COMPLETE THE DECISION (REGISTRY §20.F3).
+  //
+  // The matrix above is binding for EVERY supplement field, not only for fields an
+  // inference family happened to produce. A field that no family covers and no evidence
+  // reached is genuinely `UNAVAILABLE`, and the matrix already says what that means:
+  //
+  //   nullable           → present-null      (the engine's DEFINED unknown; it falls back)
+  //   enumNeutral/bool   → the AUTHORIZED neutral member (§20.F3.1)
+  //   nonNullableNumeric → omit              (still blocking — still NOT_READY)
+  //
+  // Leaving such a field out entirely was the defect: it made "nobody produced a decision"
+  // indistinguishable from "the decision is unknown", so readiness reported a missing field
+  // where the specification defines an outcome. This LOOSENS NOTHING — every non-nullable
+  // numeric still omits and still blocks — and it is deliberately visible: each field below
+  // enters the result as an UNAVAILABLE inferred field, so it is serialized in the envelope
+  // and counted against confidence.
+  //
+  // Iteration is over the spec's declaration order, so the output is deterministic and
+  // cannot depend on the order fields arrived in.
+  for (const field of Object.keys(spec)) {
+    if (decided.has(field)) continue;
+    const fieldSpec = spec[field];
+    const decision = emissionDecision('UNAVAILABLE', fieldSpec.kind);
+    if (decision === 'omit') {
+      omitted.push(field);
+      emissions.push({ field, decision, value: undefined });
+    } else if (decision === 'present-null') {
+      supplement[field] = null;
+      emissions.push({ field, decision, value: null });
+    } else {
+      supplement[field] = fieldSpec.neutral;
+      emissions.push({ field, decision, value: fieldSpec.neutral });
+    }
+  }
+
   return { supplement, omitted, emissions };
+}
+
+/**
+ * The `UNAVAILABLE` inferred fields corresponding to spec fields no inference family
+ * produced. They carry no value and no evidence — their entire content is the honest
+ * statement "no authorized source supplied this" — and they exist so that the envelope
+ * serializes a complete supplement and the confidence model sees the gap.
+ */
+export function unavailableFieldsFor(
+  position: SupportedPosition,
+  fields: readonly IntermediateField<unknown>[],
+  asOf: string,
+  registryVersion: string,
+): IntermediateField<unknown>[] {
+  const spec = SUPPLEMENT_SPEC[position];
+  const produced = new Set(fields.map((f) => f.field));
+  return Object.keys(spec)
+    .filter((field) => !produced.has(field))
+    .map((field) => {
+      const kind = spec[field].kind;
+      // Only codes already in the authorized vocabulary are used. NEUTRAL_DEFAULT is the
+      // §20.F3 code for an enum/bool carried as its neutral member; a nullable field needs
+      // no code because `status: UNAVAILABLE` with a null value is already the complete
+      // statement, and it is serialized in the envelope.
+      const limitations: LimitationCode[] =
+        kind === 'enumNeutral' || kind === 'boolDefault' ? [LIMITATION_CODES.NEUTRAL_DEFAULT] : [];
+      return {
+        field,
+        value: null,
+        status: 'UNAVAILABLE' as const,
+        provenance: null,
+        confidence: 0,
+        limitations,
+        evidence: [],
+        asOf,
+        registryVersion,
+        modelId: '',
+      };
+    });
 }

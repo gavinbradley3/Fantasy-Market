@@ -119,20 +119,39 @@ describe('the frontend API client against the real backend', () => {
       expect(market.players.every((p) => typeof p.name === 'string' && p.name.length > 0)).toBe(true);
       expect(market.players.map((p) => p.team)).toEqual(market.players.map(() => 'CIN'));
 
-      // THE HONEST STATE OF THE SYSTEM TODAY: this publication's players are NOT_READY, so the
-      // inference layer published no valuation for them. Every valuation field must therefore
-      // be null all the way through to the frontend model — not 0, not a placeholder.
-      for (const p of market.players) {
+      // Phase 11 — this is now a MIXED board, and the Phase 10 contract carries both halves
+      // with no frontend production-code change.
+      const valued = market.players.filter((p) => p.value !== null);
+      const unvalued = market.players.filter((p) => p.value === null);
+      expect(valued.length).toBeGreaterThan(0);
+      expect(unvalued.length).toBeGreaterThan(0);
+      expect(market.valuedCount).toBe(valued.length);
+
+      // A VALUED player carries a real engine output all the way to the frontend model.
+      for (const p of valued) {
+        expect(p.readiness).toBe('READY');
+        expect(p.composites).not.toBeNull();
+        expect(Number.isFinite(p.value as number)).toBe(true);
+        expect(p.confidenceScore).not.toBeNull();
+        expect(p.volatilityScore).not.toBeNull();
+        // Ranked by the adapter's ordering over the backend's own value.
+        expect(p.overallRank).not.toBeNull();
+        // The value is honest about how little evidence backed it.
+        expect(p.honestyState).toBe('LIMITED');
+        expect(p.publicConfidenceLabel).toBe('LOW');
+      }
+
+      // An UNVALUED player is still exactly as honest as before — nothing invented, and it
+      // is unranked rather than ranked last with a stand-in value.
+      for (const p of unvalued) {
         expect(p.readiness).toBe('NOT_READY');
         expect(p.honestyState).toBe('UNAVAILABLE');
-        expect(p.value).toBeNull();
         expect(p.composites).toBeNull();
         expect(p.confidenceScore).toBeNull();
         expect(p.volatilityScore).toBeNull();
         expect(p.overallRank).toBeNull();
         expect(p.readinessMissingCount).toBeGreaterThan(0);
       }
-      expect(market.valuedCount).toBe(0);
     } finally {
       await stack.close();
     }

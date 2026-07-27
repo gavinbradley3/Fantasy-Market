@@ -144,8 +144,20 @@ export const nflverseAdapter: ProviderAdapter = {
       records.push({
         canonicalId: null, providerRef: r, freshness, sourceTimestamp: freshness.effectiveDate,
         gameId, kickoff, season: num(row, 'season') ?? 0, seasonType: seasonType(str(row, 'season_type')), team,
-        passAttempts: num(row, 'pass_attempts'), carries: num(row, 'carries'), targets: num(row, 'targets'),
+        passAttempts: num(row, 'pass_attempts') ?? num(row, 'attempts'),
+        carries: num(row, 'carries'), targets: num(row, 'targets'),
         snaps, teamSnaps, qbSnapShare: snaps !== null && teamSnaps !== null && teamSnaps > 0 ? snaps / teamSnaps : num(row, 'qb_snap_share'),
+        // Carried verbatim from the provider row; an absent column stays null.
+        completions: num(row, 'completions'),
+        passingYards: num(row, 'passing_yards'),
+        passingTds: num(row, 'passing_tds'),
+        interceptions: num(row, 'interceptions'),
+        sacks: num(row, 'sacks'),
+        rushingYards: num(row, 'rushing_yards'),
+        rushingTds: num(row, 'rushing_tds'),
+        receptions: num(row, 'receptions'),
+        receivingYards: num(row, 'receiving_yards'),
+        receivingTds: num(row, 'receiving_tds'),
       });
     }
     return { records, warnings };
