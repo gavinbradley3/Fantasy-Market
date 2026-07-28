@@ -117,6 +117,33 @@ describe('a past board is not contaminated by later-known state', () => {
     expect(built.player.status).toEqual(expect.objectContaining({ present: true, value: 'active' }));
   });
 
+  it('publishes resolved fields under the timestamp of the source that supplied them', () => {
+    // The value comes from a January roster row; the identity export is attested in July.
+    // Reporting the July stamp would make a correct historical value read as post-as-of
+    // evidence — the exact confusion this resolution exists to remove.
+    const snap = snapshotOf({ players: [player()], rosters: [roster(17, 'TB', 'ACTIVE')] });
+    const built = buildEvidenceFor(snap, snap.players[0].canonicalId!, 'QB', AS_OF)!;
+    for (const field of [built.player.team, built.player.status] as const) {
+      expect(field.present).toBe(true);
+      const ts = (field as { sourceTimestamp: string }).sourceTimestamp;
+      expect(Date.parse(ts)).toBeLessThanOrEqual(Date.parse(AS_OF));
+      expect(ts).not.toBe(JULY.lastUpdated);
+    }
+  });
+
+  it('never publishes a present time-varying field attested after the as-of', () => {
+    // The general invariant, not just the probe above.
+    const snap = snapshotOf({
+      players: [player()],
+      rosters: [roster(1, 'TB', 'ACTIVE'), roster(17, 'TB', 'RESERVE')],
+    });
+    const built = buildEvidenceFor(snap, snap.players[0].canonicalId!, 'QB', AS_OF)!;
+    for (const field of [built.player.team, built.player.status, built.player.injury_designation] as const) {
+      if (!field.present) continue;
+      expect(Date.parse((field as { sourceTimestamp: string }).sourceTimestamp)).toBeLessThanOrEqual(Date.parse(AS_OF));
+    }
+  });
+
   it('does not field a teammate who was on another team at the as-of', () => {
     const me = player({ position: 'WR', providerRef: { key: 'gsis', value: '00-A' }, providerIds: { gsis: '00-A' } });
     // A July teammate on the same current team, but rostered elsewhere during 2025.

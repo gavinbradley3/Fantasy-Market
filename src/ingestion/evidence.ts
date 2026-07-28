@@ -159,6 +159,16 @@ interface PointInTimeFacts {
   readonly injuryDesignation: string | null;
   /** True when the identity export's own content is attested at or before the as-of. */
   readonly identityAttested: boolean;
+  /**
+   * When the source that actually supplied `team`/`status` attested them.
+   *
+   * This is NOT the identity record's timestamp. A value taken from a January roster row is
+   * attested in January; publishing it under the identity export's July stamp would make a
+   * correct historical value read as post-as-of evidence — which is precisely the confusion
+   * this whole resolution exists to remove. By construction this is always at or before the
+   * as-of whenever the field is present.
+   */
+  readonly attestedAt: string;
 }
 
 /** Roster status → the canonical four-value status the engines' metadata uses. */
@@ -187,6 +197,7 @@ function resolvePointInTime(
     // when the identity export itself is attested for the as-of.
     injuryDesignation: identityAttested ? rec.injuryDesignation : null,
     identityAttested,
+    attestedAt: roster?.sourceTimestamp ?? rec.sourceTimestamp,
   };
 }
 
@@ -212,7 +223,7 @@ function buildCanonicalPlayer(
     },
     position,
     full_name: present(rec.nameNormalized, pid, ts),
-    team: pit.team ? present(pit.team, pid, ts) : notProvided(),
+    team: pit.team ? present(pit.team, pid, pit.attestedAt) : notProvided(),
     age: rec.age !== null ? present(rec.age, pid, ts) : notProvided(),
     birth_date: notProvided(),
     nfl_seasons_completed: rec.nflSeasonsCompleted !== null ? present(rec.nflSeasonsCompleted, pid, ts) : notProvided(),
@@ -223,7 +234,7 @@ function buildCanonicalPlayer(
     height_inches: notProvided(),
     weight_pounds: notProvided(),
     jersey_number: notProvided(),
-    status: status ? present(status, pid, ts) : notProvided(),
+    status: status ? present(status, pid, pit.attestedAt) : notProvided(),
     injury_designation: pit.injuryDesignation ? present(pit.injuryDesignation, pid, ts) : notProvided(),
     headshot_url: notProvided(),
     provenance: { sources: [pid], generated_at: asOf },
