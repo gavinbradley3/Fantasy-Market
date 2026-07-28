@@ -60,6 +60,51 @@ export function HonestyBadge({ player }: { player: PublishedPlayer }) {
   );
 }
 
+/**
+ * The model tier, in product language.
+ *
+ * This is the badge that keeps the board honest: a reduced-input valuation is visibly marked
+ * as one, everywhere it appears, rather than sitting in the same column as a full-model value
+ * with nothing to tell them apart. The label is deliberately plain — "Limited data", not
+ * "ACCESSIBLE" — and the tooltip names what was missing in words rather than registry keys.
+ */
+export function ModelTierBadge({ player }: { player: PublishedPlayer }) {
+  const tier = player.modelTier;
+  const missing = player.materialMissingInputs;
+  if (tier === 'FULL') {
+    return (
+      <span
+        className="rounded-full border border-up/40 bg-up/10 px-2 py-0.5 text-[11px] text-text-primary"
+        title="Valued by the full model, using its complete set of inputs."
+      >
+        Full model
+      </span>
+    );
+  }
+  if (tier === 'ACCESSIBLE') {
+    return (
+      <span
+        className="rounded-full border border-warning/40 bg-warning/10 px-2 py-0.5 text-[11px] text-text-primary"
+        title={
+          missing.length > 0
+            ? `Valued by the accessible-data model — a reduced model that uses only the data available for this player. Not used: ${missing.join('; ')}.`
+            : 'Valued by the accessible-data model — a reduced model that uses only the data available for this player.'
+        }
+      >
+        Limited data
+      </span>
+    );
+  }
+  return (
+    <span
+      className="rounded-full border border-border-subtle bg-elevated px-2 py-0.5 text-[11px] text-text-muted"
+      title={player.insufficientReason ?? 'Not enough information to value this player.'}
+    >
+      No value
+    </span>
+  );
+}
+
 export const PUBLISHED_COLUMNS = [
   'Rank',
   'Player',
@@ -68,7 +113,7 @@ export const PUBLISHED_COLUMNS = [
   'Value',
   'Confidence',
   'Volatility',
-  'Model state',
+  'Model',
 ] as const;
 
 export function PublishedPlayerRow({ player }: { player: PublishedPlayer }) {
@@ -101,7 +146,7 @@ export function PublishedPlayerRow({ player }: { player: PublishedPlayer }) {
       </td>
       <td className="px-2 text-text-secondary">{label(player.volatilityLabel)}</td>
       <td className="px-2 pr-3">
-        <HonestyBadge player={player} />
+        <ModelTierBadge player={player} />
       </td>
     </tr>
   );
@@ -127,12 +172,16 @@ export function PublishedPlayerCard({ player }: { player: PublishedPlayer }) {
         </div>
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-text-secondary">
-        <HonestyBadge player={player} />
+        <ModelTierBadge player={player} />
         <span>
           Confidence: {label(player.confidenceLabel ?? player.publicConfidenceLabel)}
         </span>
         <span>Volatility: {label(player.volatilityLabel)}</span>
       </div>
+      {player.role && <div className="mt-1.5 text-xs text-text-secondary">{player.role}</div>}
+      {player.explanation && (
+        <p className="mt-1.5 text-[11px] leading-snug text-text-muted">{player.explanation}</p>
+      )}
     </div>
   );
 }

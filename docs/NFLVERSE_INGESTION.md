@@ -146,21 +146,21 @@ output checksums and the same content-derived publication id with the network un
 ## What live data supports, by position
 
 Measured against nflverse's current releases for seasons 2023–2025, as of `2026-02-15`
-(868 players selected, 421 valued):
+(868 players selected, 814 valued):
 
-| Position | Selected | Valued | Blocking field |
-|---|---|---|---|
-| QB | 111 | 111 | — |
-| WR | 340 | 310 | `career_routes` (30 players below the 3-game minimum) |
-| RB | 237 | 0 | `career_routes` |
-| TE | 180 | 0 | `career_routes` |
+| Position | Selected | Valued | Tier | Remaining blocker |
+|---|---|---|---|---|
+| QB | 111 | 111 | FULL | — |
+| WR | 340 | 310 | FULL | `career_routes` (30 players below the 3-game minimum) |
+| RB | 237 | 226 | ACCESSIBLE | none universal; 11 have no carries or targets at all |
+| TE | 180 | 167 | ACCESSIBLE | none universal; 13 were never targeted |
 
-### RB and TE are blocked on `career_routes`, and the blocker is correct
+### RB and TE are valued by the accessible-data model
 
-`career_routes` is a non-nullable numeric engine input, so a player without it is `NOT_READY` and
-publishes no value. For RB and TE the frozen route model (`src/inference/d1/routeExposure.ts`,
-REGISTRY §8.1 rungs 4/5) states that `career_routes` is `UNAVAILABLE` **unless charted** — the WR
-pass-play proxy is explicitly WR-only, and the TE path never computes routes at all.
+`career_routes` is a non-nullable input of the FROZEN RB/TE engines, and it remains genuinely
+unavailable: the frozen route model (`src/inference/d1/routeExposure.ts`, REGISTRY §8.1 rungs
+4/5) states that `career_routes` is `UNAVAILABLE` unless charted — the WR pass-play proxy is
+explicitly WR-only, and the TE path never computes routes at all.
 
 nflverse publishes no charted per-player route counts:
 
@@ -169,11 +169,33 @@ nflverse publishes no charted per-player route counts:
 - `pfr_advstats` weekly receiving carries broken tackles, drops and passer rating — no routes.
 - `ftn_charting` is play-level (formation, pressure, coverage) with no per-player route data.
 
-So the blocker is not a pipeline shortfall. It is the specification correctly refusing to
-manufacture a number the data does not contain. Every RB and TE reaches readiness with all its
-*other* non-nullable inputs satisfied from live data (`career_carries`, `career_touches`,
-`career_targets`, `expected_games_remaining`), and stops at exactly this one field. Lifting it
-requires a charted route source, which is a licensing decision, not an engineering one.
+So the FULL tier stays correctly blocked for RB and TE, and no route number is manufactured.
+
+What changed is that this no longer means the positions publish nothing. A separate,
+clearly-labelled **accessible-data model** values them from the evidence the pipeline really
+has — the weekly box score, point-in-time biographical facts, and team shares reconstructed
+from the same box scores. It is a different model with its own components, weights and
+confidence ceiling (never HIGH), not the frozen engine with defaults substituted, and the tier
+is published per player so the two can never be confused. See
+[`valuation-models/ACCESSIBLE_DATA_MODEL_RB_TE_V1.md`](valuation-models/ACCESSIBLE_DATA_MODEL_RB_TE_V1.md).
+
+Lifting RB/TE to the FULL tier still requires a charted route source, which is a licensing
+decision rather than an engineering one. The tier system routes there automatically the moment
+`career_routes` is present.
+
+### The box-score columns the accessible tier consumes
+
+The weekly stats export is ingested with `carries`, `rushing_yards`, `rushing_tds`, `targets`,
+`receptions`, `receiving_yards` and `receiving_tds` populated on **100% of the 56,979 ingested
+game records**. Before this work those columns were decoded, normalized, snapshotted and then
+discarded: `observedFacts.ts` aggregated only the two or three counting fields the frozen
+engines declare, and no RB/TE rate was derived anywhere, so every efficiency and share field
+was reported `UNAVAILABLE` despite being computable. `src/ingestion/observedProduction.ts` now
+aggregates them, as a channel separate from the frozen supplement.
+
+`snaps`, `teamSnaps` and `qbSnapShare` are populated on **0%** of records — nflverse publishes
+no snap-counts release in the map above — so snap share genuinely is unavailable and no model
+uses it.
 
 ## Recent-window separation (REGISTRY §9.2.1)
 

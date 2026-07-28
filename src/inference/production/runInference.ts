@@ -26,6 +26,7 @@ import { mergeFactsOverAilFlat } from '@/inference/supplement/merge';
 import { isSupportedPosition } from '@/pipeline/types';
 import { LIMITATION_CODES, type HonestyState, type LimitationCode, type SupportedPosition } from '@/inference/types';
 import type { IntermediateField } from '@/inference/result/types';
+import type { ObservedProduction } from '@/accessible/production';
 import { emitSupplement, unavailableFieldsFor } from './emit';
 import { invokeEngine } from './engineAdapter';
 import {
@@ -34,12 +35,19 @@ import {
   serializeProductionEnvelope,
 } from './serialize';
 import { orchestrateInference, type OrchestrationResult } from './orchestrate';
+import { decideTier } from './modelTier';
 import {
   ProductionValidationError,
   type NormalizedInferenceInput,
   type PrecomputedFieldsInput,
   type ProductionResult,
 } from './types';
+
+/** Read `expected_games_remaining` out of the merged supplement, when it is a usable number. */
+function expectedGamesRemainingOf(merged: Readonly<Record<string, unknown>>): number | null {
+  const v = merged.expected_games_remaining;
+  return typeof v === 'number' && Number.isFinite(v) ? v : null;
+}
 
 function publicLabel(pc: number | null): 'LOW' | 'MEDIUM' | 'HIGH' | null {
   if (pc === null) return null;
@@ -109,6 +117,8 @@ interface FinalizeArgs {
   readonly orchestration: OrchestrationResult | null;
   /** canonical NORMALIZED INPUT to hash for `normalizedInputChecksum` (M2). */
   readonly canonicalInput: unknown;
+  /** Observed production for the accessible tier (RB/TE only; undefined elsewhere). */
+  readonly production?: ObservedProduction;
 }
 
 /**
@@ -149,6 +159,23 @@ function finalize(args: FinalizeArgs): ProductionResult {
   // Readiness + engine (only when READY).
   const invocation = invokeEngine(position, args.player, mergedSupplement, args.asOf);
 
+  // Model tier. The full model above is always tried first and is never weakened; the
+  // accessible-data model is attempted only when the full model was blocked exclusively by
+  // premium inputs no free source publishes (today: career_routes for RB/TE). A player the
+  // full model valued never reaches the accessible tier.
+  const readinessMissingFields = invocation.missing.map((m) => m.field).sort(compareStrings);
+  const tierDecision = decideTier({
+    position,
+    player: args.player,
+    asOf: args.asOf,
+    fullModelRan: invocation.engineOutput !== null,
+    readinessMissing: readinessMissingFields,
+    production: args.production,
+    expectedGamesRemaining: expectedGamesRemainingOf(mergedSupplement),
+  });
+  const accessibleOutput = tierDecision.accessible?.tier === 'ACCESSIBLE' ? tierDecision.accessible : null;
+  const valued = invocation.engineOutput !== null || accessibleOutput !== null;
+
   // Confidence & honesty — Phase 2B is composed here from its OWN exported APIs
   // (`buildPlayerConfidence` / `computeSourceQuality` / `computePublicConfidence` /
   // `honestyState`). We call these directly rather than the `runPhase2B` wrapper
@@ -180,6 +207,18 @@ function finalize(args: FinalizeArgs): ProductionResult {
     sourceQualityFactor: sourceQuality.sourceQualityFactor,
     engineConfidence01: invocation.engineConfidence01 ?? undefined,
   });
+
+  // When the ACCESSIBLE tier produced the value, its own confidence governs what is
+  // published. The AIL's public confidence describes the completeness of the FULL model's
+  // input set, which is by definition incomplete here — publishing it would either understate
+  // a sound reduced valuation or, worse, overstate one. The accessible model's ceiling (never
+  // HIGH) is applied as a cap so the published number can only move downward.
+  const publishedConfidence01 = accessibleOutput
+    ? Math.min(publicConfidence.publicConfidence ?? accessibleOutput.confidence.score, accessibleOutput.confidence.score)
+    : publicConfidence.publicConfidence;
+  const publishedConfidenceLabel = accessibleOutput
+    ? accessibleOutput.confidence.label
+    : publicLabel(publicConfidence.publicConfidence);
 
   const ailCritical = fields.filter((f) => critical.includes(f.field));
   const allCriticalOfficial = !anyCriticalOmitted && ailCritical.every((f) => isOfficial(f.provenance));
@@ -255,7 +294,12 @@ function finalize(args: FinalizeArgs): ProductionResult {
     as_of: args.asOf,
     normalized_input_checksum: normalizedInputChecksum,
     reproducibility,
-    status: invocation.engineOutput !== null ? 'AVAILABLE' : 'UNAVAILABLE',
+    status: valued ? 'AVAILABLE' : 'UNAVAILABLE',
+    model_tier: tierDecision.tier,
+    accessible_model: accessibleOutput,
+    accessible_insufficient:
+      tierDecision.accessible?.tier === 'INSUFFICIENT' ? tierDecision.accessible : null,
+    tier_not_attempted_reason: tierDecision.notAttemptedReason,
     readiness: invocation.readinessStatus,
     readiness_missing: invocation.missing.map((m) => m.field).sort(compareStrings),
     honesty_state: honesty,
@@ -265,7 +309,8 @@ function finalize(args: FinalizeArgs): ProductionResult {
     player_confidence: playerConfidence,
     engine_confidence_01: invocation.engineConfidence01,
     public_confidence: publicConfidence,
-    public_confidence_label: publicLabel(publicConfidence.publicConfidence),
+    public_confidence_label: publishedConfidenceLabel,
+    published_confidence_score: publishedConfidence01,
     fields: fieldStructures,
     facts: args.facts,
     ail_supplement: emit.supplement,
@@ -287,14 +332,19 @@ function finalize(args: FinalizeArgs): ProductionResult {
     emissions: emit.emissions,
     inferredFields: fields,
     readinessStatus: invocation.readinessStatus,
-    readinessMissing: invocation.missing.map((m) => m.field).sort(compareStrings),
+    readinessMissing: readinessMissingFields,
     engineInvoked: invocation.engineOutput !== null,
+    modelTier: tierDecision.tier,
+    accessibleOutput,
+    accessibleInsufficient:
+      tierDecision.accessible?.tier === 'INSUFFICIENT' ? tierDecision.accessible : null,
     engineOutput: invocation.engineOutput,
     engineError: invocation.engineError,
     playerConfidence,
     engineConfidence01: invocation.engineConfidence01,
     publicConfidence,
-    publicConfidenceLabel: publicLabel(publicConfidence.publicConfidence),
+    publicConfidenceLabel: publishedConfidenceLabel,
+    publishedConfidenceScore: publishedConfidence01,
     honestyState: honesty,
     sourceQuality,
     explanations,
@@ -354,6 +404,7 @@ export function runInference(input: NormalizedInferenceInput): ProductionResult 
     engineVersion: input.engineVersion,
     orchestration,
     canonicalInput,
+    ...(input.evidence.production ? { production: input.evidence.production } : {}),
   });
 }
 

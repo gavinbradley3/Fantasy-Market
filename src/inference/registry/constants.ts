@@ -10,7 +10,10 @@
 
 export const REGISTRY_VERSION = 'air-1.1.0';
 export const INFERENCE_LAYER_VERSION = 'air-1.1.0';
-export const AIL_SCHEMA_VERSION = 'air-report-1.0';
+// 1.1 adds the model-tier block (model_tier / accessible_model / accessible_insufficient /
+// tier_not_attempted_reason / published_confidence_score). Envelope bytes therefore differ
+// from 1.0 for every position; no valuation changed for QB or WR.
+export const AIL_SCHEMA_VERSION = 'air-report-1.1';
 
 export const SUPPORTED_POSITIONS = ['QB', 'RB', 'WR', 'TE'] as const;
 export type RegistrySupportedPosition = (typeof SUPPORTED_POSITIONS)[number];

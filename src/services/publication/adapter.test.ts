@@ -30,6 +30,17 @@ function entry(over: Partial<ApiBoardEntry> = {}): ApiBoardEntry {
     volatilityLabel: 'LOW',
     composites: { weekly: 70, ros: 68, oneYear: 66, threeYear: 62, dynasty: 60 },
     limitations: ['UNVALIDATED_MODEL'],
+    modelTier: 'FULL',
+    modelVersion: 'wr-mvp-1.0',
+    positionValue: null,
+    positionalRank: null,
+    role: null,
+    explanation: null,
+    positiveFactors: [],
+    negativeFactors: [],
+    materialMissingInputs: [],
+    insufficientReason: null,
+    provenance: null,
     ...over,
   };
 }
@@ -223,5 +234,71 @@ describe('adaptPublication — missing and invalid data', () => {
     expect(market.players).toEqual([]);
     expect(market.valuedCount).toBe(0);
     expect(market.rejected).toEqual([]);
+  });
+});
+
+describe('model tier reaches the frontend intact', () => {
+  it('copies a FULL tier through', () => {
+    const market = adaptPublication(response([entry()]));
+    expect(market.players[0].modelTier).toBe('FULL');
+    expect(market.players[0].modelVersion).toBe('wr-mvp-1.0');
+  });
+
+  it('copies an ACCESSIBLE tier through with its product-facing fields', () => {
+    const market = adaptPublication(
+      response([
+        entry({
+          canonicalId: 'pt-rb',
+          position: 'RB',
+          modelTier: 'ACCESSIBLE',
+          modelVersion: 'rb-accessible-1.0',
+          positionValue: 71.4,
+          positionalRank: 12,
+          role: 'Three-down lead back',
+          explanation: 'Three-down lead back. Valued from 49 observed games...',
+          positiveFactors: ['Carries a lead-back workload.'],
+          negativeFactors: ['Only 4 career games observed.'],
+          materialMissingInputs: ['Route participation (no free per-player route data since 2023)'],
+          provenance: {
+            gamesObserved: 49,
+            seasonsObserved: 3,
+            teamSharesDerived: true,
+            observedFields: ['carries'],
+            derivedFields: ['yards_per_carry_shrunk'],
+            unavailableFields: ['career_routes'],
+          },
+        }),
+      ]),
+    );
+    const p = market.players[0];
+    expect(p.modelTier).toBe('ACCESSIBLE');
+    expect(p.positionValue).toBe(71.4);
+    expect(p.publishedPositionalRank).toBe(12);
+    expect(p.role).toBe('Three-down lead back');
+    expect(p.materialMissingInputs[0]).toMatch(/Route participation/);
+    expect(p.provenance?.unavailableFields).toContain('career_routes');
+    expect(p.provenance?.teamSharesDerived).toBe(true);
+  });
+
+  it('treats an unrecognized or absent tier as INSUFFICIENT rather than as a full valuation', () => {
+    // The safe direction: an unlabelled valuation must never render as full-model output.
+    const market = adaptPublication(
+      response([entry({ modelTier: 'SOMETHING_NEW' as never })]),
+    );
+    expect(market.players[0].modelTier).toBe('INSUFFICIENT');
+  });
+
+  it('carries the insufficient reason so the UI can explain itself', () => {
+    const market = adaptPublication(
+      response([
+        entry({
+          modelTier: 'INSUFFICIENT',
+          composites: null,
+          insufficientReason: 'The player appeared in games but was never targeted.',
+        }),
+      ]),
+    );
+    expect(market.players[0].value).toBeNull();
+    expect(market.players[0].insufficientReason).toMatch(/never targeted/);
   });
 });

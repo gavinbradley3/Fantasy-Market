@@ -263,6 +263,7 @@ function PublicationProvenance({
   shown: number;
 }) {
   const unvalued = market.players.length - market.valuedCount;
+  const limited = market.players.filter((p) => p.modelTier === 'ACCESSIBLE').length;
   return (
     <div className="mb-2 space-y-1 px-1 text-xs text-text-secondary">
       {/* role="status" carries an implicit polite live region and gives the count a queryable
@@ -273,12 +274,21 @@ function PublicationProvenance({
         {' · published '}
         <span className="font-mono">{market.publishedAt}</span>
       </p>
+      {limited > 0 && (
+        <p>
+          <span className="font-mono tabnum">{limited}</span> of these players{' '}
+          {limited === 1 ? 'is' : 'are'} valued by the <strong>accessible-data model</strong> and
+          marked “Limited data”. That is a deliberately reduced model built only on the data we
+          can obtain for them — box-score production, team shares and age — without route,
+          snap or red-zone data. Those valuations are never shown as high confidence.
+        </p>
+      )}
       {unvalued > 0 && (
         <p>
           <span className="font-mono tabnum">{unvalued}</span> of these players{' '}
-          {unvalued === 1 ? 'has' : 'have'} no model value published yet — the valuation engines
-          were not run for them, so value, confidence and volatility are shown as “—” rather than
-          estimated.
+          {unvalued === 1 ? 'has' : 'have'} no published value, because there is not enough
+          information about them to value honestly — value, confidence and volatility are shown
+          as “—” rather than estimated.
         </p>
       )}
       {market.rejected.length > 0 && (

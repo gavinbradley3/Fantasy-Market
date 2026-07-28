@@ -22,6 +22,15 @@ export interface ApiComposites {
   readonly dynasty: number | null;
 }
 
+/**
+ * Which model produced a published valuation.
+ *
+ * The UI must branch on THIS rather than inferring a tier from which fields are populated: a
+ * reduced-input valuation and a full one both carry composites, and only this field separates
+ * them.
+ */
+export type ApiModelTier = 'FULL' | 'ACCESSIBLE' | 'INSUFFICIENT';
+
 /** One player on a published board, exactly as `GET /publication` projects it. */
 export interface ApiBoardEntry {
   readonly canonicalId: string;
@@ -43,9 +52,30 @@ export interface ApiBoardEntry {
   readonly confidenceLabel: string | null;
   readonly volatilityScore: number | null;
   readonly volatilityLabel: string | null;
-  /** Null whenever no engine ran for this player — never a zeroed stand-in. */
+  /** Null whenever no model valued this player — never a zeroed stand-in. */
   readonly composites: ApiComposites | null;
   readonly limitations: readonly string[];
+  readonly modelTier: ApiModelTier;
+  readonly modelVersion: string | null;
+  readonly positionValue: number | null;
+  readonly positionalRank: number | null;
+  readonly role: string | null;
+  readonly explanation: string | null;
+  readonly positiveFactors: readonly string[];
+  readonly negativeFactors: readonly string[];
+  readonly materialMissingInputs: readonly string[];
+  readonly insufficientReason: string | null;
+  readonly provenance: ApiProvenance | null;
+}
+
+/** Provenance summary for an accessible-tier valuation. */
+export interface ApiProvenance {
+  readonly gamesObserved: number | null;
+  readonly seasonsObserved: number | null;
+  readonly teamSharesDerived: boolean;
+  readonly observedFields: readonly string[];
+  readonly derivedFields: readonly string[];
+  readonly unavailableFields: readonly string[];
 }
 
 export interface ApiPublicationMetadata {

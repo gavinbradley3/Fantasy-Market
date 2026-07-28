@@ -22,6 +22,15 @@ const compositesSchema = z.object({
   dynasty: z.number().nullable(),
 });
 
+const provenanceSchema = z.object({
+  gamesObserved: z.number().nullable(),
+  seasonsObserved: z.number().nullable(),
+  teamSharesDerived: z.boolean(),
+  observedFields: z.array(z.string()),
+  derivedFields: z.array(z.string()),
+  unavailableFields: z.array(z.string()),
+});
+
 const boardEntrySchema = z.object({
   canonicalId: z.string(),
   position: z.string(),
@@ -44,6 +53,20 @@ const boardEntrySchema = z.object({
   volatilityLabel: z.string().nullable(),
   composites: compositesSchema.nullable(),
   limitations: z.array(z.string()),
+  // Model-tier block. Defaulted rather than required so a board published by an older
+  // backend still decodes; the default is the CONSERVATIVE one (no tier claimed → treated as
+  // insufficient by the adapter), never an implied full valuation.
+  modelTier: z.enum(['FULL', 'ACCESSIBLE', 'INSUFFICIENT']).default('INSUFFICIENT'),
+  modelVersion: z.string().nullable().default(null),
+  positionValue: z.number().nullable().default(null),
+  positionalRank: z.number().nullable().default(null),
+  role: z.string().nullable().default(null),
+  explanation: z.string().nullable().default(null),
+  positiveFactors: z.array(z.string()).default([]),
+  negativeFactors: z.array(z.string()).default([]),
+  materialMissingInputs: z.array(z.string()).default([]),
+  insufficientReason: z.string().nullable().default(null),
+  provenance: provenanceSchema.nullable().default(null),
 });
 
 const publicationMetadataSchema = z.object({

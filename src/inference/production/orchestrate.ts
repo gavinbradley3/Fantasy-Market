@@ -24,6 +24,7 @@ import {
 import { UNVALIDATED_CONF_CAP } from '@/inference/registry/family';
 import { clamp } from '@/inference/util/numeric';
 import { LIMITATION_CODES, type LimitationCode } from '@/inference/types';
+import type { ObservedProduction } from '@/accessible/production';
 import { runPhase2A, type Phase2AContext } from '@/inference/result/orchestrator';
 import { makeField, type IntermediateField } from '@/inference/result/types';
 import type { InferenceStatus, SupportedPosition } from '@/inference/types';
@@ -53,6 +54,15 @@ export interface NormalizedEvidence extends Omit<Phase2AContext, 'position' | 'c
   readonly rbRouteProxy?: { readonly rbPassPlaySnaps: number | null; readonly teamDropbacks: number | null };
   /** D2 functional QB starts (§9). */
   readonly d2?: FunctionalStartsInput;
+  /**
+   * Observed box-score production for the ACCESSIBLE model tier (RB/TE only).
+   *
+   * Carried on the evidence so it is covered by the normalized-input checksum and therefore
+   * by replay, but deliberately NOT consumed by any Phase-2A family: the accessible tier is a
+   * separate model with its own input contract, and no frozen-engine field is derived from
+   * this. Absent for QB and WR, which keeps their normalized-input bytes unchanged.
+   */
+  readonly production?: ObservedProduction;
 }
 
 /** D1 diagnostics surfaced to the production result / sidecar (§8.4 transparency). */

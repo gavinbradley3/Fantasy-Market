@@ -15,6 +15,7 @@ import type {
   SourceFamily,
   SourceQualityResult,
 } from '@/inference/confidence';
+import type { AccessibleInsufficient, AccessibleOutput, ModelTier } from '@/accessible';
 import type { EngineInvocation, EngineOutput, ReadinessStatus } from './engineAdapter';
 import type { FieldEmission } from './emit';
 import type { D1Diagnostics, D2Diagnostics, NormalizedEvidence, ProjectionDiagnostic } from './orchestrate';
@@ -96,6 +97,12 @@ export interface ProductionResult {
   readonly readinessStatus: ReadinessStatus;
   readonly readinessMissing: readonly string[];
   readonly engineInvoked: boolean;
+  /** Which model produced the published value (FULL / ACCESSIBLE / INSUFFICIENT). */
+  readonly modelTier: ModelTier;
+  /** The accessible-data model's output, when that tier produced the value. */
+  readonly accessibleOutput: AccessibleOutput | null;
+  /** Why the accessible model declined, when it was attempted and declined. */
+  readonly accessibleInsufficient: AccessibleInsufficient | null;
   readonly engineOutput: EngineOutput | null;
   readonly engineError: string | null;
 
@@ -103,6 +110,11 @@ export interface ProductionResult {
   readonly engineConfidence01: number | null;
   readonly publicConfidence: PublicConfidenceResult;
   readonly publicConfidenceLabel: 'LOW' | 'MEDIUM' | 'HIGH' | null;
+  /**
+   * The confidence actually published, which for an accessible-tier valuation is the
+   * accessible model's own (capped) score rather than the full model's input completeness.
+   */
+  readonly publishedConfidenceScore: number | null;
   readonly honestyState: HonestyState;
   readonly sourceQuality: SourceQualityResult;
 

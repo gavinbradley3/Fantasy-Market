@@ -96,6 +96,14 @@ export interface EnvelopeParts {
   readonly normalized_input_checksum: string;
   readonly reproducibility: ReproducibilityId;
   readonly status: string;
+  /** FULL | ACCESSIBLE | INSUFFICIENT — which model produced the value. */
+  readonly model_tier: string;
+  /** The accessible-data model's complete output, or null. */
+  readonly accessible_model: unknown;
+  /** The accessible model's decline record, or null. */
+  readonly accessible_insufficient: unknown;
+  /** Why the accessible tier was not attempted, or null. */
+  readonly tier_not_attempted_reason: string | null;
   readonly readiness: string;
   readonly readiness_missing: readonly string[];
   readonly honesty_state: string;
@@ -106,6 +114,8 @@ export interface EnvelopeParts {
   readonly engine_confidence_01: number | null;
   readonly public_confidence: unknown;
   readonly public_confidence_label: string | null;
+  /** The confidence actually published for this player's tier. */
+  readonly published_confidence_score: number | null;
   readonly fields: readonly SerializedInferredField[];
   readonly facts: Readonly<Record<string, unknown>>;
   readonly ail_supplement: Readonly<Record<string, unknown>>;
@@ -138,6 +148,10 @@ export function serializeProductionEnvelope(parts: EnvelopeParts): SerializedPro
     normalized_input_checksum: parts.normalized_input_checksum,
     reproducibility: sortKeysDeep(parts.reproducibility),
     status: parts.status,
+    model_tier: parts.model_tier,
+    accessible_model: sortKeysDeep(parts.accessible_model),
+    accessible_insufficient: sortKeysDeep(parts.accessible_insufficient),
+    tier_not_attempted_reason: parts.tier_not_attempted_reason,
     readiness: parts.readiness,
     readiness_missing: [...parts.readiness_missing],
     honesty_state: parts.honesty_state,
@@ -148,6 +162,7 @@ export function serializeProductionEnvelope(parts: EnvelopeParts): SerializedPro
     engine_confidence_01: parts.engine_confidence_01,
     public_confidence: sortKeysDeep(parts.public_confidence),
     public_confidence_label: parts.public_confidence_label,
+    published_confidence_score: parts.published_confidence_score,
     fields: parts.fields.map((f) => ({
       field: f.field,
       value: f.value,

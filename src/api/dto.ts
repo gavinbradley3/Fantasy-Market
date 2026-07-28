@@ -12,7 +12,11 @@ import type {
   SchedulerStatus,
 } from '@/application';
 import type { PublicationBundle, RefreshRunView } from '@/persistence';
-import { projectPublishedPlayer, type PublishedPlayerProjection } from './publicationProjection';
+import {
+  projectPublishedPlayer,
+  withPositionalRanks,
+  type PublishedPlayerProjection,
+} from './publicationProjection';
 
 /** A framework-agnostic normalized request (built by the node:http adapter or tests). */
 export interface ApiRequest {
@@ -112,15 +116,20 @@ export function toRefreshAck(r: RefreshExecutionResult): RefreshAckResponse {
 }
 
 export function toPublicationResponse(bundle: PublicationBundle, metadata: PublicationMetadata): PublicationResponse {
+  // Positional rank is the one field a per-player artifact cannot carry, because it is a
+  // statement about the cohort. It is assigned here, over the projected board, so ranking
+  // stays a pure function of the published values and never re-runs a valuation.
   return {
     publication: metadata,
-    entries: bundle.entries.map((e) => ({
-      canonicalId: e.canonicalId,
-      position: e.position,
-      normalizedInputChecksum: e.normalizedInput.checksum,
-      outputChecksum: e.output.checksum,
-      ...projectPublishedPlayer(e.normalizedInput.serialized, e.output.serialized),
-    })),
+    entries: withPositionalRanks(
+      bundle.entries.map((e) => ({
+        canonicalId: e.canonicalId,
+        position: e.position,
+        normalizedInputChecksum: e.normalizedInput.checksum,
+        outputChecksum: e.output.checksum,
+        ...projectPublishedPlayer(e.normalizedInput.serialized, e.output.serialized),
+      })),
+    ),
   };
 }
 

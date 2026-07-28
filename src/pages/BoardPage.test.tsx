@@ -25,6 +25,11 @@ interface EntryOverrides {
   team?: string | null;
   readiness?: string;
   honestyState?: string;
+  modelTier?: 'FULL' | 'ACCESSIBLE' | 'INSUFFICIENT';
+  positionValue?: number | null;
+  role?: string | null;
+  explanation?: string | null;
+  materialMissingInputs?: string[];
 }
 
 function apiEntry(o: EntryOverrides) {
@@ -53,6 +58,17 @@ function apiEntry(o: EntryOverrides) {
       ? { weekly: o.weekly, ros: o.weekly, oneYear: o.weekly, threeYear: o.weekly, dynasty: o.weekly }
       : null,
     limitations: [],
+    modelTier: o.modelTier ?? (valued ? 'FULL' : 'INSUFFICIENT'),
+    modelVersion: valued ? 'wr-mvp-1.0' : null,
+    positionValue: o.positionValue ?? null,
+    positionalRank: null,
+    role: o.role ?? null,
+    explanation: o.explanation ?? null,
+    positiveFactors: [],
+    negativeFactors: [],
+    materialMissingInputs: o.materialMissingInputs ?? [],
+    insufficientReason: valued ? null : 'Not enough information to value this player.',
+    provenance: null,
   };
 }
 
@@ -151,10 +167,12 @@ describe('The Board renders the real publication end to end', () => {
     // Absence is rendered as an em-dash, never as 0.0.
     expect(within(unvaluedRow).queryByText('0.0')).not.toBeInTheDocument();
     expect(within(unvaluedRow).getAllByText('—').length).toBeGreaterThan(0);
-    expect(within(unvaluedRow).getByText('UNAVAILABLE')).toBeInTheDocument();
+    // The tier badge names the state in product language rather than an internal status code.
+    expect(within(unvaluedRow).getByText('No value')).toBeInTheDocument();
+    expect(within(valuedRow).getByText('Full model')).toBeInTheDocument();
     // And the page says so in words, next to the count.
     await waitFor(() =>
-      expect(provenanceText()).toMatch(/1 of these players has no model value published yet/i),
+      expect(provenanceText()).toMatch(/1 of these players has no published value/i),
     );
   });
 
@@ -320,5 +338,44 @@ describe('The Board — empty, error and retry states', () => {
     await screen.findByRole('alert');
     expect(screen.queryAllByRole('row')).toHaveLength(0);
     expect(screen.queryByText(/players match/i)).not.toBeInTheDocument();
+  });
+});
+
+describe('The Board — model tier is visible to the user', () => {
+  it('distinguishes a full-model value from an accessible-data value from no value', async () => {
+    const tiers = [
+      apiEntry({ canonicalId: 'pt-full', position: 'WR', name: 'Full Model Player', weekly: 70 }),
+      apiEntry({
+        canonicalId: 'pt-acc',
+        position: 'RB',
+        name: 'Limited Data Player',
+        weekly: 64,
+        modelTier: 'ACCESSIBLE',
+        role: 'Three-down lead back',
+        materialMissingInputs: ['Route participation (no free per-player route data since 2023)'],
+      }),
+      apiEntry({ canonicalId: 'pt-none', position: 'TE', name: 'No Value Player', weekly: null }),
+    ];
+    renderBoard(respondWith(publication(tiers)));
+
+    const fullRow = (await screen.findAllByText('Full Model Player'))[0].closest('tr')!;
+    const accRow = (await screen.findAllByText('Limited Data Player'))[0].closest('tr')!;
+    const noneRow = (await screen.findAllByText('No Value Player'))[0].closest('tr')!;
+
+    expect(within(fullRow).getByText('Full model')).toBeInTheDocument();
+    expect(within(accRow).getByText('Limited data')).toBeInTheDocument();
+    expect(within(noneRow).getByText('No value')).toBeInTheDocument();
+
+    // The accessible-tier player still carries a real value — the tier is a label, not a gap.
+    expect(within(accRow).getByText('64.0')).toBeInTheDocument();
+
+    // The badge explains itself in words, naming the missing input rather than a registry key.
+    expect(within(accRow).getByTitle(/Route participation/)).toBeInTheDocument();
+    expect(within(accRow).queryByTitle(/career_routes/)).not.toBeInTheDocument();
+
+    // And the page explains the reduced tier next to the count.
+    await waitFor(() =>
+      expect(provenanceText()).toMatch(/1 of these players is valued by the accessible-data model/i),
+    );
   });
 });

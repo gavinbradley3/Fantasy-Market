@@ -26,6 +26,17 @@ export interface PublishedCompositesResponse {
   readonly dynasty: number | null;
 }
 
+/**
+ * Which model produced a published valuation, as the frontend sees it.
+ *
+ *  FULL         — the frozen engine ran on its complete declared input set.
+ *  ACCESSIBLE   — the accessible-data model ran on the acquirable input set. Fewer inputs, a
+ *                 lower confidence ceiling, and a different model — not the full model with
+ *                 defaults filled in.
+ *  INSUFFICIENT — no value could be published for this player.
+ */
+export type PublishedModelTier = 'FULL' | 'ACCESSIBLE' | 'INSUFFICIENT';
+
 /** Everything a display client can honestly learn about one published player. */
 export interface PublishedPlayerProjection {
   /** Canonical player name exactly as the ingestion layer normalized it. */
@@ -49,9 +60,43 @@ export interface PublishedPlayerProjection {
   readonly confidenceLabel: string | null;
   readonly volatilityScore: number | null;
   readonly volatilityLabel: string | null;
-  /** Null whenever no engine ran — never a zeroed placeholder. */
+  /** Null whenever no model produced a valuation — never a zeroed placeholder. */
   readonly composites: PublishedCompositesResponse | null;
   readonly limitations: readonly string[];
+
+  // ---- model tier (accessible-data redesign) ----
+  /**
+   * Which model produced this valuation. The frontend MUST branch on this rather than
+   * inferring a tier from which fields happen to be populated.
+   */
+  readonly modelTier: PublishedModelTier;
+  /** Versioned id of the model that produced the value ("rb-accessible-1.0", "qb-mvp-1.0"). */
+  readonly modelVersion: string | null;
+  /** Headline 0–100 position value used for ranking; null when unvalued. */
+  readonly positionValue: number | null;
+  /** Rank within the player's position on this board (1 = best). Null when unvalued. */
+  readonly positionalRank: number | null;
+  /** Usage-derived role label, e.g. "Three-down lead back". Accessible tier only. */
+  readonly role: string | null;
+  /** One-sentence plain-language summary. Never a raw registry key. */
+  readonly explanation: string | null;
+  readonly positiveFactors: readonly string[];
+  readonly negativeFactors: readonly string[];
+  /** Product-language names of inputs a full valuation would have used and this one did not. */
+  readonly materialMissingInputs: readonly string[];
+  /** Product-facing reason no value was published, when the tier is INSUFFICIENT. */
+  readonly insufficientReason: string | null;
+  readonly provenance: PublishedProvenanceResponse | null;
+}
+
+/** Provenance summary for one accessible-tier valuation. */
+export interface PublishedProvenanceResponse {
+  readonly gamesObserved: number | null;
+  readonly seasonsObserved: number | null;
+  readonly teamSharesDerived: boolean;
+  readonly observedFields: readonly string[];
+  readonly derivedFields: readonly string[];
+  readonly unavailableFields: readonly string[];
 }
 
 // ---- structural readers (defensive; unknown shape → null, never a throw) ----
@@ -117,6 +162,41 @@ function readEngineIdentity(engineOutput: Record<string, unknown> | null): { nam
   };
 }
 
+function bool(value: unknown): boolean {
+  return value === true;
+}
+
+function readTier(envelope: Record<string, unknown> | null): PublishedModelTier {
+  const t = str(envelope?.model_tier);
+  return t === 'FULL' || t === 'ACCESSIBLE' || t === 'INSUFFICIENT' ? t : 'INSUFFICIENT';
+}
+
+/** Accessible-tier composites use lower-camel keys; the frozen engines use upper-snake. */
+function readAccessibleComposites(accessible: Record<string, unknown> | null): PublishedCompositesResponse | null {
+  const c = accessible ? asRecord(accessible.composites) : null;
+  if (!c) return null;
+  return {
+    weekly: num(c.weekly),
+    ros: num(c.ros),
+    oneYear: num(c.oneYear),
+    threeYear: num(c.threeYear),
+    dynasty: num(c.dynasty),
+  };
+}
+
+function readProvenance(accessible: Record<string, unknown> | null): PublishedProvenanceResponse | null {
+  const p = accessible ? asRecord(accessible.provenance) : null;
+  if (!p) return null;
+  return {
+    gamesObserved: num(p.gamesObserved),
+    seasonsObserved: num(p.seasonsObserved),
+    teamSharesDerived: bool(p.teamSharesDerived),
+    observedFields: strings(p.observedFields),
+    derivedFields: strings(p.derivedFields),
+    unavailableFields: strings(p.unavailableFields),
+  };
+}
+
 /**
  * Project one published board entry's two artifacts into display fields.
  *
@@ -135,6 +215,12 @@ export function projectPublishedPlayer(
   const confidence = engineOutput ? asRecord(engineOutput.confidence) : null;
   const volatility = engineOutput ? asRecord(engineOutput.volatility) : null;
   const readinessMissing = envelope ? envelope.readiness_missing : undefined;
+  const tier = readTier(envelope);
+  const accessible = envelope ? asRecord(envelope.accessible_model) : null;
+  const insufficient = envelope ? asRecord(envelope.accessible_insufficient) : null;
+  const accessibleConfidence = accessible ? asRecord(accessible.confidence) : null;
+  const fullComposites = readComposites(engineOutput);
+  const accessibleComposites = readAccessibleComposites(accessible);
 
   return {
     // Identity prefers the engine's own published spelling and falls back to the canonical
@@ -150,11 +236,58 @@ export function projectPublishedPlayer(
     honestyState: str(envelope?.honesty_state),
     engineInvoked: envelope?.engine_invoked === true,
     publicConfidenceLabel: str(envelope?.public_confidence_label),
-    confidenceScore: num(confidence?.score),
-    confidenceLabel: str(confidence?.label),
+    // For an accessible-tier valuation the published confidence is the accessible model's
+    // own (capped) score, not the frozen engine's — there is no frozen engine output here.
+    confidenceScore: num(envelope?.published_confidence_score) ?? num(confidence?.score) ?? num(accessibleConfidence?.score),
+    confidenceLabel: str(confidence?.label) ?? str(accessibleConfidence?.label) ?? str(envelope?.public_confidence_label),
     volatilityScore: num(volatility?.score),
     volatilityLabel: str(volatility?.label),
-    composites: readComposites(engineOutput),
+    composites: fullComposites ?? accessibleComposites,
     limitations: strings(envelope?.limitations),
+    modelTier: tier,
+    modelVersion: str(accessible?.modelVersion) ?? str(envelope?.model_version),
+    positionValue: num(accessible?.positionValue),
+    // Ranking is a board-level ordering, so it is attached by the board projection rather
+    // than read from a per-player artifact (which cannot know the cohort).
+    positionalRank: null,
+    role: str(accessible?.role),
+    explanation: str(accessible?.explanation),
+    positiveFactors: strings(accessible?.positiveFactors),
+    negativeFactors: strings(accessible?.negativeFactors),
+    materialMissingInputs: strings(accessible?.materialMissingInputs),
+    insufficientReason: str(insufficient?.reason) ?? str(envelope?.tier_not_attempted_reason),
+    provenance: readProvenance(accessible),
   };
+}
+
+/**
+ * Attach positional ranks to a projected board.
+ *
+ * Rank is assigned within a position over the entries that actually carry a position value,
+ * best first. Ties break on canonical id so the ordering is total and replay-stable rather
+ * than dependent on input order. Unvalued entries keep `positionalRank: null` — they are not
+ * ranked last, because "no value" is not "worst value".
+ */
+export function withPositionalRanks<T extends PublishedPlayerProjection & { position: string; canonicalId: string }>(
+  entries: readonly T[],
+): T[] {
+  const byPosition = new Map<string, T[]>();
+  for (const e of entries) {
+    if (e.positionValue === null) continue;
+    const list = byPosition.get(e.position);
+    if (list) list.push(e);
+    else byPosition.set(e.position, [e]);
+  }
+  const ranks = new Map<string, number>();
+  for (const list of byPosition.values()) {
+    const ordered = [...list].sort((a, b) => {
+      const d = (b.positionValue ?? 0) - (a.positionValue ?? 0);
+      return d !== 0 ? d : a.canonicalId.localeCompare(b.canonicalId);
+    });
+    ordered.forEach((e, i) => ranks.set(e.canonicalId, i + 1));
+  }
+  return entries.map((e) => {
+    const rank = ranks.get(e.canonicalId);
+    return rank === undefined ? e : { ...e, positionalRank: rank };
+  });
 }

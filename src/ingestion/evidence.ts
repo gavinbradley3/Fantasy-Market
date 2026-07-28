@@ -12,6 +12,7 @@ import type { NormalizedEvidence } from '@/inference/production/orchestrate';
 import type { CompetitionPosition, CompetitionTeammate } from '@/inference/competition';
 import type { RosterStatus } from '@/inference/features/types';
 import { observedCountingFacts, D2_ROLE_WINDOW_GAMES, RECENT_GAME_WINDOW } from './observedFacts';
+import { buildTeamGameTotals, observedProduction, type TeamGameTotals } from './observedProduction';
 import { compareOrdinal, withinAsOf } from './ordering';
 import type { NormalizedSnapshot } from './snapshot';
 import type {
@@ -49,6 +50,16 @@ interface SnapshotIndex {
   readonly injuriesByPlayer: ReadonlyMap<string, readonly InjuryRecord[]>;
   readonly transactionsByPlayer: ReadonlyMap<string, readonly TransactionRecord[]>;
   readonly officialStartsByPlayer: ReadonlyMap<string, readonly OfficialStartRecord[]>;
+  /**
+   * Reconstructed (team, game) carry/target totals, used for the accessible tier's role
+   * shares.
+   *
+   * Safe to cache per snapshot rather than per as-of: the lookup key names ONE game, so every
+   * row summed into a total shares that game's kickoff. A total is therefore only ever read
+   * for a game the caller already established is at or before the as-of, and a game after the
+   * as-of contributes to no total that is ever consulted.
+   */
+  readonly teamGameTotals: TeamGameTotals;
 }
 
 const INDEX_CACHE = new WeakMap<NormalizedSnapshot, SnapshotIndex>();
@@ -79,6 +90,7 @@ function indexOf(snapshot: NormalizedSnapshot): SnapshotIndex {
     injuriesByPlayer: byCanonical(snapshot.injuries),
     transactionsByPlayer: byCanonical(snapshot.transactions),
     officialStartsByPlayer: byCanonical(snapshot.officialStarts),
+    teamGameTotals: buildTeamGameTotals(snapshot.games),
   };
   INDEX_CACHE.set(snapshot, index);
   return index;
@@ -418,6 +430,16 @@ export function buildEvidenceFor(
   if (myInjury) {
     facts.practice_status = myInjury.practiceStatus;
     factTimestamps.practice_status = myInjury.sourceTimestamp;
+  }
+
+  // --- observed production (accessible model tier) ---
+  // A SECOND, separate channel from `facts`: it feeds the accessible-tier models only and is
+  // never merged into a frozen engine's supplement, so every frozen input and every QB/WR
+  // checksum is unaffected. Built for RB and TE only, which are the positions the accessible
+  // tier serves; leaving it undefined elsewhere keeps QB/WR normalized-input bytes identical.
+  if (position === 'RB' || position === 'TE') {
+    const production = observedProduction(myGames, index.teamGameTotals);
+    if (production) evidence.production = production;
   }
 
   // --- freshness by source ---

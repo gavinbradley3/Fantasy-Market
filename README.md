@@ -218,15 +218,21 @@ No host or port is hard-coded in frontend source. See
   hobby MVP — not fitted to real historical NFL data; calibration is future work.
 - Live Sleeper metadata is informational overlay only; it **never changes deterministic
   valuations**, and the Demo Market surfaces degrade to full demo mode when Sleeper is unreachable.
-- **The published market currently carries identity but no valuations.** Publications produced by
-  the pipeline today have `readiness: NOT_READY` for every player, because the inference layer's
-  readiness frontier is not yet crossed with the data ingestion can supply. The Board renders that
-  honestly — an em-dash and an `UNAVAILABLE` badge per player — rather than showing a zero, an
-  estimate, or a demo price. It has **no demo fallback**: an API failure shows an error state.
-- The **RB specification and the Foundation document are missing** from the repository (see the
-  table above). The RB engine exists without its binding specification, so **RB model changes are
-  blocked** until `RB_VALUATION_MODEL_v1.1_FINAL.md` is recovered — or formally reconstructed and
-  audited — as its own dedicated task.
+- **The published market carries real valuations for all four positions, in two clearly-labelled
+  tiers.** QB and WR are valued by their full engines. RB and TE are valued by the
+  **accessible-data model** — a deliberately reduced model over the data the pipeline can actually
+  acquire, because the frozen RB/TE engines require a charted route history that no free source has
+  published since 2023. Every board row shows its tier (`Full model` / `Limited data` / `No value`),
+  accessible-tier valuations are never HIGH confidence, and a player with too little evidence is
+  shown as an em-dash rather than a zero or an estimate. Live coverage at as-of 2026-02-15 over
+  seasons 2023–2025: 814 of 868 selected players valued (QB 111/111, WR 310/340, RB 226/237,
+  TE 167/180). Model spec:
+  [`docs/valuation-models/ACCESSIBLE_DATA_MODEL_RB_TE_V1.md`](docs/valuation-models/ACCESSIBLE_DATA_MODEL_RB_TE_V1.md);
+  probes: [`docs/ACCESSIBLE_MODEL_VALIDATION.md`](docs/ACCESSIBLE_MODEL_VALIDATION.md).
+  The Board has **no demo fallback**: an API failure shows an error state.
+- The accessible-data model's scoring anchors are **authored football judgments, not parameters
+  fitted to realized fantasy outcomes**. They are transparent and individually checkable, but they
+  are not empirically calibrated; see §10 of the model spec for the full limitation list.
 - No scraping of proprietary fantasy sites; no NFL logos, marks, or licensed headshots.
 
 ## Branch policy
@@ -246,12 +252,13 @@ No host or port is hard-coded in frontend source. See
 | Core application (market terminal) | Verified | Demo Market SPA; build + tests pass |
 | Live nflverse ingestion | Operating | Production pipeline runs on current nflverse releases; captures replay byte-identically |
 | Live Sleeper metadata | Fixture-tested | Overlay tested against fixtures; live API not exercised in CI |
-| QB model | Missing | No spec, no implementation |
-| RB model | Implemented, spec missing | Engine + goldens pass; `RB_VALUATION_MODEL_v1.1_FINAL.md` not recovered |
-| WR model | Implemented + documented | Spec in `docs/valuation-models/`; engine + goldens pass |
-| TE model | Implemented + documented + integrated | Spec in `docs/valuation-models/`; engine + goldens pass; wired into Player Model UI |
+| QB model | Implemented | Engine + goldens pass; valued live at the FULL tier (111/111) |
+| RB model | Implemented + documented | Frozen engine + spec; live coverage via the accessible-data tier (226/237) |
+| WR model | Implemented + documented | Spec in `docs/valuation-models/`; engine + goldens pass; FULL tier live (310/340) |
+| TE model | Implemented + documented + integrated | Spec in `docs/valuation-models/`; live coverage via the accessible-data tier (167/180) |
+| Accessible-data model (RB/TE) | Implemented + documented | `src/accessible/`; spec + validation probes in `docs/` |
 | Player Model UI | Verified | WR + RB + TE at `/player-model` |
-| Tests | Passing | 663/663 (Vitest), verified from a clean `npm ci` |
+| Tests | Passing | 1789/1789 (Vitest), verified from a clean `npm ci` |
 | Typecheck | Passing | app projects + TE project |
 | Production build | Passing | `tsc -b && vite build`; `build:te-model` also passing |
 | Lint | Not present | No ESLint setup; no `lint` script exposed (adding one is optional) |

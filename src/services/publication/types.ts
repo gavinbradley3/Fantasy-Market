@@ -20,6 +20,12 @@ export interface PublishedComposites {
   readonly dynasty: number | null;
 }
 
+/**
+ * Which model produced a player's published value — the field the UI branches on to show a
+ * full valuation, a clearly-labelled reduced one, or an honest "not enough data".
+ */
+export type PublishedModelTier = 'FULL' | 'ACCESSIBLE' | 'INSUFFICIENT';
+
 export interface PublishedPlayer {
   /** The backend's canonical id, preserved verbatim — the stable identity for keys and links. */
   readonly playerId: string;
@@ -49,6 +55,30 @@ export interface PublishedPlayer {
   readonly limitations: readonly string[];
   readonly asOf: string | null;
   readonly outputChecksum: string;
+
+  // ---- model tier ----
+  readonly modelTier: PublishedModelTier;
+  readonly modelVersion: string | null;
+  /** The backend's own 0–100 headline value for the position (accessible tier). */
+  readonly positionValue: number | null;
+  /** The backend's own positional rank. Distinct from `positionRank`, which this adapter derives from the board's chosen horizon. */
+  readonly publishedPositionalRank: number | null;
+  readonly role: string | null;
+  readonly explanation: string | null;
+  readonly positiveFactors: readonly string[];
+  readonly negativeFactors: readonly string[];
+  readonly materialMissingInputs: readonly string[];
+  readonly insufficientReason: string | null;
+  readonly provenance: PublishedProvenance | null;
+}
+
+export interface PublishedProvenance {
+  readonly gamesObserved: number | null;
+  readonly seasonsObserved: number | null;
+  readonly teamSharesDerived: boolean;
+  readonly observedFields: readonly string[];
+  readonly derivedFields: readonly string[];
+  readonly unavailableFields: readonly string[];
 }
 
 /** Why one record from the response could not be admitted to the market. */

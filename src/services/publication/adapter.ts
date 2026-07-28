@@ -18,7 +18,9 @@ import type {
   PublishedComposites,
   PublishedHorizon,
   PublishedMarket,
+  PublishedModelTier,
   PublishedPlayer,
+  PublishedProvenance,
   RejectedRecord,
 } from './types';
 
@@ -41,6 +43,27 @@ export interface AdaptPublicationOptions {
 
 function isPosition(code: string): code is Position {
   return POSITION_SET.has(code);
+}
+
+/**
+ * Model tier, copied through with an explicit unknown case. A tier this frontend does not
+ * recognise — or one an older backend never published — becomes INSUFFICIENT, so an
+ * unlabelled valuation is never rendered as though it were a full-model one.
+ */
+function adaptTier(tier: string | null | undefined): PublishedModelTier {
+  return tier === 'FULL' || tier === 'ACCESSIBLE' || tier === 'INSUFFICIENT' ? tier : 'INSUFFICIENT';
+}
+
+function adaptProvenance(p: ApiBoardEntry['provenance']): PublishedProvenance | null {
+  if (!p) return null;
+  return {
+    gamesObserved: finiteOrNull(p.gamesObserved),
+    seasonsObserved: finiteOrNull(p.seasonsObserved),
+    teamSharesDerived: p.teamSharesDerived === true,
+    observedFields: [...(p.observedFields ?? [])],
+    derivedFields: [...(p.derivedFields ?? [])],
+    unavailableFields: [...(p.unavailableFields ?? [])],
+  };
 }
 
 function finiteOrNull(value: number | null | undefined): number | null {
@@ -160,6 +183,19 @@ export function adaptPublication(
       limitations: [...(entry.limitations ?? [])],
       asOf: entry.asOf,
       outputChecksum: entry.outputChecksum,
+      // Copied through, never inferred. An older backend that publishes no tier is treated as
+      // INSUFFICIENT rather than silently assumed to be a full valuation — the safe direction.
+      modelTier: adaptTier(entry.modelTier),
+      modelVersion: entry.modelVersion ?? null,
+      positionValue: finiteOrNull(entry.positionValue),
+      publishedPositionalRank: finiteOrNull(entry.positionalRank),
+      role: entry.role ?? null,
+      explanation: entry.explanation ?? null,
+      positiveFactors: [...(entry.positiveFactors ?? [])],
+      negativeFactors: [...(entry.negativeFactors ?? [])],
+      materialMissingInputs: [...(entry.materialMissingInputs ?? [])],
+      insufficientReason: entry.insufficientReason ?? null,
+      provenance: adaptProvenance(entry.provenance),
     });
   }
 

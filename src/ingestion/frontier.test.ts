@@ -138,7 +138,7 @@ describe('production path: every position reaches its engine', () => {
   });
 });
 
-describe('positions blocked by an unavailable NON-NULLABLE input stay blocked', () => {
+describe('positions blocked by an unavailable NON-NULLABLE input stay blocked at the FULL tier', () => {
   it.each(ROUTE_BLOCKED)('%s is NOT_READY on career_routes alone — and on nothing else', (position, gsis) => {
     const { result } = runFor(gsis, position);
     // Exactly one blocker, and it is the paid/charted-only field. Everything else on the
@@ -146,12 +146,34 @@ describe('positions blocked by an unavailable NON-NULLABLE input stay blocked', 
     // route works for these positions and isolates the single external dependency.
     expect(result.readinessMissing).toEqual(['career_routes']);
     expect(result.readinessStatus).toBe('NOT_READY');
-    // No value is produced, and nothing is invented in its place.
+    // The FROZEN engine is still not run, and no full-model value is invented for it.
     expect(result.engineInvoked).toBe(false);
     expect(result.engineOutput).toBeNull();
+    // Readiness/honesty continue to describe the FULL model's input completeness, which is
+    // genuinely incomplete — the accessible tier does not launder that away.
     expect(result.honestyState).toBe('UNAVAILABLE');
-    expect(result.publicConfidenceLabel).toBeNull();
   });
+
+  it.each(ROUTE_BLOCKED)(
+    '%s is nonetheless valued by the ACCESSIBLE tier, labelled as such',
+    (position, gsis) => {
+      // The behaviour this replaces: RB/TE published no value at all, so the whole position
+      // was unvalued because ONE licensed input was unavailable. The full model is still
+      // blocked (asserted above); what changed is that a reduced, clearly-labelled model now
+      // runs on the box-score evidence the pipeline really has.
+      const { result } = runFor(gsis, position);
+      expect(result.modelTier).toBe('ACCESSIBLE');
+      expect(result.accessibleOutput).not.toBeNull();
+      expect(result.accessibleOutput!.positionValue).toBeGreaterThan(0);
+      // Confidence is now published, and it comes from the accessible model — never HIGH.
+      expect(result.publicConfidenceLabel).not.toBeNull();
+      expect(result.publicConfidenceLabel).not.toBe('HIGH');
+      expect(result.publicConfidenceLabel).toBe(result.accessibleOutput!.confidence.label);
+      // The reduced valuation is never presented as a full-model one.
+      expect(result.engineOutput).toBeNull();
+      expect(result.accessibleOutput!.provenance.unavailableFields).toContain('career_routes');
+    },
+  );
 
   it('RB/TE route exposure reports UNAVAILABLE rather than estimating from snaps', () => {
     for (const [position, gsis] of ROUTE_BLOCKED) {
