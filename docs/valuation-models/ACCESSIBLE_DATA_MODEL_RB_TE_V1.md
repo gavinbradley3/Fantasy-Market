@@ -187,8 +187,8 @@ remaining horizon weights renormalize — absence is never scored as zero.
 
 | Code | Component | Basis |
 |---|---|---|
-| `RV` | Rush volume | Carries per game over the role window |
-| `RCV` | Receiving volume | Targets per game (0.6) + receiving yards per game (0.4) |
+| `RV` | Rush volume | Shrunk carries per game over the role window |
+| `RCV` | Receiving volume | Shrunk targets per game (0.6) + shrunk receiving yards per game (0.4) |
 | `EFF` | Efficiency | Shrunk yards per carry (0.55) + shrunk yards per touch (0.45) |
 | `SC` | Scoring | Shrunk total touchdowns per game |
 | `RS` | Role share | Carry share (0.6) + target share (0.4) |
@@ -201,13 +201,84 @@ remaining horizon weights renormalize — absence is never scored as zero.
 
 | Code | Component | Basis |
 |---|---|---|
-| `TV` | Target volume | Targets per game over the role window |
-| `RP` | Receiving output | Receiving yards per game |
+| `TV` | Target volume | Shrunk targets per game over the role window |
+| `RP` | Receiving output | Shrunk receiving yards per game |
 | `EFF` | Efficiency | Shrunk catch rate (0.45) + shrunk yards per reception (0.55) |
 | `SC` | Scoring | Shrunk receiving touchdowns per game |
 | `RS` | Role share | Target share |
 | `TR` | Trajectory | Latest-season vs prior-season per-game targets |
 | `AG`, `AV`, `DUR` | As RB, with the TE age curve |
+
+### 5.2a Volume shrinkage
+
+The efficiency components were shrunk from the start (§3); the volume components were not.
+They read a raw per-game rate straight off the role window, which made a one-game sample
+arithmetically identical to a proven season: a back with a single 25-carry appearance scored a
+saturated `RV` of 100, exactly like a back who had carried 25 times a game for a full year, and
+could out-rank an established bell cow on the headline value. Confidence reported the thin
+sample honestly, so the live board never actually produced that inversion — but the protection
+was incidental, not structural. Every per-game volume rate is now regressed by the same
+estimator the efficiency components use:
+
+```
+shrunk = (n · observed + k · prior) / (n + k)          n = games observed, k = 3
+```
+
+Written as a convex combination the weight on observation is `n / (n + k)` — a smooth rational
+function of sample size with no threshold, no branch and no discontinuity:
+
+| games observed | weight on observation |
+|---|---|
+| 1 | 25% |
+| 3 | 50% (the declared equal-weight point) |
+| 8 | 73% |
+| 17 | 85% |
+
+**Denominator.** Games, because the quantity being regressed is a per-game rate: games are the
+exposure count for "how often does this player do X in a game", exactly as carries are the
+exposure count for yards per carry. It is observed, never assumed.
+
+**Why three games.** It is the shortest run over which a coaching staff is itself described as
+having handed a back the job — one game is an injury fill-in or a blowout, two is a pattern
+nobody commits to, three consecutive games at a workload is a role. It is also the same order
+of magnitude as the existing efficiency pseudo-counts expressed in games (130 pseudo-carries is
+about eight games at a lead-back load), so the two families of shrinkage are calibrated on a
+comparable scale.
+
+**Priors.** Authored football statements describing the MODAL rostered player — not the average
+starter, because a roster carries three or four backs and only one is a feature back. They are
+not fitted to the ingested seasons; fitting them would embed the ingestion window in every
+valuation and leak across as-of dates, for the same reason the anchors are fixed (§5.3).
+
+| Prior | Value | Placement |
+|---|---|---|
+| RB carries/game | 6.0 | between the "situational" (4) and "committee" (8) anchors |
+| RB targets/game | 1.5 | between the 1.0 and 2.0 anchors |
+| RB receiving yards/game | 9.0 | 1.5 targets × ~76% catch × ~7.5 yards ≈ 8.6 |
+| TE targets/game | 2.2 | between the 1.5 and 2.5 anchors |
+| TE receiving yards/game | 16.0 | 2.2 targets × the model's own 0.68 catch and 10.8 YPR priors |
+
+**Scope and honesty.** The RAW rate is still what the role label and the explanations quote, so
+every number a reader sees remains a fact about what happened; only the component SCORE is
+regularized. An unobserved column is still dropped and its horizon weight renormalized —
+shrinkage never turns "we did not see this" into the prior. An observed zero *is* regressed,
+deliberately: a back who did not carry in his only appearance has shown far less than one who
+did not carry in seventeen, and `n / (n + k)` is exactly the function that separates them. The
+`INSUFFICIENT` gates read career totals and are untouched, so a player with no usage at all is
+still refused rather than scored at the prior. Confidence is unchanged — this is a correction to
+the mathematics, not a disclosure downgrade.
+
+**What the guarantee is.** Shrinkage bounds the weight on the observation, not its magnitude, so
+the protection is domain-bounded rather than absolute. Solving for the tie point, a single game
+would need **49.5 carries** to match a 17-game elite season's `RV`; the NFL single-game
+rushing-attempt record is 45. Across the whole physically realisable range, a one-game sample
+cannot dominate a proven season.
+
+**Live effect** (as-of 2026-02-15, seasons 2023–2025): coverage, tier counts, blocker counts,
+role labels and confidence all unchanged; 393 accessible valuations moved by a mean of 2.15
+points, maximum 10.10. The top of both boards is stable (RB and TE top-25 mean −1.9 / −2.4, all
+named elite ranks held), and the sparse cohort compressed toward the prior — RB 1–2 game maximum
+fell 53.2 → 49.7, and the best-ranked sub-8-game RB fell from 41st to 49th.
 
 ### 5.3 Why fixed anchors rather than fitted distributions
 

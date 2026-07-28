@@ -16,8 +16,8 @@
 // per-target rate, and one the provider actually publishes.
 //
 // COMPONENTS (0–100 each)
-//   RV  Rush volume        carries per game, recent window
-//   RCV Receiving volume   targets + receptions per game, recent window
+//   RV  Rush volume        carries per game, role window, shrunk by games observed
+//   RCV Receiving volume   targets + receiving yards per game, role window, shrunk by games
 //   EFF Efficiency         yards per carry and yards per touch, shrunk by exposure
 //   SC  Scoring            total touchdowns per game, shrunk by exposure
 //   RS  Role share         carry share + target share of reconstructed team totals
@@ -35,6 +35,7 @@ import {
   isNotRostered,
   isStaleProduction,
   isUnavailable,
+  shrunkPerGameRate,
   TIER_WIDE_MISSING_INPUTS,
   TIER_WIDE_PENALTIES,
   trajectoryScore,
@@ -146,6 +147,30 @@ const RB_TARGET_SHARE: readonly Anchor[] = [
   { at: 0.2, score: 100 },
 ];
 
+/**
+ * VOLUME priors — the per-game usage expected of a back we have not yet watched.
+ *
+ * These describe the MODAL rostered running back, not the average starter. An NFL roster
+ * carries three to four backs and only one of them is a feature back, so the honest prior for
+ * "some back, before seeing his usage" is a rotational workload. Each number is placed against
+ * the anchor tables above so it can be argued with directly:
+ *
+ *   carries/game 6.0   between the "situational back" anchor (4) and the "committee split"
+ *                      anchor (8) — the modal back is exactly that, a rotation piece.
+ *   targets/game 1.5   between the 1.0 and 2.0 anchors; most backs catch a checkdown or two
+ *                      a game and are not part of the passing game plan.
+ *   rec yards/game 9.0 internally consistent with the targets prior: 1.5 targets at a typical
+ *                      back's ~76% catch rate is ~1.14 receptions, and a back's reception
+ *                      averages ~7.5 yards, giving ~8.6 — rounded to the 9.0 anchor point.
+ *
+ * They are AUTHORED football statements, exactly like the anchor tables, and are not fitted to
+ * the ingested seasons. Fitting them would embed the ingestion window in every valuation and
+ * leak data across as-of dates (§5.3), which is the same reason the anchors are fixed.
+ */
+const RB_CARRIES_PER_GAME_PRIOR = 6.0;
+const RB_TARGETS_PER_GAME_PRIOR = 1.5;
+const RB_RECEIVING_YARDS_PER_GAME_PRIOR = 9.0;
+
 // League priors for shrinkage, with the exposure count at which observation and prior weigh
 // equally. Carries are a high-volume, low-information-per-event statistic, so YPC needs a
 // large pseudo-count before an outlier is believed; touchdown rate needs a very large one
@@ -214,21 +239,35 @@ export function evaluateAccessibleRB(input: AccessibleInput): AccessibleResult {
   }
 
   // --- volume (role window: latest season when it is a full one, else the recent window) ---
+  //
+  // Two rates are carried per statistic. The RAW rate is what the player actually did and is
+  // what the role label and the explanations quote, so every number a reader sees is a fact.
+  // The SHRUNK rate is what the volume components score, regressed toward the league prior by
+  // the games observed (see `shrunkPerGameRate`), so a one-game sample cannot saturate a
+  // component that a full season has earned.
   const role$ = p.roleWindow;
+  // Raw rates: quoted by the role label and the explanations, so those stay factual.
   const carriesPerGame = perGameOf(role$.carries, role$.games);
   const targetsPerGame = perGameOf(role$.targets, role$.games);
-  const receivingYardsPerGame = perGameOf(role$.receivingYards, role$.games);
 
-  const RV = carriesPerGame === null ? null : score100(scaleFrom(RB_CARRIES_PER_GAME, carriesPerGame));
+  const shrunkCarries = shrunkPerGameRate(role$.carries, role$.games, RB_CARRIES_PER_GAME_PRIOR);
+  const shrunkTargets = shrunkPerGameRate(role$.targets, role$.games, RB_TARGETS_PER_GAME_PRIOR);
+  const shrunkReceivingYards = shrunkPerGameRate(
+    role$.receivingYards,
+    role$.games,
+    RB_RECEIVING_YARDS_PER_GAME_PRIOR,
+  );
+
+  const RV = shrunkCarries === null ? null : score100(scaleFrom(RB_CARRIES_PER_GAME, shrunkCarries));
   // Receiving volume blends the opportunity (targets) with what was produced from it
   // (receiving yards). Targets lead because they are the role signal; yards confirm it.
   const RCV = weightedMean([
-    { value: targetsPerGame === null ? null : score100(scaleFrom(RB_TARGETS_PER_GAME, targetsPerGame)), weight: 0.6 },
+    { value: shrunkTargets === null ? null : score100(scaleFrom(RB_TARGETS_PER_GAME, shrunkTargets)), weight: 0.6 },
     {
       value:
-        receivingYardsPerGame === null
+        shrunkReceivingYards === null
           ? null
-          : score100(scaleFrom(RB_RECEIVING_YARDS_PER_GAME, receivingYardsPerGame)),
+          : score100(scaleFrom(RB_RECEIVING_YARDS_PER_GAME, shrunkReceivingYards)),
       weight: 0.4,
     },
   ]);
@@ -317,8 +356,9 @@ export function evaluateAccessibleRB(input: AccessibleInput): AccessibleResult {
         'games_played',
       ],
       derivedFields: [
-        'carries_per_game',
-        'targets_per_game',
+        'carries_per_game_shrunk',
+        'targets_per_game_shrunk',
+        'receiving_yards_per_game_shrunk',
         'yards_per_carry_shrunk',
         'yards_per_touch_shrunk',
         'touchdowns_per_game_shrunk',

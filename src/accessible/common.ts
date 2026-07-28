@@ -5,7 +5,7 @@
 
 import { clamp, roundHalfAwayFromZero } from './numeric';
 import type { CountingWindow, ObservedProduction } from './production';
-import { rate, scaleFrom, score100, type Anchor } from './scale';
+import { rate, scaleFrom, score100, shrink, type Anchor } from './scale';
 import type {
   AccessibleAvailability,
   AccessibleConfidence,
@@ -108,6 +108,69 @@ export function perGame(window: CountingWindow, key: keyof CountingWindow): numb
   if (key === 'games') return null;
   const v = window[key];
   return rate(typeof v === 'number' ? v : null, window.games, 1);
+}
+
+// ---------------------------------------------------------------------------
+// Volume shrinkage
+// ---------------------------------------------------------------------------
+
+/**
+ * Pseudo-games for VOLUME shrinkage: the number of games at which observed usage and the
+ * league prior carry equal weight.
+ *
+ * The efficiency components have always been shrunk (yards per carry by career carries, catch
+ * rate by career targets — §3 of the model spec), but the volume components were not: they
+ * read a raw per-game rate straight off the role window. That made a one-game sample
+ * arithmetically indistinguishable from a proven workload. A back with a single 25-carry
+ * appearance scored a saturated `RV` of 100, exactly like a back who had carried 25 times a
+ * game for a full season, and could out-rank an established bell cow on the headline value.
+ * Confidence reported the thin sample honestly, but the VALUE did not, so the protection was
+ * incidental rather than structural.
+ *
+ * The estimator is the same conjugate-prior posterior mean the efficiency components use:
+ *
+ *   shrunk = (n · observed + k · prior) / (n + k)
+ *
+ * with `n` the games the rate was measured over and `k = 3`. Written as a convex combination,
+ * the weight on observation is `n / (n + k)` — a smooth rational function of sample size with
+ * no threshold, no branch and no discontinuity anywhere on `n ≥ 0`:
+ *
+ *   n = 1  →  25% observed     a single game barely moves the estimate off the prior
+ *   n = 3  →  50% observed     the declared equal-weight point
+ *   n = 8  →  73% observed
+ *   n = 17 →  85% observed     a full season is read essentially as measured
+ *
+ * WHY THREE GAMES. It is the shortest run over which a coaching staff is itself described as
+ * having handed a back the job: one game is an injury fill-in or a blowout, two is a pattern
+ * nobody commits to, three consecutive games at a workload is a role. It is also the same
+ * order of magnitude as the existing efficiency pseudo-counts once those are expressed in
+ * games (130 pseudo-carries ≈ 8 games at a lead-back load), so the two families of shrinkage
+ * are calibrated on a comparable scale rather than one dominating the other.
+ *
+ * The denominator is GAMES because the quantity being regressed is a per-game rate: games are
+ * the exposure count for "how often does this player do X in a game", exactly as carries are
+ * the exposure count for yards per carry. It is football-meaningful (the number of separate
+ * opportunities we watched the player take a role) and it is observed, never assumed.
+ */
+export const VOLUME_PSEUDO_GAMES = 3;
+
+/**
+ * A per-game volume rate regressed toward its league prior by the games observed.
+ *
+ * Returns `null` when the column is unobserved, so an absent statistic is still DROPPED and
+ * its horizon weight renormalized — shrinkage must never turn "we did not see this" into the
+ * prior, which would manufacture usage for a player the provider recorded nothing for. Only a
+ * rate we actually measured is regressed.
+ *
+ * An observed ZERO is regressed like any other observation, and that is deliberate: a player
+ * who did not carry once in his only appearance has shown far less than one who did not carry
+ * in seventeen, and `n / (n + k)` is exactly the function that separates them. The raw rate is
+ * what the explanations quote, so nothing the user reads claims usage that did not happen.
+ */
+export function shrunkPerGameRate(total: number | null, games: number, prior: number): number | null {
+  const observed = rate(total, games, 1);
+  if (observed === null) return null;
+  return shrink(observed, games, prior, VOLUME_PSEUDO_GAMES);
 }
 
 /**

@@ -11,8 +11,8 @@
 // for a per-target rate, and one nflverse publishes.
 //
 // COMPONENTS (0–100 each)
-//   TV  Target volume      targets per game, recent window
-//   RP  Receiving output   receiving yards per game, recent window
+//   TV  Target volume      targets per game, role window, shrunk by games observed
+//   RP  Receiving output   receiving yards per game, role window, shrunk by games observed
 //   EFF Efficiency         catch rate and yards per reception, shrunk by target exposure
 //   SC  Scoring            receiving touchdowns per game, shrunk
 //   RS  Role share         target share of reconstructed team targets
@@ -30,6 +30,7 @@ import {
   isNotRostered,
   isStaleProduction,
   isUnavailable,
+  shrunkPerGameRate,
   TIER_WIDE_MISSING_INPUTS,
   TIER_WIDE_PENALTIES,
   trajectoryScore,
@@ -111,6 +112,26 @@ const TE_TARGET_SHARE: readonly Anchor[] = [
   { at: 0.3, score: 100 },
 ];
 
+/**
+ * VOLUME priors — the per-game receiving usage expected of a tight end we have not watched.
+ *
+ * As at running back, the modal rostered tight end is not a starter: teams carry three, and
+ * the second and third are blocking and special-teams pieces. The prior therefore describes a
+ * rotational receiving role, placed against the anchor tables above:
+ *
+ *   targets/game 2.2    between the 1.5 and 2.5 anchors — a tight end who is in the route
+ *                       concept but is not a read the offence looks for.
+ *   rec yards/game 16.0 the SAME number the model's own efficiency priors imply: 2.2 targets
+ *                       at the declared 0.68 catch-rate prior is ~1.5 receptions, and at the
+ *                       declared 10.8 yards-per-reception prior that is ~16.2 yards. The two
+ *                       families of prior agree by construction rather than by coincidence.
+ *
+ * Authored football statements, not fitted to the ingested seasons — see §5.3 on why a fitted
+ * distribution would be a point-in-time leak.
+ */
+const TE_TARGETS_PER_GAME_PRIOR = 2.2;
+const TE_YARDS_PER_GAME_PRIOR = 16.0;
+
 // Shrinkage priors. Catch rate converges quickly, so a modest pseudo-count suffices; yards
 // per reception is noisier; touchdown rate is the noisiest and needs the largest.
 const CATCH_RATE_PRIOR = 0.68;
@@ -174,11 +195,17 @@ export function evaluateAccessibleTE(input: AccessibleInput): AccessibleResult {
   }
 
   // --- volume (role window: latest season when it is a full one, else the recent window) ---
+  //
+  // The RAW rate is what the tight end actually did and is what the role label and the
+  // explanations quote; the SHRUNK rate is what the volume components score, regressed toward
+  // the league prior by games observed so a one-game sample cannot saturate `TV`/`RP`.
   const role$ = p.roleWindow;
   const targetsPerGame = rate(role$.targets, role$.games, 1);
   const yardsPerGame = rate(role$.receivingYards, role$.games, 1);
-  const TV = targetsPerGame === null ? null : score100(scaleFrom(TE_TARGETS_PER_GAME, targetsPerGame));
-  const RP = yardsPerGame === null ? null : score100(scaleFrom(TE_YARDS_PER_GAME, yardsPerGame));
+  const shrunkTargets = shrunkPerGameRate(role$.targets, role$.games, TE_TARGETS_PER_GAME_PRIOR);
+  const shrunkYards = shrunkPerGameRate(role$.receivingYards, role$.games, TE_YARDS_PER_GAME_PRIOR);
+  const TV = shrunkTargets === null ? null : score100(scaleFrom(TE_TARGETS_PER_GAME, shrunkTargets));
+  const RP = shrunkYards === null ? null : score100(scaleFrom(TE_YARDS_PER_GAME, shrunkYards));
 
   // --- efficiency (career exposure, shrunk) ---
   const catchRate = rate(p.career.receptions, careerTargets, 10);
@@ -243,8 +270,8 @@ export function evaluateAccessibleTE(input: AccessibleInput): AccessibleResult {
       teamSharesDerived: shares !== null,
       observedFields: ['targets', 'receptions', 'receiving_yards', 'receiving_touchdowns', 'games_played'],
       derivedFields: [
-        'targets_per_game',
-        'receiving_yards_per_game',
+        'targets_per_game_shrunk',
+        'receiving_yards_per_game_shrunk',
         'catch_rate_shrunk',
         'yards_per_reception_shrunk',
         'touchdowns_per_game_shrunk',
