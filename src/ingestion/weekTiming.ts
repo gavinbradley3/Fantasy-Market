@@ -83,6 +83,40 @@ export function parseNflverseGameId(gameId: string): { season: number; week: num
 }
 
 /**
+ * The NFL season a calendar instant belongs to.
+ *
+ * A season is named for the calendar year it starts in and runs into the following
+ * February, so January and February belong to the PREVIOUS season's year. Getting this
+ * wrong would place a February as-of date in a season that has not been played.
+ */
+export function nflSeasonOf(referenceIso: string): number | null {
+  const d = new Date(referenceIso);
+  if (Number.isNaN(d.getTime())) return null;
+  // Months 0 and 1 (January, February) are the tail of the prior season.
+  return d.getUTCMonth() <= 1 ? d.getUTCFullYear() - 1 : d.getUTCFullYear();
+}
+
+/**
+ * Seasons completed as at a reference instant, from the player's rookie season.
+ *
+ * `years_of_experience` in a current-state identity export is a CURRENT value — it counts
+ * up every year, so reading it for a past board overstates experience. The rookie season is
+ * time-invariant, so deriving from it gives the historically correct count for any as-of:
+ * a 2018 rookie has completed eight seasons as at February 2026 and seven as at February
+ * 2025, from the same source row.
+ *
+ * Returns `null` when the rookie season is missing or the arithmetic is implausible, so a
+ * bad input surfaces as unknown rather than as a confident wrong number.
+ */
+export function seasonsCompletedAsOf(rookieSeason: number | null, referenceIso: string): number | null {
+  if (rookieSeason === null || !Number.isInteger(rookieSeason)) return null;
+  const season = nflSeasonOf(referenceIso);
+  if (season === null) return null;
+  const completed = season - rookieSeason + 1;
+  return completed >= 0 && completed <= 30 ? completed : null;
+}
+
+/**
  * Completed years between a birth date and a reference instant.
  *
  * The provider's players export publishes `birth_date` but not `age`. Age is then a

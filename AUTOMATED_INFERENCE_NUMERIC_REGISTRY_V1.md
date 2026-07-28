@@ -554,6 +554,32 @@ This changes no engine formula — it only bounds the *input value* the AIL supp
 - Integers ≥ 0; rate `[0,1]` 4dp. Recent window = 17 team games (MVP_HEURISTIC = one
   season). Partial games: majority snaps + ≥10 att qualify regardless of finish;
   missed games not counted.
+
+### 9.2.1 Window separation (CORRECTION — binding)
+
+The 17-team-game window above and the QB engine's `recent_games` bound are **two different
+windows**, and this section is binding where they were previously conflated.
+
+| Window | Size | Governs | Consumer | Provenance |
+|---|---|---|---|---|
+| **Role window** | 17 team games | `recent_start_rate` | §6.2 `starter_stability` (internal) | MVP_HEURISTIC (§9.2) |
+| **Engine window** | 8 games | `recent_games`, `recent_starts`, and every `recent_*` counting input | the QB engine | ENGINE_PRECEDENT (QB engine `validation.ts`) |
+
+The QB engine bounds `recent_games` to `[0,8]` and requires `recent_starts ≤ recent_games`;
+an input outside that range is rejected outright, so a quarterback with more than eight
+games could not be valued at all if engine inputs used the 17-game window. `recent_start_rate`
+is **not** an engine input — it is consumed only by §6.2 — so the 17-game window continues to
+govern it unchanged.
+
+Resolving in favour of the engine for engine-facing fields follows this registry's own
+established convention: §7.3 adopts the QB engine's `probability_active` table verbatim and
+tags it `ENGINE_PRECEDENT`. An `MVP_HEURISTIC` constant does not override an engine input
+contract.
+
+Neither window was widened or narrowed to make players valuable. They are counted separately
+and named separately (`RECENT_GAME_WINDOW` and `D2_ROLE_WINDOW_GAMES` in
+`src/ingestion/observedFacts.ts`), and `src/inference/d2/windowSeparation.test.ts` fails if
+either is redefined in terms of the other.
 - Confidence: `START_INFERENCE_PENALTY = 120` (0..1000) when provenance
   `MODEL_ESTIMATE`.
 

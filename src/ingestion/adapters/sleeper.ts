@@ -4,6 +4,7 @@
 
 import type { ProviderAdapter, NormalizeResult } from '../capabilities';
 import {
+  attestedAt,
   normalizeInjuryStatus,
   normalizePosition,
   normalizePractice,
@@ -51,7 +52,14 @@ export const sleeperAdapter: ProviderAdapter = {
       const gsis = str(row, 'gsis_id');
       if (gsis) providerIds.gsis = gsis; // cross-id link enables join with nflverse
       records.push({
-        canonicalId: null, providerRef: r, freshness, sourceTimestamp: freshness.effectiveDate,
+        canonicalId: null,
+        providerRef: r,
+        freshness,
+        // Sleeper's players resource is a CURRENT-STATE snapshot: team, status and injury
+        // designation describe today, with no way to ask what it said at a past date. It is
+        // therefore timestamped at the provider's attestation instant, so as-of clamping can
+        // tell a historical board that these values are not evidence for it. See `attestedAt`.
+        sourceTimestamp: attestedAt(freshness),
         providerIds, nameNormalized: name.toLowerCase(), position: pos, team: normalizeTeam(str(row, 'team')),
         age: num(row, 'age'), nflSeasonsCompleted: num(row, 'years_exp'), draftRound: num(row, 'draft_round'),
         status: normalizeStatus(str(row, 'status')), injuryDesignation: str(row, 'injury_status'),

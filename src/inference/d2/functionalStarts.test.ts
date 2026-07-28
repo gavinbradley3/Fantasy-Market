@@ -20,7 +20,7 @@ describe('D2 functional QB starts (REGISTRY §9)', () => {
   });
 
   it('DIRECT official starts are official and unpenalized', () => {
-    const r = computeFunctionalStarts({ asOf, official: { careerStarts: 60, recentStarts: 16, recentGames: 17, provenance: 'DIRECT' } });
+    const r = computeFunctionalStarts({ asOf, official: { careerStarts: 60, recentStarts: 16, recentGames: 17, roleWindowStarts: 16, roleWindowGames: 17, provenance: 'DIRECT' } });
     expect(r.provenance).toBe('DIRECT');
     expect(r.startsOfficial).toBe(true);
     expect(r.recentStartRate).toBe(0.9412);
@@ -28,7 +28,7 @@ describe('D2 functional QB starts (REGISTRY §9)', () => {
   });
 
   it('DERIVED official starts are also official', () => {
-    const r = computeFunctionalStarts({ asOf, official: { careerStarts: 50, recentStarts: 10, recentGames: 12, provenance: 'DERIVED' } });
+    const r = computeFunctionalStarts({ asOf, official: { careerStarts: 50, recentStarts: 10, recentGames: 12, roleWindowStarts: 10, roleWindowGames: 12, provenance: 'DERIVED' } });
     expect(r.startsOfficial).toBe(true);
   });
 

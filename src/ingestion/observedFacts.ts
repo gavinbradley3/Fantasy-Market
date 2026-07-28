@@ -29,15 +29,21 @@ import type { GameStatRecord } from './types';
  * fields are consumed only by the QB engine — RB/WR/TE produce career facts only — so this
  * one constant governs all of them.
  *
- * KNOWN SPECIFICATION CONFLICT. REGISTRY §9.2 sets D2's recent window to 17 team games
- * ("MVP_HEURISTIC = one season"), which is wider than the engine will accept. The two
- * cannot both hold for a field the engine validates, and the engine is the frozen artifact
- * that rejects the input outright, so the engine-facing window follows the engine. A player
- * with more than eight games — that is, almost every real quarterback — cannot be valued
- * otherwise. The conflict itself is not resolved here and is reported as an open item; this
- * constant only decides what the engine is handed.
+ * RESOLVED WINDOW SEPARATION (REGISTRY §9.2). The registry also names a 17-team-game recent
+ * window, tagged `MVP_HEURISTIC`. That window governs `recent_start_rate`, which is NOT an
+ * engine input — it feeds §6.2 starter_stability — and it is unchanged. The engine-facing
+ * counting facts follow the engine's own contract, which is the registry's established
+ * convention for an engine-defined value (§7.3 adopts the QB engine's `probability_active`
+ * table verbatim and tags it `ENGINE_PRECEDENT`). The two windows are counted separately;
+ * neither was widened or narrowed to suit the other.
  */
 export const RECENT_GAME_WINDOW = 8;
+
+/**
+ * REGISTRY §9.2 role window: 17 team games ("MVP_HEURISTIC = one season"). Used ONLY for
+ * `recent_start_rate`, which feeds §6.2 starter_stability and never reaches an engine.
+ */
+export const D2_ROLE_WINDOW_GAMES = 17;
 
 type StatKey = keyof Pick<
   GameStatRecord,

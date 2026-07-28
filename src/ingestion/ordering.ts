@@ -31,6 +31,24 @@ export function withinAsOf(asOf: string, sourceTimestamp: string): boolean {
   return Date.parse(sourceTimestamp) <= Date.parse(asOf);
 }
 
+/**
+ * When a CURRENT-STATE resource's content became true.
+ *
+ * Some provider resources carry no historical effective date at all: an identity or players
+ * export states a player's team and status *as of when the provider last rebuilt it*, with
+ * no way to ask what it said in February. For those, the only defensible timestamp is the
+ * provider's own last-updated stamp — the instant the content is attested for.
+ *
+ * The caller's `effectiveDate` is NOT that instant. It is the window the pipeline is valuing
+ * for, and stamping a current-state payload with it asserts that today's roster was true
+ * months ago, which as-of clamping would then wave through. Preferring `lastUpdated` makes
+ * the clamp able to see the difference; falling back to `effectiveDate` only when the
+ * provider publishes no stamp keeps behaviour unchanged for sources that never had one.
+ */
+export function attestedAt(freshness: { lastUpdated: string | null; effectiveDate: string }): string {
+  return freshness.lastUpdated ?? freshness.effectiveDate;
+}
+
 const POSITION_MAP: Readonly<Record<string, NormalizedPosition>> = {
   QB: 'QB', RB: 'RB', WR: 'WR', TE: 'TE',
   HB: 'RB', FB: 'RB', // fullback/halfback → RB family for our four engines

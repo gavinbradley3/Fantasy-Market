@@ -86,7 +86,7 @@ describe('Phase 2B end-to-end intermediate fixtures', () => {
 
   it('Fx: QB official DIRECT and DERIVED starts can reach ESTABLISHED_STARTER', () => {
     for (const prov of ['DIRECT', 'DERIVED'] as const) {
-      const starts = computeFunctionalStarts({ asOf, official: { careerStarts: 60, recentStarts: 16, recentGames: 17, provenance: prov } });
+      const starts = computeFunctionalStarts({ asOf, official: { careerStarts: 60, recentStarts: 16, recentGames: 17, roleWindowStarts: 16, roleWindowGames: 17, provenance: prov } });
       const role = classifyQBRoleStatus({
         benchedWithin4Weeks: false, temporaryInjuryReplacement: false,
         recentStartRate: starts.recentStartRate, careerStarts: starts.careerStarts,

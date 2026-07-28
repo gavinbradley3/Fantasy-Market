@@ -181,7 +181,7 @@ describe('E2E production runInference (normalized input; Phase 2A/2B/D1/D2 run i
 
   it('8. QB official DIRECT starts → D2 runs internally; established classification authorized', () => {
     const evidence: NormalizedEvidence = {
-      d2: { asOf: T, official: { careerStarts: 60, recentStarts: 16, recentGames: 17, provenance: 'DIRECT' } },
+      d2: { asOf: T, official: { careerStarts: 60, recentStarts: 16, recentGames: 17, roleWindowStarts: 16, roleWindowGames: 17, provenance: 'DIRECT' } },
       qbRole: { benchedWithin4Weeks: false, temporaryInjuryReplacement: false, recentStartRate: 0.94, careerStarts: 60, startsProvenance: 'DIRECT', nflSeasonsCompleted: 8, depthChartStatus: 'STARTER', veteranBridgeSigned: false, twoQbStartSignal: false },
     };
     const res = runInference(normInput('QB', {}, evidence));
@@ -192,7 +192,7 @@ describe('E2E production runInference (normalized input; Phase 2A/2B/D1/D2 run i
 
   it('9. QB official DERIVED starts → official handling', () => {
     const evidence: NormalizedEvidence = {
-      d2: { asOf: T, official: { careerStarts: 60, recentStarts: 16, recentGames: 17, provenance: 'DERIVED' } },
+      d2: { asOf: T, official: { careerStarts: 60, recentStarts: 16, recentGames: 17, roleWindowStarts: 16, roleWindowGames: 17, provenance: 'DERIVED' } },
       qbRole: { benchedWithin4Weeks: false, temporaryInjuryReplacement: false, recentStartRate: 0.94, careerStarts: 60, startsProvenance: 'DERIVED', nflSeasonsCompleted: 8, depthChartStatus: 'STARTER', veteranBridgeSigned: false, twoQbStartSignal: false },
     };
     const res = runInference(normInput('QB', {}, evidence));

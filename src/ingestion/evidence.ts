@@ -11,13 +11,14 @@ import { availabilityProbability, type AvailabilityState, type InjuryStatus } fr
 import type { NormalizedEvidence } from '@/inference/production/orchestrate';
 import type { CompetitionPosition, CompetitionTeammate } from '@/inference/competition';
 import type { RosterStatus } from '@/inference/features/types';
-import { observedCountingFacts, RECENT_GAME_WINDOW } from './observedFacts';
+import { observedCountingFacts, D2_ROLE_WINDOW_GAMES, RECENT_GAME_WINDOW } from './observedFacts';
 import { compareOrdinal, withinAsOf } from './ordering';
 import type { NormalizedSnapshot } from './snapshot';
 import type {
   GameStatRecord,
   InjuryRecord,
   IngestionProvider,
+  OfficialStartRecord,
   ParticipationRecord,
   PlayerRecord,
   RosterRecord,
@@ -25,6 +26,65 @@ import type {
 } from './types';
 
 const WEEK_MS = 7 * 24 * 3600 * 1000;
+
+/**
+ * Per-player lookups over one snapshot, built once and reused.
+ *
+ * Every collection here is scanned per player, and a live snapshot is large: ~25k identity
+ * records, ~140k weekly roster rows, ~58k game rows. Resolving a player's teammates now
+ * requires a point-in-time roster lookup for each same-position player, so scanning the
+ * whole roster collection each time is quadratic in the roster and cubic across a board —
+ * enough to turn a working run into one that never finishes.
+ *
+ * This is a pure derived cache: same snapshot in, same groupings out, no ordering or
+ * content change. It is keyed on the snapshot object itself, so a new snapshot builds a new
+ * index and a stale one can never be read.
+ */
+interface SnapshotIndex {
+  readonly playersById: ReadonlyMap<string, PlayerRecord>;
+  readonly playersByPosition: ReadonlyMap<string, readonly PlayerRecord[]>;
+  readonly rostersByPlayer: ReadonlyMap<string, readonly RosterRecord[]>;
+  readonly gamesByPlayer: ReadonlyMap<string, readonly GameStatRecord[]>;
+  readonly participationByPlayer: ReadonlyMap<string, readonly ParticipationRecord[]>;
+  readonly injuriesByPlayer: ReadonlyMap<string, readonly InjuryRecord[]>;
+  readonly transactionsByPlayer: ReadonlyMap<string, readonly TransactionRecord[]>;
+  readonly officialStartsByPlayer: ReadonlyMap<string, readonly OfficialStartRecord[]>;
+}
+
+const INDEX_CACHE = new WeakMap<NormalizedSnapshot, SnapshotIndex>();
+
+function groupBy<T>(items: readonly T[], key: (item: T) => string | null): Map<string, T[]> {
+  const out = new Map<string, T[]>();
+  for (const item of items) {
+    const k = key(item);
+    if (k === null) continue;
+    const bucket = out.get(k);
+    if (bucket) bucket.push(item);
+    else out.set(k, [item]);
+  }
+  return out;
+}
+
+function indexOf(snapshot: NormalizedSnapshot): SnapshotIndex {
+  const cached = INDEX_CACHE.get(snapshot);
+  if (cached) return cached;
+  const byCanonical = <T extends { canonicalId: string | null }>(items: readonly T[]) =>
+    groupBy(items, (i) => i.canonicalId);
+  const index: SnapshotIndex = {
+    playersById: new Map(snapshot.players.filter((p) => p.canonicalId).map((p) => [p.canonicalId as string, p])),
+    playersByPosition: groupBy(snapshot.players, (p) => p.position),
+    rostersByPlayer: byCanonical(snapshot.rosters),
+    gamesByPlayer: byCanonical(snapshot.games),
+    participationByPlayer: byCanonical(snapshot.participation),
+    injuriesByPlayer: byCanonical(snapshot.injuries),
+    transactionsByPlayer: byCanonical(snapshot.transactions),
+    officialStartsByPlayer: byCanonical(snapshot.officialStarts),
+  };
+  INDEX_CACHE.set(snapshot, index);
+  return index;
+}
+
+const EMPTY: readonly never[] = [];
 
 export interface BuiltEvidence {
   readonly player: CanonicalPlayer;
@@ -65,26 +125,80 @@ function latest<T extends { sourceTimestamp: string }>(recs: readonly T[], asOf:
  * sides now read one source and cannot disagree. Only a player with neither an injury record
  * nor a status falls through to UNKNOWN, which is the honest description of that case.
  */
-function injuryToState(inj: InjuryRecord | null, player: PlayerRecord): AvailabilityState {
+function injuryToState(inj: InjuryRecord | null, player: PlayerRecord, pit: PointInTimeFacts): AvailabilityState {
+  const pid = toProviderId(player.freshness.provider);
+  const ts = player.sourceTimestamp;
   const injuryStatus: InjuryStatus =
     inj !== null
       ? (inj.injuryStatus as InjuryStatus)
       : toInjuryStatus(
-          player.status !== null
-            ? { present: true, value: player.status, provenance: 'DIRECT', provider: toProviderId(player.freshness.provider), sourceTimestamp: player.sourceTimestamp }
+          pit.status !== null
+            ? { present: true, value: pit.status, provenance: 'DIRECT', provider: pid, sourceTimestamp: ts }
             : { present: false, reason: 'NOT_PROVIDED' },
-          player.injuryDesignation !== null
-            ? { present: true, value: player.injuryDesignation, provenance: 'DIRECT', provider: toProviderId(player.freshness.provider), sourceTimestamp: player.sourceTimestamp }
+          pit.injuryDesignation !== null
+            ? { present: true, value: pit.injuryDesignation, provenance: 'DIRECT', provider: pid, sourceTimestamp: ts }
             : { present: false, reason: 'NOT_PROVIDED' },
         );
   const practice = inj?.practiceStatus ?? 'UNKNOWN';
   return { injuryStatus, practiceStatus: practice, recentlyActivated: false, freeAgent: false, practiceSquad: false };
 }
 
-function buildCanonicalPlayer(rec: PlayerRecord, position: SupportedPosition, asOf: string): CanonicalPlayer {
+/**
+ * The time-varying facts about a player, resolved AT the as-of date.
+ *
+ * Team and status are not properties of a player; they are properties of a player *at a
+ * date*. A current-state identity export cannot answer them for a past board — it reports
+ * today. So each is taken from the newest weekly roster row at or before the as-of, and the
+ * identity export is used only when the provider attests it at or before the as-of too.
+ * When neither is available the field is genuinely unknown and is reported as absent rather
+ * than filled in from the present.
+ */
+interface PointInTimeFacts {
+  readonly team: string | null;
+  readonly status: CanonicalStatus | null;
+  readonly injuryDesignation: string | null;
+  /** True when the identity export's own content is attested at or before the as-of. */
+  readonly identityAttested: boolean;
+}
+
+/** Roster status → the canonical four-value status the engines' metadata uses. */
+const ROSTER_TO_CANONICAL: Readonly<Record<RosterRecord['rosterStatus'], CanonicalStatus>> = {
+  ACTIVE: 'active',
+  IR: 'injured',
+  PUP: 'injured',
+  NFI: 'injured',
+  SUSPENDED: 'suspended',
+  PRACTICE_SQUAD: 'inactive',
+  RESERVE: 'inactive',
+};
+
+function resolvePointInTime(
+  rec: PlayerRecord,
+  index: SnapshotIndex,
+  canonicalId: string,
+  asOf: string,
+): PointInTimeFacts {
+  const identityAttested = withinAsOf(asOf, rec.sourceTimestamp);
+  const roster = latest(index.rostersByPlayer.get(canonicalId) ?? EMPTY, asOf);
+  return {
+    team: roster?.team ?? (identityAttested ? rec.team : null),
+    status: roster ? ROSTER_TO_CANONICAL[roster.rosterStatus] : identityAttested ? (rec.status as CanonicalStatus | null) : null,
+    // An injury designation has no historical source here at all, so it is only ever used
+    // when the identity export itself is attested for the as-of.
+    injuryDesignation: identityAttested ? rec.injuryDesignation : null,
+    identityAttested,
+  };
+}
+
+function buildCanonicalPlayer(
+  rec: PlayerRecord,
+  position: SupportedPosition,
+  asOf: string,
+  pit: PointInTimeFacts,
+): CanonicalPlayer {
   const pid = toProviderId(rec.freshness.provider);
   const ts = rec.sourceTimestamp;
-  const status = rec.status as CanonicalStatus | null;
+  const status = pit.status;
   return {
     identity: {
       canonical_id: rec.canonicalId ?? '',
@@ -98,7 +212,7 @@ function buildCanonicalPlayer(rec: PlayerRecord, position: SupportedPosition, as
     },
     position,
     full_name: present(rec.nameNormalized, pid, ts),
-    team: rec.team ? present(rec.team, pid, ts) : notProvided(),
+    team: pit.team ? present(pit.team, pid, ts) : notProvided(),
     age: rec.age !== null ? present(rec.age, pid, ts) : notProvided(),
     birth_date: notProvided(),
     nfl_seasons_completed: rec.nflSeasonsCompleted !== null ? present(rec.nflSeasonsCompleted, pid, ts) : notProvided(),
@@ -110,7 +224,7 @@ function buildCanonicalPlayer(rec: PlayerRecord, position: SupportedPosition, as
     weight_pounds: notProvided(),
     jersey_number: notProvided(),
     status: status ? present(status, pid, ts) : notProvided(),
-    injury_designation: rec.injuryDesignation ? present(rec.injuryDesignation, pid, ts) : notProvided(),
+    injury_designation: pit.injuryDesignation ? present(pit.injuryDesignation, pid, ts) : notProvided(),
     headshot_url: notProvided(),
     provenance: { sources: [pid], generated_at: asOf },
   };
@@ -123,20 +237,25 @@ export function buildEvidenceFor(
   position: SupportedPosition,
   asOf: string,
 ): BuiltEvidence | null {
-  const playerRec = snapshot.players.find((p) => p.canonicalId === canonicalId);
+  const index = indexOf(snapshot);
+  const playerRec = index.playersById.get(canonicalId);
   if (!playerRec) return null;
-  const team = playerRec.team;
 
-  const myGames = snapshot.games.filter((g) => g.canonicalId === canonicalId && g.seasonType === 'REG' && withinAsOf(asOf, g.kickoff));
-  const myParticipation = snapshot.participation.filter((p) => p.canonicalId === canonicalId && withinAsOf(asOf, p.kickoff));
-  const myInjury = latest(snapshot.injuries.filter((i) => i.canonicalId === canonicalId), asOf);
-  const myTxns = snapshot.transactions.filter((t) => t.canonicalId === canonicalId && withinAsOf(asOf, t.date));
+  // Every time-varying fact is resolved AT the as-of before anything reads it, so no later
+  // step can quietly pick up the provider's current state.
+  const pit = resolvePointInTime(playerRec, index, canonicalId, asOf);
+  const team = pit.team;
+
+  const myGames = (index.gamesByPlayer.get(canonicalId) ?? EMPTY).filter((g) => g.seasonType === 'REG' && withinAsOf(asOf, g.kickoff));
+  const myParticipation = (index.participationByPlayer.get(canonicalId) ?? EMPTY).filter((p) => withinAsOf(asOf, p.kickoff));
+  const myInjury = latest(index.injuriesByPlayer.get(canonicalId) ?? EMPTY, asOf);
+  const myTxns = (index.transactionsByPlayer.get(canonicalId) ?? EMPTY).filter((t) => withinAsOf(asOf, t.date));
 
   // --- expected games (schedule + availability) ---
   const gamesLeft = team
     ? snapshot.schedule.filter((s) => s.seasonType === 'REG' && (s.homeTeam === team || s.awayTeam === team) && Date.parse(s.kickoff) > Date.parse(asOf)).length
     : 0;
-  const availState = injuryToState(myInjury, playerRec);
+  const availState = injuryToState(myInjury, playerRec, pit);
   const availProb = availabilityProbability(availState);
   const suspended = availState.injuryStatus === 'SUSPENDED';
 
@@ -160,7 +279,11 @@ export function buildEvidenceFor(
 
   // --- roster security ---
   const yearsWithTeam = team
-    ? new Set(snapshot.rosters.filter((r) => r.canonicalId === canonicalId && r.team === team).map((r) => r.season)).size
+    ? new Set(
+        (index.rostersByPlayer.get(canonicalId) ?? EMPTY)
+          .filter((r) => r.team === team && withinAsOf(asOf, r.sourceTimestamp))
+          .map((r) => r.season),
+      ).size
     : 0;
   evidence.security = {
     draftRound: playerRec.draftRound,
@@ -172,14 +295,18 @@ export function buildEvidenceFor(
 
   // --- competition (same-position, same-team teammates) ---
   if (team && position !== 'QB') {
-    const teammates: CompetitionTeammate[] = snapshot.players
-      .filter((p) => p.canonicalId && p.canonicalId !== canonicalId && p.team === team && p.position === position)
+    // Who a player competes with is a question about the as-of date. Reading the provider's
+    // CURRENT roster would field a Februrary depth chart out of a July squad, adding players
+    // who had not signed yet and dropping the ones who were actually there.
+    const teammates: CompetitionTeammate[] = (index.playersByPosition.get(position) ?? EMPTY)
+      .filter((p) => p.canonicalId && p.canonicalId !== canonicalId)
+      .filter((p) => resolvePointInTime(p, index, p.canonicalId as string, asOf).team === team)
       .map((p) => ({
         canonicalId: p.canonicalId as string,
         draftRound: p.draftRound,
         usageShare: null,
-        status: rosterStatusFor(snapshot.rosters, p.canonicalId as string) as RosterStatus,
-        recentlyAcquiredOrReturned: acquiredRecently(snapshot.transactions.filter((t) => t.canonicalId === p.canonicalId), asOf),
+        status: rosterStatusFor(index.rostersByPlayer.get(p.canonicalId as string) ?? EMPTY, asOf) as RosterStatus,
+        recentlyAcquiredOrReturned: acquiredRecently(index.transactionsByPlayer.get(p.canonicalId as string) ?? EMPTY, asOf),
       }))
       .sort((a, b) => compareOrdinal(a.canonicalId, b.canonicalId));
     if (teammates.length > 0) {
@@ -203,14 +330,19 @@ export function buildEvidenceFor(
   // --- D2 (QB starts) ---
   if (position === 'QB') {
     const rows = myGames.map((g) => gameRow(g));
-    // The recent window is the ENGINE's, not §9.2's 17. `recent_starts` and `recent_games`
-    // are both engine inputs, the engine bounds them to [0,8] and requires starts ≤ games,
-    // and they are only consistent with each other if one window produces both. See
-    // RECENT_GAME_WINDOW in ./observedFacts.ts for the conflict this resolves.
-    const recentGameIdList = [...rows]
-      .sort((a, b) => (a.kickoff < b.kickoff ? 1 : -1))
-      .slice(0, RECENT_GAME_WINDOW)
-      .map((r) => r.gameId);
+    // TWO windows, because they answer different questions for different consumers
+    // (REGISTRY §9.2 "Window separation"):
+    //
+    //   engine window (8)  → `recent_games` / `recent_starts`, which the QB engine bounds
+    //                        to [0,8] and cross-validates against each other.
+    //   role window (17)   → `recent_start_rate` only, which is NOT an engine input; it
+    //                        feeds §6.2 starter_stability inside the environment model.
+    //
+    // Counting both from one window would silently redefine §9.2's rate; counting the
+    // engine inputs over 17 would make the engine reject them.
+    const newestFirst = [...rows].sort((a, b) => (a.kickoff < b.kickoff ? 1 : -1));
+    const engineWindowGameIds = newestFirst.slice(0, RECENT_GAME_WINDOW).map((r) => r.gameId);
+    const roleWindowGameIds = newestFirst.slice(0, D2_ROLE_WINDOW_GAMES).map((r) => r.gameId);
 
     // Official starts are counted ONLY over the games this snapshot actually holds stat
     // evidence for.
@@ -228,18 +360,33 @@ export function buildEvidenceFor(
     // how many did the provider name this player as the starter for" — which is exactly what
     // the surrounding recent-window arithmetic already means.
     const observedGameIds = new Set(myGames.map((g) => g.gameId));
-    const officials = snapshot.officialStarts.filter(
-      (o) => o.canonicalId === canonicalId && observedGameIds.has(o.gameId),
+    const officials = (index.officialStartsByPlayer.get(canonicalId) ?? EMPTY).filter((o) =>
+      observedGameIds.has(o.gameId),
     );
 
     if (officials.length > 0) {
       const startedGameIds = new Set(officials.filter((o) => o.started).map((o) => o.gameId));
-      const recentGameIds = new Set(recentGameIdList);
-      const careerStarts = startedGameIds.size;
-      const recentStarts = [...startedGameIds].filter((id) => recentGameIds.has(id)).length;
-      evidence.d2 = { asOf, official: { careerStarts, recentStarts, recentGames: recentGameIdList.length, provenance: 'DERIVED' } };
+      const engineIds = new Set(engineWindowGameIds);
+      const roleIds = new Set(roleWindowGameIds);
+      const started = [...startedGameIds];
+      evidence.d2 = {
+        asOf,
+        official: {
+          careerStarts: startedGameIds.size,
+          recentStarts: started.filter((id) => engineIds.has(id)).length,
+          recentGames: engineWindowGameIds.length,
+          roleWindowStarts: started.filter((id) => roleIds.has(id)).length,
+          roleWindowGames: roleWindowGameIds.length,
+          provenance: 'DERIVED',
+        },
+      };
     } else {
-      evidence.d2 = { asOf, games: rows, last17TeamGameIds: recentGameIdList };
+      evidence.d2 = {
+        asOf,
+        games: rows,
+        last17TeamGameIds: roleWindowGameIds,
+        engineWindowTeamGameIds: engineWindowGameIds,
+      };
     }
   }
 
@@ -266,7 +413,7 @@ export function buildEvidenceFor(
   const freshnessBySource = buildFreshness(snapshot, canonicalId, asOf, myGames, myParticipation, myInjury);
 
   return {
-    player: buildCanonicalPlayer(playerRec, position, asOf),
+    player: buildCanonicalPlayer(playerRec, position, asOf, pit),
     facts,
     factTimestamps,
     evidence: evidence as NormalizedEvidence,
@@ -299,10 +446,11 @@ function acquiredRecently(txns: readonly TransactionRecord[], asOf: string): boo
   return txns.some((t) => (t.type === 'SIGN' || t.type === 'TRADE_IN' || t.type === 'ACTIVATE') && withinAsOf(asOf, t.date) && asOfMs - Date.parse(t.date) <= 8 * WEEK_MS);
 }
 
-function rosterStatusFor(rosters: readonly RosterRecord[], canonicalId: string): RosterRecord['rosterStatus'] {
+/** The player's roster status as at `asOf` — never a later week's. */
+function rosterStatusFor(rosters: readonly RosterRecord[], asOf: string): RosterRecord['rosterStatus'] {
   let best: RosterRecord | null = null;
   for (const r of rosters) {
-    if (r.canonicalId !== canonicalId) continue;
+    if (!withinAsOf(asOf, r.sourceTimestamp)) continue;
     if (best === null || r.sourceTimestamp > best.sourceTimestamp) best = r;
   }
   return best?.rosterStatus ?? 'ACTIVE';

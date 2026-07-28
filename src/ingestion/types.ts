@@ -101,9 +101,21 @@ export interface PlayerRecord extends NormalizedRecordBase {
 }
 
 /** One roster membership snapshot (per team, per season/week). */
+/**
+ * One roster membership snapshot.
+ *
+ * `week` is what makes this record HISTORICAL rather than a current-state snapshot: a weekly
+ * roster resource states which team a player was on, and in what status, during a specific
+ * week. When the provider supplies it, `sourceTimestamp` is that week's boundary, so as-of
+ * clamping can answer "where was this player in February" instead of "where is he now".
+ * A season-level roster resource supplies no week and is timestamped by the source's
+ * effective date as before.
+ */
 export interface RosterRecord extends NormalizedRecordBase {
   readonly team: string;
   readonly season: number;
+  /** Week within the season, when the provider publishes weekly rosters; else null. */
+  readonly week: number | null;
   readonly position: NormalizedPosition | null;
   readonly rosterStatus: 'ACTIVE' | 'IR' | 'PUP' | 'NFI' | 'SUSPENDED' | 'PRACTICE_SQUAD' | 'RESERVE';
 }

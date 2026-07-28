@@ -4,6 +4,7 @@
 
 import type { ProviderAdapter, NormalizeResult } from '../capabilities';
 import {
+  attestedAt,
   compareOrdinal,
   normalizePosition,
   normalizeStatus,
@@ -22,7 +23,7 @@ import type {
   ScheduleGameRecord,
 } from '../types';
 import { asRows, bool, num, str } from './helpers';
-import { ageFromBirthDate, derivedGameId, parseNflverseGameId, weekBoundaryIso } from '../weekTiming';
+import { ageFromBirthDate, derivedGameId, parseNflverseGameId, seasonsCompletedAsOf, weekBoundaryIso } from '../weekTiming';
 
 const CAPS = new Set<Capability>(['identity', 'roster', 'schedule', 'games', 'participation', 'officialStarts']);
 
@@ -205,7 +206,9 @@ export const nflverseAdapter: ProviderAdapter = {
         canonicalId: null,
         providerRef: r,
         freshness,
-        sourceTimestamp: freshness.effectiveDate,
+        // The players export is a CURRENT-STATE resource — it states team/status as of the
+        // provider's last rebuild, not as of the pipeline's window. See `attestedAt`.
+        sourceTimestamp: attestedAt(freshness),
         // A pfr id, when the provider supplies one, is registered as a second stable
         // identity token so a resource keyed by pfr id can join to the same canonical
         // player. It never mints an identity on its own — gsis stays the primary token.
@@ -216,7 +219,12 @@ export const nflverseAdapter: ProviderAdapter = {
         // The provider publishes `age` on some resources and `birth_date` on others; age is
         // derived from the birth date only when no age column was supplied.
         age: num(row, 'age') ?? ageFromBirthDate(str(row, 'birth_date'), freshness.effectiveDate),
-        nflSeasonsCompleted: num(row, 'seasons') ?? num(row, 'years_exp') ?? num(row, 'years_of_experience'),
+        // Derived from the time-invariant rookie season AT the source's effective date, so a
+        // past board gets the experience the player actually had then. The provider's own
+        // experience column is a CURRENT count and is only a fallback.
+        nflSeasonsCompleted:
+          seasonsCompletedAsOf(num(row, 'rookie_season') ?? num(row, 'rookie_year'), freshness.effectiveDate) ??
+          num(row, 'seasons') ?? num(row, 'years_exp') ?? num(row, 'years_of_experience'),
         draftRound: num(row, 'draft_round'),
         status: normalizeStatus(str(row, 'status')),
         injuryDesignation: str(row, 'injury'),
@@ -244,7 +252,16 @@ export const nflverseAdapter: ProviderAdapter = {
       const mapped = ROSTER_STATUS_MAP[rs];
       const rosterStatus = mapped ?? 'ACTIVE';
       if (!mapped) warnings.push({ code: 'UNKNOWN_ENUM', provider: 'nflverse', detail: `roster status ${rs}` });
-      records.push({ canonicalId: null, providerRef: r, freshness, sourceTimestamp: freshness.effectiveDate, team, season, position: normalizePosition(str(row, 'position')), rosterStatus });
+
+      // A weekly roster row is a HISTORICAL statement: this team, this status, that week.
+      // Timestamping it at the week boundary is what lets as-of clamping recover where a
+      // player actually was at a past date, instead of reporting where he is today.
+      const week = num(row, 'week');
+      const asAt = weekBoundaryIso(season, week) ?? freshness.effectiveDate;
+      records.push({
+        canonicalId: null, providerRef: r, freshness, sourceTimestamp: asAt,
+        team, season, week, position: normalizePosition(str(row, 'position')), rosterStatus,
+      });
     }
     return { records, warnings };
   },

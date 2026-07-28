@@ -93,6 +93,37 @@ Seasons after 2023 are marked uncovered, routing the WR route model to its stric
 estimate rung. Where the provider's own era classification is unclear, the under-claiming side is
 taken on purpose.
 
+## Point-in-time integrity
+
+A board carries an as-of date, and nothing dated after it may inform it.
+
+The trap is that nflverse's identity export (`players.csv`) is a **current-state** resource:
+`latest_team`, `status` and `position` describe the moment the provider last rebuilt the
+release, and there is no way to ask what it said in February. Stamping such a payload with
+the pipeline's as-of makes it pass as-of clamping trivially — the data then looks historical
+while being current. Measured against the real exports, that mis-stated the team of 202 of
+912 modelled players and the status of 366.
+
+So each time-varying fact is resolved AT the as-of:
+
+| Fact | Historical source | Fallback |
+|---|---|---|
+| team | newest weekly-roster row at or before as-of | identity export, only if attested at or before as-of |
+| roster / availability status | same | same |
+| teammates (competition) | each teammate's own as-of roster row | — |
+| seasons completed | derived from the time-invariant rookie season, at the as-of | provider's current experience column |
+| age | derived from birth date, at the as-of | — |
+| injury designation | none exists | identity export, only if attested |
+
+Weekly roster rows are timestamped at their **week boundary**, which is what makes them
+answerable point-in-time. A current-state resource is timestamped at the provider's own
+`last_updated` — the instant its content is attested for — never at the caller's as-of. When
+neither source can attest a field for the as-of it is reported **absent**, and the readiness
+layer treats that honestly (a QB with no status is `NOT_READY`); it is never filled in from
+the present.
+
+`src/ingestion/pointInTime.test.ts` fails if any of this is reverted.
+
 ## Player selection
 
 A live refresh ingests the provider's entire identity export — every player it has ever carried.
@@ -144,16 +175,27 @@ manufacture a number the data does not contain. Every RB and TE reaches readines
 `career_targets`, `expected_games_remaining`), and stops at exactly this one field. Lifting it
 requires a charted route source, which is a licensing decision, not an engineering one.
 
+## Recent-window separation (REGISTRY §9.2.1)
+
+Two windows, deliberately distinct — see §9.2.1 of the registry for the binding statement:
+
+| Window | Size | Governs | Consumer |
+|---|---|---|---|
+| Role | 17 team games | `recent_start_rate` | §6.2 starter_stability (internal) |
+| Engine | 8 games | `recent_games`, `recent_starts`, every `recent_*` counting input | the QB engine |
+
+The QB engine rejects `recent_games > 8` outright, so engine inputs follow the engine — the
+registry's own convention for an engine-defined value (§7.3 does the same for
+`probability_active`). `recent_start_rate` is not an engine input, so its 17-game window is
+unchanged. `src/inference/d2/windowSeparation.test.ts` fails if either is redefined in terms
+of the other.
+
 ## Open items
 
-- **Recent-window conflict.** REGISTRY §9.2 sets D2's recent window to 17 team games; the QB
-  engine's input contract bounds `recent_games` to `[0,8]` and requires
-  `recent_starts ≤ recent_games`. The two cannot both hold for a field the engine validates. The
-  engine-facing window follows the engine (`RECENT_GAME_WINDOW` in
-  `src/ingestion/observedFacts.ts`), because otherwise no quarterback with more than eight games
-  can be valued at all. The conflict in the documents themselves is not resolved.
 - **No injury feed.** nflverse publishes none, so availability is derived from the player's
-  canonical roster status. That is a weekly-resolution signal, not a game-day designation.
+  roster status at the as-of. That is a weekly-resolution signal, not a game-day designation.
+- **Injury designation has no historical source.** It is used only when the identity export is
+  itself attested at or before the as-of, and is otherwise absent.
 - **Kickoff resolution.** The weekly stats export carries no timestamp, so ordering and as-of
   clamping use a derived week boundary (`src/ingestion/weekTiming.ts`); the schedules export
   carries a date but a US-Eastern wall clock with no offset, so only the date is used. Both are
