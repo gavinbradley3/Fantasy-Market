@@ -146,6 +146,54 @@ describe('projectPublishedPlayer', () => {
     expect(p.confidenceLabel).toBe('HIGH');
   });
 
+  // The production envelope ALWAYS carries `published_confidence_score`, so a fixture that
+  // omits it cannot detect the score being re-pointed away from the engine. These two cases
+  // pin the source of the published score for each tier.
+  it('FULL tier publishes the engine confidence, not the AIL public confidence', () => {
+    const withPublished = envelope({
+      model_tier: 'FULL',
+      // The AIL's public confidence is a DIFFERENT quantity from the engine's confidence.
+      // Reading it here would move every QB/WR score while leaving the label behind.
+      published_confidence_score: 13,
+      public_confidence_label: 'LOW',
+    });
+    const p = projectPublishedPlayer(normalizedInput(), withPublished);
+    expect(p.confidenceScore).toBe(82);
+    expect(p.confidenceLabel).toBe('HIGH');
+  });
+
+  it('score and label always come from the same source (they render in one cell)', () => {
+    // ACCESSIBLE tier: no engine output, so both fall through to the accessible model.
+    const accessible = JSON.stringify({
+      player_id: 'pt-2',
+      position: 'RB',
+      as_of: '2025-10-01T00:00:00.000Z',
+      status: 'OK',
+      readiness: 'NOT_READY',
+      readiness_missing: ['career_routes'],
+      honesty_state: 'UNAVAILABLE',
+      engine_invoked: false,
+      model_tier: 'ACCESSIBLE',
+      published_confidence_score: 53,
+      public_confidence_label: 'LOW',
+      engine_output: null,
+      accessible_model: {
+        modelVersion: 'rb-accessible-1.0',
+        positionValue: 71.2,
+        role: 'Lead rusher',
+        composites: { weekly: 70, ros: 71, oneYear: 72, threeYear: 71, dynasty: 70 },
+        confidence: { score: 53, label: 'MEDIUM', penaltyCodes: [] },
+      },
+    });
+    const p = projectPublishedPlayer(normalizedInput({ position: 'RB' }), accessible);
+    expect(p.modelTier).toBe('ACCESSIBLE');
+    expect(p.confidenceScore).toBe(53);
+    expect(p.confidenceLabel).toBe('MEDIUM');
+    // The pairing is what matters: a MEDIUM label must never sit beside a score the label
+    // could not have been derived from.
+    expect(p.confidenceScore).toBeLessThan(75);
+  });
+
   it('is total: unparseable or missing artifacts project to nulls instead of throwing', () => {
     expect(() => projectPublishedPlayer(undefined, undefined)).not.toThrow();
     const p = projectPublishedPlayer('{not json', 'also not json');

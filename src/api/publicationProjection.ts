@@ -236,9 +236,14 @@ export function projectPublishedPlayer(
     honestyState: str(envelope?.honesty_state),
     engineInvoked: envelope?.engine_invoked === true,
     publicConfidenceLabel: str(envelope?.public_confidence_label),
-    // For an accessible-tier valuation the published confidence is the accessible model's
-    // own (capped) score, not the frozen engine's — there is no frozen engine output here.
-    confidenceScore: num(envelope?.published_confidence_score) ?? num(confidence?.score) ?? num(accessibleConfidence?.score),
+    // Score and label MUST come from the same source, because the board renders them in one
+    // cell ("HIGH 82"). So both prefer the frozen engine's own confidence when an engine ran,
+    // and fall back to the accessible model's (capped) score when one did not — there is no
+    // frozen engine output on the accessible tier. Reading the score from
+    // `published_confidence_score` first would silently re-point every FULL-tier player at the
+    // AIL's public confidence, which is a different quantity from the engine's confidence and
+    // would leave the label describing one number while the score showed another.
+    confidenceScore: num(confidence?.score) ?? num(envelope?.published_confidence_score) ?? num(accessibleConfidence?.score),
     confidenceLabel: str(confidence?.label) ?? str(accessibleConfidence?.label) ?? str(envelope?.public_confidence_label),
     volatilityScore: num(volatility?.score),
     volatilityLabel: str(volatility?.label),
