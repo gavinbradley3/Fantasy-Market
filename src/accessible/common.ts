@@ -74,10 +74,16 @@ export function availabilityScore(availability: AccessibleAvailability): number 
       return 100;
     case 'QUESTIONABLE':
       return 70;
-    case 'DOUBTFUL':
-      return 35;
     case 'UNKNOWN':
       return 55;
+    // Not on an active roster, with NO injury signal. Measured at an offseason as-of this
+    // describes 45% of the RB/TE population — free agents and players between contracts — so
+    // scoring it as OUT claimed that nearly half the league was injured. It is a real negative
+    // for the near-term outlook and nothing stronger.
+    case 'NOT_ROSTERED':
+      return 40;
+    case 'DOUBTFUL':
+      return 35;
     case 'OUT':
     case 'IR':
     case 'PUP':
@@ -90,6 +96,11 @@ export function availabilityScore(availability: AccessibleAvailability): number 
 /** True when the state means "not expected to play in the near term". */
 export function isUnavailable(availability: AccessibleAvailability): boolean {
   return availability === 'OUT' || availability === 'IR' || availability === 'PUP' || availability === 'SUSPENDED';
+}
+
+/** True when the player is not on a roster, which is reported differently from an injury. */
+export function isNotRostered(availability: AccessibleAvailability): boolean {
+  return availability === 'NOT_ROSTERED';
 }
 
 /** Per-game rate over a window, or null when the column or the games are absent. */
@@ -136,9 +147,16 @@ export function trajectoryScore(
 }
 
 /**
- * Durability: the share of the team's games the player actually appeared in, over the
- * seasons observed. A 17-game season is assumed for the denominator, which is the current
- * schedule; the value is a floor for seasons that were shorter.
+ * Durability: the share of the games available to him that the player actually appeared in.
+ *
+ * The denominator is the number of TEAM WEEKS he was on a roster, not `seasons × 17`. The
+ * earlier formulation charged a mid-season signing for games played before he joined and
+ * charged every rookie for his team's entire season — a player signed in week 10 who then
+ * played all eight remaining games scored 29/100. Roster weeks come from the weekly-roster
+ * export and measure the opportunity that actually existed.
+ *
+ * When no roster week is attested the component is DROPPED rather than guessed, and the
+ * horizon weights renormalize.
  */
 export const DURABILITY_ANCHORS: readonly Anchor[] = [
   { at: 0.3, score: 12 },
@@ -149,13 +167,28 @@ export const DURABILITY_ANCHORS: readonly Anchor[] = [
   { at: 1.0, score: 100 },
 ];
 
-const GAMES_PER_SEASON = 17;
-
 export function durabilityScore(production: ObservedProduction): number | null {
-  if (production.seasonsPlayed <= 0) return null;
-  const possible = production.seasonsPlayed * GAMES_PER_SEASON;
-  if (possible <= 0) return null;
+  const possible = production.rosteredTeamWeeks;
+  if (possible === null || possible <= 0) return null;
+  // Appearances can exceed rostered weeks when a roster week is missing from the export, so the
+  // ratio is clamped rather than allowed to claim better-than-perfect availability.
   return score100(scaleFrom(DURABILITY_ANCHORS, clamp(production.career.games / possible, 0, 1)));
+}
+
+/**
+ * Days after which production is treated as stale. One year: at any as-of, a player with no
+ * game in the preceding 365 days has missed a full season, and every rate the model computes
+ * describes a role he no longer demonstrably holds.
+ */
+export const STALE_PRODUCTION_DAYS = 365;
+
+/** True when the newest observed game predates the as-of by more than a season. */
+export function isStaleProduction(production: ObservedProduction, asOf: string): boolean {
+  const newest = production.newestGameKickoff;
+  if (newest === null) return true;
+  const gap = Date.parse(asOf) - Date.parse(newest);
+  if (!Number.isFinite(gap)) return false;
+  return gap > STALE_PRODUCTION_DAYS * 24 * 60 * 60 * 1000;
 }
 
 // ---------------------------------------------------------------------------

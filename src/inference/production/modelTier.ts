@@ -59,8 +59,12 @@ export function toAccessibleAvailability(
       return 'HEALTHY';
     case 'suspended':
       return 'SUSPENDED';
+    // 'inactive' carries two very different meanings in the provider's data: genuinely
+    // inactive/out during a season, and simply not on an active roster (a free agent, a player
+    // between contracts). Only an injury designation distinguishes them, so without one this
+    // reports NOT_ROSTERED rather than claiming the player is injured.
     case 'inactive':
-      return 'OUT';
+      return 'NOT_ROSTERED';
     case 'injured': {
       const d = (valueOf(injuryDesignation) ?? '').toLowerCase();
       if (d.includes('out')) return 'OUT';

@@ -32,6 +32,8 @@ import {
   availabilityScore,
   buildConfidence,
   durabilityScore,
+  isNotRostered,
+  isStaleProduction,
   isUnavailable,
   TIER_WIDE_MISSING_INPUTS,
   TIER_WIDE_PENALTIES,
@@ -408,7 +410,7 @@ function collectPenalties(
   if (p.teamShares === null) codes.push('NO_TEAM_SHARES');
   if (age === null) codes.push('AGE_UNKNOWN');
   if (input.availability === 'UNKNOWN') codes.push('STATUS_UNATTESTED');
-  if (p.recent.games === 0) codes.push('STALE_PRODUCTION');
+  if (isStaleProduction(p, input.asOf)) codes.push('STALE_PRODUCTION');
   return codes;
 }
 
@@ -451,6 +453,11 @@ function buildFactors(args: {
   }
   if (isUnavailable(input.availability)) {
     negative.push('Currently not expected to play, which suppresses the near-term outlook.');
+  } else if (isNotRostered(input.availability)) {
+    negative.push('Not on an active roster at this date, which weighs on the near-term outlook.');
+  }
+  if (isStaleProduction(input.production, input.asOf)) {
+    negative.push('Has not played in over a year, so the measured role may no longer hold.');
   }
   if ((components.TR ?? 50) >= 70) positive.push('Per-game usage grew against the previous season.');
   else if ((components.TR ?? 50) <= 30) negative.push('Per-game usage fell against the previous season.');

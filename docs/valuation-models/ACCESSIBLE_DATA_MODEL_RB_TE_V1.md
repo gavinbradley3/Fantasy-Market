@@ -195,7 +195,7 @@ remaining horizon weights renormalize — absence is never scored as zero.
 | `TR` | Trajectory | Latest-season vs prior-season per-game touches |
 | `AG` | Age | RB age curve |
 | `AV` | Availability | Point-in-time roster state |
-| `DUR` | Durability | Games appeared in ÷ 17 per season observed |
+| `DUR` | Durability | Games appeared in ÷ team weeks rostered |
 
 ### 5.2 TE
 
@@ -228,6 +228,38 @@ number instead of trusting an opaque fit. Each table cites its reasoning where d
 **Cost, stated plainly:** the anchors are authored judgments, not fitted parameters. They are
 defensible and transparent, but they are not calibrated against realized fantasy outcomes. See
 §10.
+
+### 5.3a Availability, durability and staleness
+
+**Availability** is a coarse, weekly-resolution roster signal — nflverse publishes no injury
+feed. It distinguishes two states the provider's data conflates under "inactive":
+
+| State | Score | Meaning |
+|---|---|---|
+| `HEALTHY` | 100 | Active at the as-of |
+| `QUESTIONABLE` | 70 | Injury designation, likely to play |
+| `UNKNOWN` | 55 | No source attests a status at the as-of |
+| `NOT_ROSTERED` | 40 | Not on an active roster, **no injury signal** |
+| `DOUBTFUL` | 35 | Injury designation, unlikely to play |
+| `OUT` / `IR` / `PUP` | 5 | Injury designation keeping him out |
+| `SUSPENDED` | 0 | — |
+
+`NOT_ROSTERED` exists because at an offseason as-of it describes **188 of 417 (45%)** of the
+live RB/TE population — free agents and players between contracts. Scoring that as `OUT` claimed
+nearly half the league was injured. Only an explicit injury designation now earns the severe
+score.
+
+**Durability** divides games appeared in by **team weeks the player was on a roster** (from the
+weekly-roster export), not by `seasons × 17`. The latter charged a mid-season signing for games
+played before he joined the team: a back signed in week 10 who then played all eight remaining
+games scored 29/100. When no roster week is attested the component is dropped rather than
+guessed.
+
+**Staleness** compares the newest observed game against the as-of, flagging a gap over 365 days.
+This cannot use the `recent` window: that window is the last 8 games of a player's *career*, so
+it is never empty for anyone with a game and could never detect a player whose last appearance
+was two seasons ago. Before the fix the `STALE_PRODUCTION` penalty was unreachable dead code; it
+now fires for 72 of 226 valued RBs.
 
 ### 5.4 Age curves
 
@@ -268,10 +300,12 @@ Penalties (subtracted from the ceiling):
 | `SPARSE_CAREER_SAMPLE` | 14 | Fewer than 8 career games |
 | `MINIMAL_CAREER_SAMPLE` | 12 | Fewer than 4 career games (cumulative with the above) |
 | `AGE_UNKNOWN` | 12 | No birth date, so no age curve |
-| `STALE_PRODUCTION` | 8 | No game in the recent window |
+| `STALE_PRODUCTION` | 8 | No game within 365 days of the as-of |
 | `NO_TRAJECTORY` | 6 | Only one season observed |
 | `STATUS_UNATTESTED` | 6 | No roster status attested at the as-of |
 | `NO_TEAM_SHARES` | 4 | Shares not reconstructible |
+
+Live distribution after the audit fixes: RB 91 MEDIUM / 135 LOW; TE 87 MEDIUM / 80 LOW.
 
 The published confidence for an accessible-tier player is this model's own score, capped so it
 can only move downward — the AIL's public confidence describes the *full* model's input
@@ -352,6 +386,17 @@ These are real and should be visible to users:
    seasons passed to `--seasons` and nothing earlier, so durability and career rates for
    long-tenured players are truncated.
 8. **Reconstructed shares are upper bounds** (§4.6).
+9. **No replacement-level baseline.** Values are absolute 0–100 scores, not value over
+   replacement. A dynasty market ultimately wants VOR, which needs a defined replacement
+   population per position; that is future work and does not affect ordering.
+10. **`career_touches` in the FROZEN RB engine is defined as carries + targets**
+    (`src/ingestion/observedFacts.ts`), where a touch is conventionally carries + *receptions*.
+    The accessible model uses carries + receptions for its own yards-per-touch. The frozen
+    definition was left untouched because it is part of a frozen contract and that tier does not
+    currently run for RB, but it should be revisited whenever the RB FULL tier is restored.
+11. **Ties.** 1dp rounding leaves 72 of 226 RBs and 55 of 167 TEs sharing a value with at least
+    one other player (largest tie: 4). Ranks break ties on canonical id, so ordering is total
+    and replay-stable, but a tie is not a claim that two players are equally valuable.
 
 The natural upgrade path is a licensed charting source, which restores the `FULL` tier for RB
 and TE with no model change — the tier system already routes to it the moment `career_routes`

@@ -45,6 +45,10 @@ function production(over: Partial<ObservedProduction> & { career: CountingWindow
     priorSeason: null,
     teamShares: null,
     seasonsPlayed: 1,
+    // Recent enough not to be stale relative to AS_OF, and rostered for every game played, so
+    // a fixture only has to state what it is actually varying.
+    newestGameKickoff: '2026-01-04T18:00:00.000Z',
+    rosteredTeamWeeks: over.career.games,
     ...over,
   };
 }
@@ -326,5 +330,101 @@ describe('accessible tier invariants', () => {
   it('dispatches by position', () => {
     expect(valued(evaluateAccessible(eliteRB())).position).toBe('RB');
     expect(valued(evaluateAccessible(eliteTE())).position).toBe('TE');
+  });
+});
+
+// --- defects found by the cold self-audit against the live population ----------
+
+describe('availability distinguishes "not on a roster" from "injured"', () => {
+  it('scores NOT_ROSTERED well above OUT, because they are not the same claim', () => {
+    const notRostered = valued(evaluateAccessibleRB(input('RB', { ...eliteRB(), availability: 'NOT_ROSTERED' })));
+    const out = valued(evaluateAccessibleRB(input('RB', { ...eliteRB(), availability: 'OUT' })));
+    const healthy = valued(evaluateAccessibleRB(input('RB', { ...eliteRB(), availability: 'HEALTHY' })));
+    expect(notRostered.components.AV).toBeGreaterThan(out.components.AV);
+    expect(notRostered.components.AV).toBeLessThan(healthy.components.AV);
+    // At an offseason as-of this state covered 45% of the live RB/TE population, so treating it
+    // as an injury made nearly half the league look hurt.
+    expect(notRostered.composites.weekly).toBeGreaterThan(out.composites.weekly);
+  });
+
+  it('says so in words, without claiming an injury', () => {
+    const v = valued(evaluateAccessibleRB(input('RB', { ...eliteRB(), availability: 'NOT_ROSTERED' })));
+    const text = v.negativeFactors.join(' ');
+    expect(text).toMatch(/[Nn]ot on an active roster/);
+    expect(text).not.toMatch(/not expected to play/);
+  });
+});
+
+describe('stale production is detected from the newest game, not the recent window', () => {
+  it('flags a player whose last game was over a year before the as-of', () => {
+    // `recent` is the last 8 games of a CAREER, so it is never empty for anyone with a game and
+    // could never detect staleness. The check must use the newest kickoff.
+    const stale = valued(evaluateAccessibleRB(input('RB', {
+      production: production({
+        career: career(30, { carries: 14, rushingYards: 60, targets: 3, receptions: 2.4, receivingYards: 19 }),
+        newestGameKickoff: '2024-01-07T18:00:00.000Z',
+      }),
+    })));
+    expect(stale.confidence.penaltyCodes).toContain('STALE_PRODUCTION');
+    expect(stale.negativeFactors.join(' ')).toMatch(/has not played in over a year/i);
+  });
+
+  it('does not flag a player who played inside the last year', () => {
+    const current = valued(evaluateAccessibleRB(eliteRB()));
+    expect(current.confidence.penaltyCodes).not.toContain('STALE_PRODUCTION');
+  });
+
+  it('costs a stale player confidence relative to an identical current player', () => {
+    const base = {
+      career: career(30, { carries: 14, rushingYards: 60, targets: 3, receptions: 2.4, receivingYards: 19 }),
+    };
+    const current = valued(evaluateAccessibleRB(input('RB', { production: production({ ...base }) })));
+    const stale = valued(evaluateAccessibleRB(input('RB', {
+      production: production({ ...base, newestGameKickoff: '2023-12-31T18:00:00.000Z' }),
+    })));
+    expect(stale.confidence.score).toBeLessThan(current.confidence.score);
+  });
+});
+
+describe('durability is measured against games the player could actually have played', () => {
+  it('does not penalize a mid-season arrival for games before he was rostered', () => {
+    // Eight games played, eight weeks rostered: perfect availability, not 8/17.
+    const midSeasonSigning = valued(evaluateAccessibleRB(input('RB', {
+      production: production({
+        career: career(8, { carries: 12, rushingYards: 52, targets: 2, receptions: 1.6, receivingYards: 13 }),
+        rosteredTeamWeeks: 8,
+      }),
+    })));
+    expect(midSeasonSigning.components.DUR).toBe(100);
+  });
+
+  it('still penalizes a player who missed games he was rostered for', () => {
+    const injuryProne = valued(evaluateAccessibleRB(input('RB', {
+      production: production({
+        career: career(8, { carries: 12, rushingYards: 52, targets: 2, receptions: 1.6, receivingYards: 13 }),
+        rosteredTeamWeeks: 17,
+      }),
+    })));
+    expect(injuryProne.components.DUR).toBeLessThan(50);
+  });
+
+  it('drops the component rather than guessing when no roster week is attested', () => {
+    const v = valued(evaluateAccessibleRB(input('RB', {
+      production: production({
+        career: career(12, { carries: 12, rushingYards: 52, targets: 2, receptions: 1.6, receivingYards: 13 }),
+        rosteredTeamWeeks: null,
+      }),
+    })));
+    expect(v.components).not.toHaveProperty('DUR');
+  });
+
+  it('never claims better-than-perfect availability when roster weeks are incomplete', () => {
+    const v = valued(evaluateAccessibleRB(input('RB', {
+      production: production({
+        career: career(17, { carries: 12, rushingYards: 52, targets: 2, receptions: 1.6, receivingYards: 13 }),
+        rosteredTeamWeeks: 9,
+      }),
+    })));
+    expect(v.components.DUR).toBe(100);
   });
 });

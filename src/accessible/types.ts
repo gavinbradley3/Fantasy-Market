@@ -26,6 +26,8 @@ export type AccessibleAvailability =
   | 'IR'
   | 'PUP'
   | 'SUSPENDED'
+  /** Not on an active roster, with no injury signal — distinct from being injured. */
+  | 'NOT_ROSTERED'
   | 'UNKNOWN';
 
 /**

@@ -438,7 +438,20 @@ export function buildEvidenceFor(
   // checksum is unaffected. Built for RB and TE only, which are the positions the accessible
   // tier serves; leaving it undefined elsewhere keeps QB/WR normalized-input bytes identical.
   if (position === 'RB' || position === 'TE') {
-    const production = observedProduction(myGames, index.teamGameTotals);
+    // Distinct (season, week) roster rows at or before the as-of. Every roster status counts,
+    // including IR/PUP: being under contract and unable to play IS an availability failure,
+    // which is exactly what durability is meant to measure.
+    const rosterWeeks = new Set<string>();
+    for (const r of index.rostersByPlayer.get(canonicalId) ?? EMPTY) {
+      if (r.week === null) continue;
+      if (!withinAsOf(asOf, r.sourceTimestamp)) continue;
+      rosterWeeks.add(`${r.season}|${r.week}`);
+    }
+    const production = observedProduction(
+      myGames,
+      index.teamGameTotals,
+      rosterWeeks.size > 0 ? rosterWeeks.size : null,
+    );
     if (production) evidence.production = production;
   }
 

@@ -161,6 +161,7 @@ function sharesOver(games: readonly GameStatRecord[], totals: TeamGameTotals): T
 export function observedProduction(
   games: readonly GameStatRecord[],
   teamTotals: TeamGameTotals,
+  rosteredTeamWeeks: number | null = null,
 ): ObservedProduction | null {
   const { career, recent } = windowsFor(games);
   if (career.length === 0) return null;
@@ -177,6 +178,8 @@ export function observedProduction(
     priorSeason: split.prior ? windowOf(split.prior) : null,
     teamShares: sharesOver(roleGames, teamTotals),
     seasonsPlayed: split.seasons,
+    newestGameKickoff: career.length > 0 ? career[0].kickoff : null,
+    rosteredTeamWeeks,
   };
 }
 

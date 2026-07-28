@@ -65,4 +65,19 @@ export interface ObservedProduction {
   readonly teamShares: TeamShares | null;
   /** Distinct seasons the player has a qualifying game in. */
   readonly seasonsPlayed: number;
+  /**
+   * Kickoff of the newest qualifying game, used to detect stale production.
+   *
+   * Needed because `recent` is the last 8 games of the player's CAREER, not the last 8 team
+   * games — so it is never empty for anyone with a game, and cannot detect a player whose last
+   * appearance was two seasons ago.
+   */
+  readonly newestGameKickoff: string | null;
+  /**
+   * Team weeks the player was on a roster at or before the as-of, from the weekly-roster
+   * export. This is the honest denominator for durability: `seasonsPlayed × 17` charges a
+   * mid-season signing for games that happened before he was on the team, and charges a rookie
+   * for his team's whole season. Null when no roster row attests any week.
+   */
+  readonly rosteredTeamWeeks: number | null;
 }
