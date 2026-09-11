@@ -18,7 +18,8 @@
  *                                 is same-origin and needs no CORS at all. Unset = CORS off.
  *   PLAYERTICKER_SEED             "1" to run one refresh on startup if the database has
  *                                 nothing published yet, so a fresh clone shows a real board.
- *   PLAYERTICKER_SEASONS          comma-separated seasons to ingest (default 2025). Career
+ *   PLAYERTICKER_SEASONS          comma-separated seasons to ingest. Defaults to the CURRENT
+ *                                 season derived from the clock (no hard-coded year). Career
  *                                 counting stats span exactly these seasons.
  *   PLAYERTICKER_CAPTURES         raw payload capture directory (default .local/captures)
  *   PLAYERTICKER_REPLAY_ONLY      "1" to serve from captured payloads only, never the network.
@@ -42,12 +43,17 @@ import { PersistenceStore } from '@/persistence';
 import { FilePayloadStore } from '@/transport/fileStore';
 import { createLivePipeline } from '@/runtime';
 import type { TransportConfigDescriptor } from '@/application';
+import {
+  describeSeasonSelection,
+  isPlausibleSeason,
+  resolveSeasons,
+  type SeasonSelection,
+} from '@/ingestion/season';
 
 const DEFAULT_PORT = 8787;
 const DEFAULT_HOST = '127.0.0.1';
 const DEFAULT_DB = '.local/playerticker.db';
 const DEFAULT_CAPTURES = '.local/captures';
-const DEFAULT_SEASONS = [2025];
 
 const TRANSPORT: TransportConfigDescriptor = { requiredProviders: ['nflverse'], replayEnabled: true };
 
@@ -57,14 +63,15 @@ export interface LocalServerConfig {
   readonly dbPath: string;
   readonly allowedOrigins: readonly string[];
   readonly seed: boolean;
-  readonly seasons: readonly number[];
+  /** Resolved season list plus where it came from, so startup can log it honestly. */
+  readonly seasonSelection: SeasonSelection;
   readonly capturesDir: string;
   readonly replayOnly: boolean;
   /** Pinned as-of instant, or null to use the refresh time. */
   readonly asOf: string | null;
 }
 
-export function readConfig(env: NodeJS.ProcessEnv = process.env): LocalServerConfig {
+export function readConfig(env: NodeJS.ProcessEnv = process.env, now: Date = new Date()): LocalServerConfig {
   const port = Number.parseInt(env.PLAYERTICKER_PORT ?? '', 10);
   return {
     port: Number.isFinite(port) && port > 0 ? port : DEFAULT_PORT,
@@ -75,7 +82,7 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): LocalServerCon
       .map((o) => o.trim())
       .filter((o) => o.length > 0),
     seed: env.PLAYERTICKER_SEED === '1',
-    seasons: parseSeasons(env.PLAYERTICKER_SEASONS),
+    seasonSelection: parseSeasons(env.PLAYERTICKER_SEASONS, now),
     capturesDir: resolve(env.PLAYERTICKER_CAPTURES || DEFAULT_CAPTURES),
     replayOnly: env.PLAYERTICKER_REPLAY_ONLY === '1',
     asOf: env.PLAYERTICKER_AS_OF && !Number.isNaN(Date.parse(env.PLAYERTICKER_AS_OF))
@@ -84,13 +91,16 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): LocalServerCon
   };
 }
 
-/** Parse the seasons list, falling back to the default rather than ingesting nothing. */
-function parseSeasons(raw: string | undefined): number[] {
+/**
+ * Parse PLAYERTICKER_SEASONS. An unset or unusable value resolves to the CURRENT season
+ * derived from the clock, never to a hard-coded year — see src/ingestion/season.ts.
+ */
+function parseSeasons(raw: string | undefined, now: Date): SeasonSelection {
   const parsed = (raw ?? '')
     .split(',')
     .map((v) => Number(v.trim()))
-    .filter((v) => Number.isInteger(v) && v >= 1999 && v <= 2100);
-  return parsed.length > 0 ? parsed : DEFAULT_SEASONS;
+    .filter((v) => isPlausibleSeason(v));
+  return resolveSeasons(parsed.length > 0 ? parsed : null, now);
 }
 
 export interface LocalServer {
@@ -112,7 +122,7 @@ export function createLocalServer(config: LocalServerConfig): LocalServer {
     pipeline: createLivePipeline({
       store: () => store,
       payloadStore: new FilePayloadStore(config.capturesDir),
-      seasons: config.seasons,
+      seasons: [...config.seasonSelection.seasons],
       // A pinned as-of makes every refresh reproducible; otherwise each run values as of
       // the moment it started, which is what a scheduled deployment wants.
       asOf: () => config.asOf ?? new Date().toISOString(),
@@ -182,7 +192,7 @@ async function main(): Promise<void> {
   local.server.listen(config.port, config.host, () => {
     console.log(`[playerticker] API listening on http://${config.host}:${config.port}`);
     console.log(`[playerticker] database: ${config.dbPath}`);
-    console.log(`[playerticker] seasons: ${config.seasons.join(', ')}${config.replayOnly ? ' (replay only)' : ''}`);
+    console.log(`[playerticker] seasons: ${describeSeasonSelection(config.seasonSelection)}${config.replayOnly ? ' [replay only]' : ''}`);
     console.log(`[playerticker] captures: ${config.capturesDir}`);
     console.log(
       config.allowedOrigins.length > 0

@@ -21,13 +21,26 @@ import type { ModelTier } from '@/accessible';
 import type { SupportedPosition } from '@/inference/types';
 
 /**
- * Engine inputs that no free, legally usable provider publishes, so their absence is a data
- * reality rather than a pipeline fault.
+ * Engine inputs the pipeline cannot supply for RB/TE, so their absence is not a pipeline fault.
  *
- * `career_routes` is the whole list for RB and TE today: per-player route counts stopped being
- * freely published after 2023, and the frozen route model (`@/inference/d1/routeExposure`,
- * REGISTRY §8.1 rungs 4/5) correctly reports it UNAVAILABLE for these positions rather than
- * manufacturing one. Anything else appearing in a blocker set means an ingestion problem.
+ * `career_routes` is the whole list for RB and TE today. Be precise about WHY, because the
+ * obvious reading is wrong:
+ *
+ *   NOT because the underlying data stopped existing. nflverse still publishes the pass-play
+ *   participation signal (`offense_players` + `time_to_throw` in the `pbp_participation`
+ *   export) for seasons after 2023 — verified against the 2024 and 2025 exports, which carry
+ *   it at the same ~43% of plays as 2023. PlayerTicker already consumes it: WR route exposure
+ *   is estimated from exactly these columns (`@/inference/d1/routeExposure`, REGISTRY §8.1
+ *   rungs 2/3), and the RB window proxy `rbRouteParticipationLast4` reads them too.
+ *
+ *   BUT because there is no APPROVED PROXY METHODOLOGY for turning per-play participation into
+ *   the CAREER CUMULATIVE route count the frozen RB/TE engines take as `career_routes`. WR has
+ *   a specified ladder for that conversion (with its own cap and penalty); RB and TE have none,
+ *   so `computeCareerRoutes` reports UNAVAILABLE for them rather than inventing a number.
+ *
+ * So this is a modelling gap, not a data-availability gap, and closing it is a spec decision
+ * (does a windowed participation proxy stand in for a career route total?) rather than an
+ * ingestion change. Anything ELSE appearing in a blocker set means an ingestion problem.
  */
 export const PREMIUM_ONLY_FIELDS: readonly string[] = ['career_routes'];
 

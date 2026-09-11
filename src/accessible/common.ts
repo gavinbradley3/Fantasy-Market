@@ -320,9 +320,16 @@ export const TIER_WIDE_PENALTIES: readonly ConfidencePenaltyCode[] = [
   'NO_TEAM_CONTEXT',
 ];
 
-/** Product-facing names for the inputs this tier never has. */
+/**
+ * Product-facing names for the inputs this tier never has.
+ *
+ * The route line states the real reason. The participation data still exists — nflverse
+ * publishes it for seasons after 2023 and the WR model already estimates routes from it —
+ * what RB/TE lack is an approved way to convert it into a career route total. Saying "no
+ * data since 2023" would be a factual claim we know to be wrong.
+ */
 export const TIER_WIDE_MISSING_INPUTS: readonly string[] = [
-  'Route participation (no free per-player route data since 2023)',
+  'Route participation (no approved RB/TE method for converting it to career routes)',
   'Snap share (no snap-count feed ingested)',
   'Red-zone and goal-line usage (requires play-by-play)',
   'Team offensive context (pace, dropbacks, points per drive)',

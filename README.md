@@ -224,8 +224,12 @@ No host or port is hard-coded in frontend source. See
 - **The published market carries real valuations for all four positions, in two clearly-labelled
   tiers.** QB and WR are valued by their full engines. RB and TE are valued by the
   **accessible-data model** — a deliberately reduced model over the data the pipeline can actually
-  acquire, because the frozen RB/TE engines require a charted route history that no free source has
-  published since 2023. Every board row shows its tier (`Full model` / `Limited data` / `No value`),
+  use, because the frozen RB/TE engines require a `career_routes` total that PlayerTicker has no
+  approved way to produce for those positions. Note this is a **modelling** gap, not a missing
+  feed: nflverse still publishes the underlying pass-play participation signal for seasons after
+  2023 (verified against the 2024 and 2025 exports), and the WR model already estimates routes
+  from it — what RB and TE lack is a specified method for converting per-play participation into
+  a career route total. Every board row shows its tier (`Full model` / `Limited data` / `No value`),
   accessible-tier valuations are never HIGH confidence, and a player with too little evidence is
   shown as an em-dash rather than a zero or an estimate. Live coverage at as-of 2026-02-15 over
   seasons 2023–2025: 814 of 868 selected players valued (QB 111/111, WR 310/340, RB 226/237,

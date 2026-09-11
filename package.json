@@ -23,7 +23,8 @@
     "pipeline:participation": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/run-pipeline.ts --mode fixture --stats --snaps --participation --season 2025 --now 2026-07-01T00:00:00.000Z",
     "pipeline:readiness-audit": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/readiness-audit.ts --now 2026-07-01T00:00:00.000Z",
     "ingest": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/ingest-nflverse.ts",
-    "ingest:verify": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/ingest-nflverse.ts --verify-replay"
+    "ingest:verify": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/ingest-nflverse.ts --verify-replay",
+    "market:probe": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/market-probe.ts"
   },
   "dependencies": {
     "react": "^18.3.1",
