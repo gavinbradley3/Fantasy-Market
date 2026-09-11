@@ -11,12 +11,12 @@ export function Tape({ rows }: { rows: PlayerRow[] }) {
   const doubled = [...items, ...items]; // seamless loop
   return (
     <div
-      className="relative overflow-hidden rounded-card border border-border-subtle bg-surface"
+      className="relative overflow-hidden rounded-card border border-border-default bg-surface"
       aria-label="Live demo market tape"
     >
-      <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-surface to-transparent" />
-      <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-surface to-transparent" />
-      <div className="tape-track flex w-max gap-4 py-2.5">
+      <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-12 bg-gradient-to-r from-surface to-transparent" />
+      <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-12 bg-gradient-to-l from-surface to-transparent" />
+      <div className="tape-track flex w-max gap-5 py-2.5">
         {doubled.map((r, i) => {
           const d = r.snapshot.movement.d1;
           const dir = directionOf(d);
@@ -26,9 +26,9 @@ export function Tape({ rows }: { rows: PlayerRow[] }) {
               to={`/player/${r.player.ticker}`}
               className="flex shrink-0 items-center gap-1.5 px-1"
             >
-              <span className="ticker text-xs font-semibold text-text-secondary">{r.player.ticker}</span>
-              <span className="font-mono text-xs tabnum text-text-primary">{r.snapshot.marketPrice.toFixed(1)}</span>
-              <span className={cn('flex items-center gap-0.5 font-mono text-[11px] tabnum', movementColor(d))}>
+              <span className="ticker text-xs font-semibold text-text-muted">{r.player.ticker}</span>
+              <span className="data text-xs text-text-primary">{r.snapshot.marketPrice.toFixed(1)}</span>
+              <span className={cn('flex items-center gap-0.5 data text-[11px]', movementColor(d))}>
                 <span aria-hidden>{ARROW[dir]}</span>
                 {fmtDelta(d)}
               </span>

@@ -18,6 +18,9 @@ import {
   PublishedPlayerRow,
 } from '@/components/market/publishedRows';
 import { Footer } from '@/components/chrome/Footer';
+import { PageHeader } from '@/components/chrome/PageHeader';
+import { Button } from '@/components/ui/Button';
+import { ChevronDownIcon, SearchIcon } from '@/components/ui/icons';
 import { EmptyState, ErrorState, LoadingSkeleton } from '@/components/states';
 import { apiErrorCopy } from '@/components/states/apiErrorCopy';
 import { cn } from '@/lib/ui';
@@ -108,23 +111,23 @@ export default function BoardPage() {
 
   return (
     <div>
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-text-primary">The Board</h1>
-          <p className="text-sm text-text-secondary">The current published market</p>
-        </div>
-        <button
-          onClick={market.retry}
-          disabled={market.isFetching}
-          className="rounded-control border border-border-subtle px-3 py-1.5 text-sm text-text-primary transition hover:bg-elevated disabled:opacity-50"
-        >
-          {market.isFetching ? 'Refreshing…' : 'Refresh Market'}
-        </button>
-      </div>
+      <PageHeader
+        title="The Board"
+        subtitle="The current published market"
+        actions={
+          <Button onClick={market.retry} disabled={market.isFetching}>
+            {market.isFetching ? 'Refreshing…' : 'Refresh Market'}
+          </Button>
+        }
+      />
 
       {/* Controls stay mounted across states so the layout does not jump on load. */}
-      <div className="mb-4 space-y-3 rounded-card border border-border-subtle bg-surface p-3">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="mb-5 flex flex-wrap items-center gap-2 border-y border-border-default py-3">
+        <div className="relative min-w-[200px] flex-1">
+          <SearchIcon
+            size={15}
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-faint"
+          />
           <input
             value={query}
             onChange={(e) => setParam('q', e.target.value || null)}
@@ -132,12 +135,33 @@ export default function BoardPage() {
             // Distinct from the app shell's global "Search players" button, so the two are
             // never ambiguous to a screen reader or a keyboard user on this page.
             aria-label="Search published players"
-            className="min-w-[180px] flex-1 rounded-control border border-border-subtle bg-base px-3 py-1.5 text-sm text-text-primary outline-none placeholder:text-text-muted focus:border-secondary/50"
+            className="w-full rounded-control border border-border-default bg-surface py-2 pl-9 pr-3 text-sm text-text-primary outline-none transition-colors duration-standard placeholder:text-text-faint hover:border-border-strong focus:border-border-focus"
           />
+        </div>
+
+        <div className="flex gap-1" role="group" aria-label="Filter by position">
+          {POSITIONS.map((p) => (
+            <button
+              key={p}
+              onClick={() => togglePos(p)}
+              aria-pressed={pos.includes(p)}
+              className={cn(
+                'min-w-[40px] rounded-control border px-2.5 py-1.5 text-xs font-semibold transition-colors duration-standard',
+                pos.includes(p)
+                  ? 'border-brand-blue/50 bg-brand-blue/10 text-text-primary'
+                  : 'border-border-default text-text-muted hover:border-border-strong hover:text-text-secondary',
+              )}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+
+        <div className="relative">
           <select
             value={sort}
             onChange={(e) => setParam('sort', e.target.value)}
-            className="rounded-control border border-border-subtle bg-base px-3 py-1.5 text-sm text-text-primary outline-none"
+            className="appearance-none rounded-control border border-border-default bg-surface py-2 pl-3 pr-8 text-sm text-text-secondary outline-none transition-colors duration-standard hover:border-border-strong focus:border-border-focus"
             aria-label="Sort by"
           >
             {SORTS.map((s) => (
@@ -146,31 +170,20 @@ export default function BoardPage() {
               </option>
             ))}
           </select>
+          <ChevronDownIcon
+            size={15}
+            className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-text-faint"
+          />
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex gap-1" role="group" aria-label="Filter by position">
-            {POSITIONS.map((p) => (
-              <button
-                key={p}
-                onClick={() => togglePos(p)}
-                aria-pressed={pos.includes(p)}
-                className={cn(
-                  'rounded-full border px-2.5 py-1 text-xs font-medium transition',
-                  pos.includes(p)
-                    ? 'border-secondary/50 bg-secondary/15 text-text-primary'
-                    : 'border-border-subtle text-text-secondary hover:text-text-primary',
-                )}
-              >
-                {p}
-              </button>
-            ))}
-          </div>
-          {activeFilters > 0 && (
-            <button onClick={reset} className="ml-auto text-xs text-secondary hover:underline">
-              Reset filters
-            </button>
-          )}
-        </div>
+
+        {activeFilters > 0 && (
+          <button
+            onClick={reset}
+            className="rounded-control px-2 py-1.5 text-xs font-medium text-text-muted transition-colors duration-standard hover:text-text-primary"
+          >
+            Reset
+          </button>
+        )}
       </div>
 
       {market.status === 'loading' && (
@@ -202,27 +215,30 @@ export default function BoardPage() {
           <PublicationProvenance market={market.market} shown={filtered.length} />
 
           {filtered.length === 0 ? (
-            <div className="rounded-card border border-border-subtle bg-surface px-4 py-12 text-center text-sm text-text-secondary">
-              No published players match these filters.
-              <div>
-                <button
-                  onClick={reset}
-                  className="mt-3 rounded-control border border-border-subtle px-3 py-1.5 text-text-primary hover:bg-elevated"
-                >
-                  Clear all filters
-                </button>
-              </div>
+            <div className="rounded-card border border-border-default bg-surface px-4 py-14 text-center">
+              <p className="text-sm text-text-secondary">No published players match these filters.</p>
+              <Button onClick={reset} className="mt-4">
+                Clear all filters
+              </Button>
             </div>
           ) : (
             <>
               {/* Desktop table */}
-              <div className="hidden overflow-x-auto rounded-card border border-border-subtle bg-surface md:block">
-                <table className="w-full min-w-[720px] text-left">
-                  <thead className="sticky top-0 z-10 bg-elevated text-[11px] uppercase tracking-wide text-text-muted">
+              <div className="hidden overflow-x-auto rounded-card border border-border-default bg-surface md:block">
+                <table className="w-full min-w-[760px] text-left">
+                  <thead className="eyebrow sticky top-0 z-10 bg-surface-subtle">
                     <tr>
                       {PUBLISHED_COLUMNS.map((c) => (
-                        <th key={c} className="px-2 py-2 font-medium first:pl-3 last:pr-3">
-                          {c}
+                        <th
+                          key={c.label}
+                          scope="col"
+                          className={cn(
+                            'whitespace-nowrap border-b border-border-default px-3 py-2.5 font-semibold first:pl-4 last:pr-4',
+                            c.align === 'right' && 'text-right',
+                            'grow' in c && c.grow ? 'w-full' : 'w-px',
+                          )}
+                        >
+                          {c.label}
                         </th>
                       ))}
                     </tr>
@@ -235,8 +251,8 @@ export default function BoardPage() {
                 </table>
               </div>
 
-              {/* Mobile cards */}
-              <div className="grid gap-2 md:hidden">
+              {/* Mobile stacks into player rows rather than forcing a sideways scroll. */}
+              <div className="rounded-card border border-border-default bg-surface px-3 md:hidden">
                 {filtered.map((p) => (
                   <PublishedPlayerCard key={p.playerId} player={p} />
                 ))}
@@ -265,18 +281,18 @@ function PublicationProvenance({
   const unvalued = market.players.length - market.valuedCount;
   const limited = market.players.filter((p) => p.modelTier === 'ACCESSIBLE').length;
   return (
-    <div className="mb-2 space-y-1 px-1 text-xs text-text-secondary">
+    <div className="mb-3 space-y-1.5 text-xs leading-relaxed text-text-muted">
       {/* role="status" carries an implicit polite live region and gives the count a queryable
           landmark, so filter results are announced as they change. */}
-      <p role="status">
-        <span className="font-mono tabnum text-text-primary">{shown}</span> of{' '}
-        <span className="font-mono tabnum">{market.players.length}</span> published players
+      <p role="status" className="text-text-secondary">
+        <span className="data font-semibold text-text-primary">{shown}</span> of{' '}
+        <span className="data">{market.players.length}</span> published players
         {' · published '}
-        <span className="font-mono">{market.publishedAt}</span>
+        <span className="data">{market.publishedAt}</span>
       </p>
       {limited > 0 && (
-        <p>
-          <span className="font-mono tabnum">{limited}</span> of these players{' '}
+        <p className="max-w-4xl">
+          <span className="data">{limited}</span> of these players{' '}
           {limited === 1 ? 'is' : 'are'} valued by the <strong>accessible-data model</strong> and
           marked “Limited data”. That is a deliberately reduced model built only on the data we
           can obtain for them — box-score production, team shares and age — without route,
@@ -285,7 +301,7 @@ function PublicationProvenance({
       )}
       {unvalued > 0 && (
         <p>
-          <span className="font-mono tabnum">{unvalued}</span> of these players{' '}
+          <span className="data">{unvalued}</span> of these players{' '}
           {unvalued === 1 ? 'has' : 'have'} no published value, because there is not enough
           information about them to value honestly — value, confidence and volatility are shown
           as “—” rather than estimated.
@@ -293,7 +309,7 @@ function PublicationProvenance({
       )}
       {market.rejected.length > 0 && (
         <p>
-          <span className="font-mono tabnum">{market.rejected.length}</span> published record
+          <span className="data">{market.rejected.length}</span> published record
           {market.rejected.length === 1 ? ' was' : 's were'} not displayable and{' '}
           {market.rejected.length === 1 ? 'was' : 'were'} left out rather than guessed.
         </p>

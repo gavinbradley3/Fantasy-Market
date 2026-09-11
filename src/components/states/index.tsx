@@ -1,7 +1,8 @@
-import { Link } from 'react-router-dom';
+import { ButtonLink, Button } from '@/components/ui/Button';
+import { ActivityIcon } from '@/components/ui/icons';
 import { cn } from '@/lib/ui';
 
-// Teaching empty state (§20, §33): names the action and offers a one-tap example.
+// Teaching empty state: names the action and offers a one-tap example.
 export function EmptyState({
   title,
   body,
@@ -14,27 +15,27 @@ export function EmptyState({
   ctaTo?: string;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-card border border-border-subtle bg-surface px-6 py-12 text-center">
-      <div className="mb-3 text-3xl" aria-hidden>
-        📈
-      </div>
-      <h3 className="mb-2 text-lg text-text-primary">{title}</h3>
-      <p className="mb-4 max-w-sm text-sm text-text-secondary">{body}</p>
+    <div className="flex flex-col items-center justify-center rounded-card border border-border-default bg-surface px-6 py-14 text-center">
+      <span
+        className="mb-4 flex h-10 w-10 items-center justify-center rounded-full border border-border-default bg-surface-subtle text-text-muted"
+        aria-hidden
+      >
+        <ActivityIcon size={19} />
+      </span>
+      <h3 className="mb-2 text-base font-semibold text-text-primary">{title}</h3>
+      <p className="mb-5 max-w-md text-sm leading-relaxed text-text-muted">{body}</p>
       {ctaLabel && ctaTo && (
-        <Link
-          to={ctaTo}
-          className="rounded-control bg-up px-4 py-2 text-sm font-semibold text-base transition hover:brightness-110"
-        >
+        <ButtonLink to={ctaTo} variant="primary">
           {ctaLabel}
-        </Link>
+        </ButtonLink>
       )}
     </div>
   );
 }
 
-// Per-shape loading skeleton (§20).
+// Per-shape loading skeleton.
 export function LoadingSkeleton({ className }: { className?: string }) {
-  return <div className={cn('animate-pulse rounded-card bg-elevated/60', className)} aria-hidden />;
+  return <div className={cn('animate-pulse rounded-card bg-elevated', className)} aria-hidden />;
 }
 
 export function ErrorState({
@@ -50,19 +51,19 @@ export function ErrorState({
   retryLabel?: string;
 }) {
   return (
+    // A failed load is reported, not alarmed: the panel stays on the product's own
+    // surface and lets one small status dot and the words carry the message.
     <div
       role="alert"
-      className="rounded-card border border-down/40 bg-down/5 px-4 py-6 text-center text-sm text-text-secondary"
+      className="flex flex-col items-center rounded-card border border-border-default bg-surface px-6 py-12 text-center"
     >
-      <p className="mb-1 text-text-primary">{message}</p>
-      {detail && <p className="mb-3 text-xs text-text-secondary">{detail}</p>}
+      <span className="mb-4 h-2 w-2 rounded-full bg-negative" aria-hidden />
+      <p className="text-sm font-medium text-text-primary">{message}</p>
+      {detail && <p className="mt-1.5 max-w-sm text-xs leading-relaxed text-text-muted">{detail}</p>}
       {onRetry && (
-        <button
-          onClick={onRetry}
-          className="mt-2 rounded-control border border-border-subtle px-3 py-1.5 text-text-primary transition hover:bg-elevated"
-        >
+        <Button onClick={onRetry} className="mt-5">
           {retryLabel}
-        </button>
+        </Button>
       )}
     </div>
   );

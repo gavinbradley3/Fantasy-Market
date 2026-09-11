@@ -37,7 +37,7 @@ function fmtTimestamp(iso: string): string {
 // ---------- Demo disclosure (§10) ----------
 export function DemoDisclosure() {
   return (
-    <div className="rounded-card border border-secondary/25 bg-secondary/5 px-4 py-2.5 text-sm">
+    <div className="rounded-card border border-brand-blue/25 bg-brand-blue/5 px-4 py-2.5 text-sm">
       <span className="font-semibold text-text-primary">Player Model Demo. </span>
       <span className="text-text-secondary">
         This experience uses fictional WR, RB, TE, and QB profiles with deterministic position-specific
@@ -65,7 +65,7 @@ export function PlayerSummaryHeader({ view }: { view: SharedPlayerModelView }) {
               <span aria-hidden>·</span>
               <span>{view.draftRound ? `Round ${view.draftRound}` : 'Undrafted'}</span>
             </div>
-            <div className="mt-1.5 text-xs text-secondary">{view.archetype}</div>
+            <div className="mt-1.5 text-xs text-brand-blue">{view.archetype}</div>
             {view.headerChips.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {view.headerChips.map((c, i) => (
@@ -137,8 +137,8 @@ export function HorizonSelector({
             className={cn(
               'min-h-[40px] shrink-0 rounded-full border px-3.5 py-2 text-sm font-medium transition',
               isSel
-                ? 'border-secondary/60 bg-secondary/15 text-text-primary'
-                : 'border-border-subtle text-text-secondary hover:text-text-primary',
+                ? 'border-brand-blue/60 bg-brand-blue/15 text-text-primary'
+                : 'border-border-default text-text-secondary hover:text-text-primary',
             )}
           >
             {h.label}
@@ -161,7 +161,7 @@ export function HorizonContext({ view }: { view: SharedPlayerModelView }) {
       )}
       <p className="mt-3 text-[11px] text-text-muted">
         Horizon composite (internal diagnostic):{' '}
-        <span className="font-mono tabnum text-text-secondary">{fmt1(view.compositeValue)}</span>. This
+        <span className="data text-text-secondary">{fmt1(view.compositeValue)}</span>. This
         is a component-profile summary, not a price, value, rating, or trade value.
       </p>
     </SectionCard>
@@ -195,7 +195,7 @@ function DriverRow({ text, code }: { text: string; code?: string }) {
   return (
     <li className="flex items-start gap-2 text-sm text-text-secondary">
       {code && (
-        <span className="mt-0.5 shrink-0 rounded bg-elevated px-1.5 py-0.5 font-mono text-[10px] font-semibold text-secondary">
+        <span className="mt-0.5 shrink-0 rounded bg-elevated px-1.5 py-0.5 data text-[10px] font-semibold text-brand-blue">
           {code}
         </span>
       )}
@@ -258,9 +258,9 @@ export function ConfidenceVolatilityPanel({ view }: { view: SharedPlayerModelVie
         {v.details.length > 0 && (
           <dl className="mt-2 grid grid-cols-2 gap-2">
             {v.details.map((d, i) => (
-              <div key={i} className="rounded-control border border-border-subtle bg-base px-2.5 py-1.5">
+              <div key={i} className="rounded-control border border-border-default bg-canvas px-2.5 py-1.5">
                 <dt className="text-[10px] uppercase tracking-wide text-text-muted">{d.label}</dt>
-                <dd className="font-mono text-sm tabnum text-text-primary">{d.value}</dd>
+                <dd className="data text-sm tabnum text-text-primary">{d.value}</dd>
               </div>
             ))}
           </dl>
@@ -315,8 +315,8 @@ export function ModelTransparencyFooter({
   children?: ReactNode;
 }) {
   return (
-    <footer className="rounded-card border border-border-subtle bg-surface p-4">
-      <div className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-[11px] text-text-muted">
+    <footer className="rounded-card border border-border-default bg-surface p-4">
+      <div className="flex flex-wrap gap-x-4 gap-y-1 data text-[11px] text-text-muted">
         <span>schema {view.meta.schemaVersion}</span>
         <span>model {view.meta.modelVersion}</span>
         <span>reference {view.meta.referenceVersion}</span>

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useWatchlistActions } from '@/hooks/useRosterActions';
 import { useAppStore } from '@/store/useAppStore';
 import { cn } from '@/lib/ui';
+import { StarIcon } from '@/components/ui/icons';
 
 // Add/remove watch. Adding resolves the current price through the injected
 // service BEFORE committing (never records a placeholder price); the button
@@ -38,21 +39,23 @@ export function WatchlistButton({
         aria-pressed={watched}
         disabled={pending}
         className={cn(
-          'inline-flex items-center gap-1.5 rounded-control border font-semibold transition',
+          'inline-flex items-center gap-1.5 rounded-control border font-medium transition-colors duration-standard',
           size === 'sm' ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-sm',
           pending && 'cursor-wait opacity-60',
+          // Watching is a state the reader chose, so it takes the brand accent
+          // rather than the market's green, which would read as "value is up".
           watched
-            ? 'border-up/40 bg-up/10 text-up'
-            : 'border-border-subtle text-text-secondary hover:border-secondary/50 hover:text-text-primary',
+            ? 'border-brand-blue/40 bg-brand-blue/10 text-text-primary'
+            : 'border-border-default text-text-secondary hover:border-border-strong hover:text-text-primary',
         )}
       >
-        <span aria-hidden>{watched ? '★' : '☆'}</span>
+        <StarIcon size={size === 'sm' ? 13 : 15} filled={watched} className={watched ? 'text-brand-blue' : undefined} />
         {pending ? 'Adding…' : watched ? 'Watching' : 'Watch'}
       </button>
       {toast && (
         <span
           role="status"
-          className="absolute left-1/2 top-full z-20 mt-1 -translate-x-1/2 whitespace-nowrap rounded-control border border-border-subtle bg-elevated px-2 py-1 text-[11px] text-text-secondary shadow-elevated"
+          className="absolute left-1/2 top-full z-20 mt-1 -translate-x-1/2 whitespace-nowrap rounded-control border border-border-default bg-elevated px-2 py-1 text-[11px] text-text-secondary shadow-elevated"
         >
           {toast}
         </span>

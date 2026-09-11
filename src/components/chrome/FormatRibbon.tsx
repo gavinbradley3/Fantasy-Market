@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { FORMATS } from '@/config/market';
 import { useAppStore } from '@/store/useAppStore';
 import { cn } from '@/lib/ui';
+import { ChevronDownIcon } from '@/components/ui/icons';
 import type { FormatKey } from '@/types/market';
 
 // The Format Ribbon (§13). One control, three switches. Because all six combos
@@ -58,16 +59,18 @@ export function FormatRibbon({ compact = false }: { compact?: boolean }) {
     legend: string;
   }) => (
     <fieldset className="flex flex-col gap-1">
-      <legend className="mb-1 text-[11px] uppercase tracking-wide text-text-muted">{legend}</legend>
-      <div className="flex gap-1 rounded-control bg-base p-1">
+      <legend className="eyebrow mb-1">{legend}</legend>
+      <div className="flex gap-1 rounded-control border border-border-default bg-canvas p-1">
         {options.map((o) => (
           <button
             key={o.v}
             onClick={() => onChange(o.v)}
             aria-pressed={value === o.v}
             className={cn(
-              'flex-1 rounded px-3 py-1.5 text-sm transition',
-              value === o.v ? 'bg-secondary/20 text-text-primary' : 'text-text-secondary hover:text-text-primary',
+              'flex-1 rounded-[6px] px-3 py-1.5 text-[13px] font-medium transition-colors duration-standard',
+              value === o.v
+                ? 'bg-brand-blue/15 text-text-primary'
+                : 'text-text-muted hover:text-text-primary',
             )}
           >
             {o.label}
@@ -83,18 +86,13 @@ export function FormatRibbon({ compact = false }: { compact?: boolean }) {
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         aria-haspopup="dialog"
-        className={cn(
-          'flex items-center gap-1.5 rounded-full border border-border-subtle bg-elevated px-3 py-1.5 font-mono text-xs text-text-secondary transition hover:text-text-primary',
-        )}
+        // The old green diamond spent a status colour on decoration; the control
+        // reads fine without it.
+        className="flex items-center gap-1.5 rounded-control border border-border-default bg-surface px-2.5 py-1.5 text-[13px] text-text-secondary transition-colors duration-standard hover:border-border-strong hover:text-text-primary"
         title={FORMATS[format].label}
       >
-        <span className="text-up" aria-hidden>
-          ◆
-        </span>
         {compact ? FORMATS[format].short : FORMATS[format].label}
-        <span aria-hidden className="text-text-muted">
-          ▾
-        </span>
+        <ChevronDownIcon size={14} className="text-text-faint" />
       </button>
       {open && (
         <>
@@ -102,7 +100,7 @@ export function FormatRibbon({ compact = false }: { compact?: boolean }) {
           <div
             role="dialog"
             aria-label="Choose fantasy format"
-            className="absolute right-0 z-50 mt-2 w-72 space-y-3 rounded-card border border-border-subtle bg-surface p-4 shadow-elevated"
+            className="absolute right-0 z-50 mt-2 w-72 space-y-3 rounded-card border border-border-default bg-surface p-4 shadow-elevated"
           >
             <p className="text-xs text-text-secondary">
               Values are format-specific. Switching re-computes prices, ranks, and signals instantly.

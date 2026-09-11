@@ -1,3 +1,5 @@
+@import './theme.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -12,15 +14,15 @@
   }
 
   body {
-    @apply bg-base text-text-primary font-body antialiased;
+    @apply bg-canvas font-ui text-text-primary antialiased;
     margin: 0;
     min-height: 100vh;
-    font-size: 15px;
+    font-size: 14px;
     line-height: 1.5;
   }
 
-  /* Tabular numerals everywhere numbers matter (§21.2) — prevents layout jitter
-     on price flashes. */
+  /* Tabular numerals everywhere numbers matter — prevents column jitter when a
+     value updates. */
   .tabnum {
     font-variant-numeric: tabular-nums;
   }
@@ -29,29 +31,57 @@
   h2,
   h3,
   h4 {
-    @apply font-display;
+    @apply font-ui;
     font-weight: 600;
     line-height: 1.2;
+    letter-spacing: -0.01em;
   }
 
-  /* Visible 2px focus ring on all interactives (§31). */
+  h1 {
+    letter-spacing: -0.02em;
+  }
+
+  /* Keyboard focus stays visible on every interactive surface. */
   :focus-visible {
-    outline: 2px solid #7c8cf8;
+    outline: 2px solid var(--pt-border-focus);
     outline-offset: 2px;
     border-radius: 4px;
   }
 
   ::selection {
-    background: rgba(124, 140, 248, 0.35);
+    background: rgba(123, 97, 255, 0.32);
+  }
+}
+
+@layer components {
+  /* The two panel treatments the product uses. Anything that is not one of these
+     should not be wrapped in a container at all. */
+  .panel {
+    @apply rounded-card border border-border-default bg-surface;
+  }
+
+  /* Dense data zones sit flatter and darker than a standard panel. */
+  .panel-dense {
+    @apply rounded-card border border-border-default bg-surface-subtle;
+  }
+
+  /* Section label above a group of rows or tiles. */
+  .eyebrow {
+    @apply text-[11px] font-semibold uppercase tracking-[0.08em] text-text-muted;
   }
 }
 
 @layer utilities {
-  .ticker {
-    @apply font-mono uppercase tracking-[0.05em] tabnum;
+  /* Market data: Outfit, tabular, slightly tightened. */
+  .data {
+    @apply font-data tabnum;
+    letter-spacing: -0.01em;
   }
 
-  /* Thin custom scrollbars for the horizontal rails. */
+  .ticker {
+    @apply font-data uppercase tracking-[0.06em] tabnum;
+  }
+
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
@@ -60,13 +90,13 @@
     scrollbar-width: none;
   }
 
-  /* Safe-area padding for the mobile bottom nav (§21.7). */
+  /* Safe-area padding for the mobile bottom nav. */
   .pb-safe {
     padding-bottom: max(env(safe-area-inset-bottom), 0px);
   }
 }
 
-/* The Tape marquee (§21.8). Respects reduced motion — becomes a static row. */
+/* The Tape marquee. Respects reduced motion — becomes a static row. */
 @keyframes tape-scroll {
   from {
     transform: translateX(0);
@@ -83,10 +113,10 @@
   animation-play-state: paused;
 }
 
-/* Price-change flash (§21.6). */
+/* Row highlight when a published value changes. */
 @keyframes flash-up {
   from {
-    background-color: rgba(45, 212, 167, 0.12);
+    background-color: rgba(62, 213, 152, 0.1);
   }
   to {
     background-color: transparent;
@@ -94,14 +124,14 @@
 }
 @keyframes flash-down {
   from {
-    background-color: rgba(240, 82, 106, 0.12);
+    background-color: rgba(255, 107, 107, 0.1);
   }
   to {
     background-color: transparent;
   }
 }
 
-/* Sparkline draw-in on first paint only (§21.6). */
+/* Sparkline draw-in on first paint only. */
 @keyframes spark-draw {
   from {
     stroke-dashoffset: var(--spark-len, 200);

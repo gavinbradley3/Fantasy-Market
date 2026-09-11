@@ -4,7 +4,7 @@ import { Footer } from '@/components/chrome/Footer';
 export default function LegalPage() {
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold text-text-primary">Legal & Disclaimers</h1>
+      <h1 className="text-[26px] font-bold leading-tight text-text-primary">Legal & Disclaimers</h1>
 
       <Section title="Fictional value">
         Market prices on PlayerTicker are fictional fantasy value indexes. They are not real money,
@@ -28,7 +28,7 @@ export default function LegalPage() {
       <Section title="Demo data">
         During the MVP, all values are simulated by our market engine from authored inputs. No live or
         licensed data source is connected. See the{' '}
-        <Link to="/methodology" className="text-secondary hover:underline">Methodology</Link> page for the
+        <Link to="/methodology" className="text-brand-blue hover:underline">Methodology</Link> page for the
         full explanation of what is simulated.
       </Section>
 
@@ -45,7 +45,7 @@ export default function LegalPage() {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-card border border-border-subtle bg-surface p-4">
+    <section className="rounded-card border border-border-default bg-surface p-4">
       <h2 className="mb-2 text-base font-semibold text-text-primary">{title}</h2>
       <p className="text-sm leading-relaxed text-text-secondary">{children}</p>
     </section>

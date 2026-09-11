@@ -45,13 +45,13 @@ export function SearchOverlay({ open, onClose }: { open: boolean; onClose: () =>
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-start justify-center bg-base/80 px-4 pt-20 backdrop-blur-sm"
+      className="fixed inset-0 z-[60] flex items-start justify-center bg-canvas/80 px-4 pt-[12vh] backdrop-blur-sm"
       onClick={onClose}
       role="dialog"
       aria-label="Search players"
     >
       <div
-        className="w-full max-w-lg overflow-hidden rounded-card border border-border-subtle bg-surface shadow-elevated"
+        className="w-full max-w-lg overflow-hidden rounded-card border border-border-default bg-surface shadow-elevated"
         onClick={(e) => e.stopPropagation()}
       >
         <input
@@ -71,23 +71,23 @@ export function SearchOverlay({ open, onClose }: { open: boolean; onClose: () =>
             if (e.key === 'Enter' && results[active]) go(results[active].ticker);
           }}
           placeholder="Search players by name or ticker…"
-          className="w-full bg-transparent px-4 py-4 text-text-primary outline-none placeholder:text-text-muted"
+          className="w-full bg-transparent px-4 py-3.5 text-[15px] text-text-primary outline-none placeholder:text-text-faint"
         />
         {results.length > 0 && (
-          <ul className="max-h-80 overflow-y-auto border-t border-border-subtle">
+          <ul className="max-h-80 overflow-y-auto border-t border-border-default">
             {results.map((r, i) => (
               <li key={r.ticker}>
                 <button
                   onMouseEnter={() => setActive(i)}
                   onClick={() => go(r.ticker)}
                   className={cn(
-                    'flex w-full items-center gap-3 px-4 py-2.5 text-left transition',
-                    i === active ? 'bg-elevated' : 'hover:bg-elevated/60',
+                    'flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors duration-standard',
+                    i === active ? 'bg-elevated' : 'hover:bg-elevated',
                   )}
                 >
                   <PositionGlyph position={r.position} />
-                  <span className="flex-1 text-sm text-text-primary">{r.name}</span>
-                  <span className="text-xs text-text-muted">{r.team}</span>
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-text-primary">{r.name}</span>
+                  <span className="shrink-0 text-xs uppercase tracking-wide text-text-muted">{r.team}</span>
                   <TickerChip ticker={r.ticker} />
                 </button>
               </li>
@@ -95,12 +95,12 @@ export function SearchOverlay({ open, onClose }: { open: boolean; onClose: () =>
           </ul>
         )}
         {debouncedQ.trim() && status === 'error' && (
-          <p className="border-t border-border-subtle px-4 py-6 text-center text-sm text-down">
+          <p className="border-t border-border-default px-4 py-6 text-center text-sm text-negative">
             Search is unavailable right now — try again.
           </p>
         )}
         {debouncedQ.trim() && status === 'success' && results.length === 0 && (
-          <p className="border-t border-border-subtle px-4 py-6 text-center text-sm text-text-muted">
+          <p className="border-t border-border-default px-4 py-6 text-center text-sm text-text-muted">
             No players match “{debouncedQ}”.
           </p>
         )}
