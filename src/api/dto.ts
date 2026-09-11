@@ -12,6 +12,8 @@ import type {
   SchedulerStatus,
 } from '@/application';
 import type { PublicationBundle, RefreshRunView } from '@/persistence';
+import type { MarketFormat, MarketSnapshot } from '@/market/types';
+import { MARKET_ATTRIBUTION, type MarketAttribution } from './marketAttribution';
 import {
   projectPublishedPlayer,
   withPositionalRanks,
@@ -72,6 +74,58 @@ export interface BoardEntryResponse extends PublishedPlayerProjection {
 export interface PublicationResponse {
   readonly publication: PublicationMetadata;
   readonly entries: readonly BoardEntryResponse[];
+}
+
+// ---- external market ----
+
+/**
+ * One external market quote, projected.
+ *
+ * DELIBERATELY NARROWER THAN STORAGE. `sourcePlayerId`, `sourceConsensusRank`,
+ * `sourcePosition` and `sourceTeam` are retained in the database for audit but are NOT
+ * exposed here: re-serving another party's id space and expert-consensus ranks over HTTP
+ * would be redistributing their dataset rather than showing a comparison. PlayerTicker
+ * publishes only what it actually compares against.
+ *
+ * `source` and `format` repeat on every record even though the envelope carries them, so a
+ * quote lifted out of its response still says who published it and in which lens.
+ */
+export interface MarketQuoteResponse {
+  readonly canonicalPlayerId: string;
+  readonly source: string;
+  readonly format: MarketFormat;
+  /** The source's own scale. `null` means the source published no value — never 0. */
+  readonly value: number | null;
+  readonly overallRank: number | null;
+  readonly positionRank: number | null;
+  /** The instant the SOURCE says this quote is for. */
+  readonly sourceTimestamp: string;
+  /** The instant PlayerTicker captured it. */
+  readonly ingestedAt: string;
+  readonly freshness: string;
+  readonly provenance: string;
+}
+
+/** GET /market — the latest quote per player from one external source, plus its attribution. */
+export interface MarketResponse {
+  readonly source: string;
+  readonly format: MarketFormat;
+  /** Who published these numbers, under what terms. Never omitted. */
+  readonly attribution: MarketAttribution;
+  /** The newest source stamp across the returned quotes, or null when there are none. */
+  readonly sourceTimestamp: string | null;
+  /** The source's own dataset version for the newest quote, when it publishes one. */
+  readonly sourceVersion: string | null;
+  /** The newest capture instant held, or null. */
+  readonly capturedAt: string | null;
+  /**
+   * How many distinct captures are stored. A consumer needs this before offering ANY movement
+   * window: with one capture there is nothing to compare against, so a "7-day change" would
+   * be invented rather than measured.
+   */
+  readonly captureCount: number;
+  readonly quoteCount: number;
+  readonly quotes: readonly MarketQuoteResponse[];
 }
 
 /** One projected source outcome for a run (no serialized payloads). */
@@ -160,3 +214,42 @@ export function toRunResponse(view: RefreshRunView): RunResponse {
 
 export type { HealthReport, SchedulerStatus, PublicationMetadata, RefreshExecutionResult };
 export type { PublishedCompositesResponse, PublishedPlayerProjection } from './publicationProjection';
+
+/** Project stored market snapshots onto the read-only wire shape. */
+export function toMarketResponse(
+  source: string,
+  format: MarketFormat,
+  snapshots: readonly MarketSnapshot[],
+  captureInstants: readonly string[],
+): MarketResponse {
+  // The newest quote decides the response's headline stamps. `getLatestMarketSnapshots`
+  // returns one row per player and a player the last capture omitted keeps an older row, so
+  // the maximum is taken rather than the first row's value.
+  let newest: MarketSnapshot | null = null;
+  for (const s of snapshots) {
+    if (newest === null || s.sourceTimestamp > newest.sourceTimestamp) newest = s;
+  }
+
+  return {
+    source,
+    format,
+    attribution: MARKET_ATTRIBUTION[source] ?? MARKET_ATTRIBUTION.unknown,
+    sourceTimestamp: newest?.sourceTimestamp ?? null,
+    sourceVersion: newest?.sourceVersion ?? null,
+    capturedAt: captureInstants.length > 0 ? captureInstants[captureInstants.length - 1] : null,
+    captureCount: captureInstants.length,
+    quoteCount: snapshots.length,
+    quotes: snapshots.map((s) => ({
+      canonicalPlayerId: s.canonicalPlayerId,
+      source: s.source,
+      format: s.format,
+      value: s.value,
+      overallRank: s.overallRank,
+      positionRank: s.positionRank,
+      sourceTimestamp: s.sourceTimestamp,
+      ingestedAt: s.ingestedAt,
+      freshness: s.freshness,
+      provenance: s.provenance,
+    })),
+  };
+}

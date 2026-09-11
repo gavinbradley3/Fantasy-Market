@@ -9,6 +9,10 @@
 // Node-only. Synchronous (node:sqlite is synchronous), which keeps transactions simple.
 
 import type { NormalizedSnapshot } from '@/ingestion';
+// TYPE-ONLY, and deliberately the types module rather than the `@/market` barrel: persistence
+// stores market snapshots but must not pull in the market adapters or their network code.
+// The import is erased at compile time, so it adds nothing to the persistence runtime.
+import type { MarketFormat, MarketSnapshot } from '@/market/types';
 import type { NormalizedInferenceInput } from '@/inference/production/types';
 import type { RawPayloadEnvelope } from '@/transport';
 import {
@@ -53,6 +57,30 @@ function bool(v: unknown): boolean {
 function bit(v: boolean): number {
   return v ? 1 : 0;
 }
+/**
+ * Row → domain. Nullable columns stay null: the difference between "the source published no
+ * value" and "the source published 0" is real, and coercing here would erase it forever.
+ */
+function mapMarketSnapshot(r: Record<string, unknown>): MarketSnapshot {
+  return {
+    canonicalPlayerId: r.canonical_player_id as string,
+    source: r.source as string,
+    format: r.format as MarketFormat,
+    value: (r.value as number | null) ?? null,
+    overallRank: (r.overall_rank as number | null) ?? null,
+    positionRank: (r.position_rank as number | null) ?? null,
+    sourceConsensusRank: (r.source_consensus_rank as number | null) ?? null,
+    sourcePlayerId: (r.source_player_id as string | null) ?? null,
+    sourcePosition: (r.source_position as string | null) ?? null,
+    sourceTeam: (r.source_team as string | null) ?? null,
+    sourceTimestamp: r.source_timestamp as string,
+    sourceVersion: (r.source_version as string | null) ?? null,
+    ingestedAt: r.ingested_at as string,
+    freshness: r.freshness as MarketSnapshot['freshness'],
+    provenance: r.provenance as MarketSnapshot['provenance'],
+  };
+}
+
 function assertSchema(supported: ReadonlySet<string>, version: string, artifact: string): void {
   if (!supported.has(version)) {
     throw new PersistenceError('UNSUPPORTED_PERSISTED_SCHEMA', `unsupported ${artifact} schema version ${version}`, { stage: 'read', detail: version });
@@ -625,6 +653,109 @@ export class PersistenceStore {
       engineVersion: input.engine_version as string,
       createdAt: input.created_at as string,
     };
+  }
+
+  // ---------------------------------------------------------------------------
+  // External dynasty market snapshots (migration 4).
+  //
+  // These rows are NOT PlayerTicker valuations. They are what an external source says a
+  // player is worth, stored beside the model rather than mixed into it, and every row keeps
+  // the attribution needed to say who published it.
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Append a capture. Returns the number of rows actually written.
+   *
+   * APPEND, NOT UPSERT. `ingested_at` is part of the key, so a capture at a new instant is
+   * always a new row and the previous one is untouched — which is the only reason movement
+   * over time can be computed at all.
+   *
+   * The conflict clause NAMES the primary key rather than using a blanket `INSERT OR IGNORE`:
+   * re-running the identical capture must be a no-op, but a row that violates NOT NULL is a
+   * defect and has to be heard. `OR IGNORE` would swallow both indistinguishably, quietly
+   * writing a capture with players missing from it.
+   *
+   * The whole batch is one transaction: a half-written capture would look, to any movement
+   * query, like a market in which two thirds of the league moved at once.
+   */
+  appendMarketSnapshots(snapshots: readonly MarketSnapshot[]): number {
+    if (snapshots.length === 0) return 0;
+    return this.runInTransaction(() => {
+      const stmt = this.db.prepare(`
+        INSERT INTO market_snapshot (
+          canonical_player_id, source, format, ingested_at, value, overall_rank, position_rank,
+          source_consensus_rank, source_player_id, source_position, source_team,
+          source_timestamp, source_version, freshness, provenance
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        ON CONFLICT (canonical_player_id, source, format, ingested_at) DO NOTHING
+      `);
+      let written = 0;
+      for (const s of snapshots) {
+        const res = stmt.run(
+          s.canonicalPlayerId, s.source, s.format, s.ingestedAt, s.value,
+          s.overallRank, s.positionRank, s.sourceConsensusRank, s.sourcePlayerId,
+          s.sourcePosition, s.sourceTeam, s.sourceTimestamp, s.sourceVersion,
+          s.freshness, s.provenance,
+        );
+        written += Number(res.changes);
+      }
+      return written;
+    });
+  }
+
+  /** Every snapshot for one player/source/format, OLDEST FIRST — the movement series. */
+  getMarketSnapshotHistory(canonicalPlayerId: string, source: string, format: MarketFormat): MarketSnapshot[] {
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM market_snapshot
+          WHERE canonical_player_id = ? AND source = ? AND format = ?
+          ORDER BY ingested_at ASC`,
+      )
+      .all(canonicalPlayerId, source, format) as Record<string, unknown>[];
+    return rows.map(mapMarketSnapshot);
+  }
+
+  /**
+   * The most recent snapshot PER PLAYER for one source/format, best rank first.
+   *
+   * Per player, not per capture: a player the latest capture happened to omit keeps their
+   * last known value with its own older `ingestedAt`, rather than vanishing from the market.
+   * The timestamp on each row says how old it is, so staleness stays visible.
+   */
+  getLatestMarketSnapshots(source: string, format: MarketFormat): MarketSnapshot[] {
+    const rows = this.db
+      .prepare(
+        `SELECT s.* FROM market_snapshot s
+           JOIN (
+             SELECT canonical_player_id, MAX(ingested_at) AS m
+               FROM market_snapshot WHERE source = ? AND format = ?
+              GROUP BY canonical_player_id
+           ) t
+             ON t.canonical_player_id = s.canonical_player_id AND t.m = s.ingested_at
+          WHERE s.source = ? AND s.format = ?
+          ORDER BY s.overall_rank IS NULL, s.overall_rank ASC, s.canonical_player_id ASC`,
+      )
+      .all(source, format, source, format) as Record<string, unknown>[];
+    return rows.map(mapMarketSnapshot);
+  }
+
+  /** The distinct capture instants held for a source/format — the snapshot timeline. */
+  getMarketCaptureInstants(source: string, format: MarketFormat): string[] {
+    const rows = this.db
+      .prepare(
+        `SELECT DISTINCT ingested_at FROM market_snapshot
+          WHERE source = ? AND format = ? ORDER BY ingested_at ASC`,
+      )
+      .all(source, format) as Record<string, unknown>[];
+    return rows.map((r) => r.ingested_at as string);
+  }
+
+  /** Distinct (source, format) pairs that hold at least one snapshot. */
+  getMarketSources(): { source: string; format: MarketFormat }[] {
+    const rows = this.db
+      .prepare('SELECT DISTINCT source, format FROM market_snapshot ORDER BY source ASC, format ASC')
+      .all() as Record<string, unknown>[];
+    return rows.map((r) => ({ source: r.source as string, format: r.format as MarketFormat }));
   }
 
   /** Defensive: assert the open DB is a version this build supports. */

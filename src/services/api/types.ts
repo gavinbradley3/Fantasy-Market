@@ -94,6 +94,44 @@ export interface ApiPublicationResponse {
   readonly entries: readonly ApiBoardEntry[];
 }
 
+/** Who published a set of market values, under what terms. Never optional. */
+export interface ApiMarketAttribution {
+  readonly publisher: string;
+  readonly url: string;
+  readonly licence: string;
+  readonly derivedFrom: string | null;
+  readonly refreshCadence: string;
+  readonly usage: string;
+}
+
+/** One external market quote, as the API serves it. */
+export interface ApiMarketQuote {
+  readonly canonicalPlayerId: string;
+  readonly source: string;
+  readonly format: 'dynasty_superflex' | 'dynasty_1qb';
+  /** `null` means the source published no value for this player — never 0. */
+  readonly value: number | null;
+  readonly overallRank: number | null;
+  readonly positionRank: number | null;
+  readonly sourceTimestamp: string;
+  readonly ingestedAt: string;
+  readonly freshness: string;
+  readonly provenance: string;
+}
+
+/** `GET /market` — the latest external market quotes, with their attribution. */
+export interface ApiMarketResponse {
+  readonly source: string;
+  readonly format: 'dynasty_superflex' | 'dynasty_1qb';
+  readonly attribution: ApiMarketAttribution;
+  readonly sourceTimestamp: string | null;
+  readonly sourceVersion: string | null;
+  readonly capturedAt: string | null;
+  readonly captureCount: number;
+  readonly quoteCount: number;
+  readonly quotes: readonly ApiMarketQuote[];
+}
+
 /** `GET /health` — the backend's deterministic self-report. */
 export interface ApiHealthResponse {
   readonly status: 'ok' | 'degraded';

@@ -153,6 +153,20 @@ describe('adaptDynastyProcess — values and ranks', () => {
       expect(s.source).toBe(DYNASTYPROCESS_SOURCE);
     }
   });
+
+  it('retains the source dataset version verbatim, on the batch and on every row', () => {
+    // `scrape_date` as the source spelled it — the thread back to the exact published file.
+    const batch = adaptDynastyProcess(VALUE_ROWS, ID_ROWS, opts());
+    expect(batch.sourceVersion).toBe('2026-09-11');
+    for (const s of batch.snapshots) expect(s.sourceVersion).toBe('2026-09-11');
+  });
+
+  it('reports no version rather than a fabricated one when the source publishes none', () => {
+    const rows = VALUE_ROWS.map((r) => ({ ...r, scrape_date: undefined }));
+    const batch = adaptDynastyProcess(rows, ID_ROWS, opts());
+    expect(batch.sourceVersion).toBeNull();
+    for (const s of batch.snapshots) expect(s.sourceVersion).toBeNull();
+  });
 });
 
 describe('adaptDynastyProcess — freshness', () => {

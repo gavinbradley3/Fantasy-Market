@@ -67,6 +67,7 @@ export function composeApi(config: ApiCompositionConfig): ComposedApi {
     scheduler,
     publications: store,
     runs: store,
+    market: store,
     transport: config.transport,
     nowIso: config.nowIso,
   });

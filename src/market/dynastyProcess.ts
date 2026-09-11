@@ -109,6 +109,8 @@ export function adaptDynastyProcess(
 
   const rejections: MarketRejection[] = [];
   const seen = new Set<string>();
+  // The source's own version string for this batch — `scrape_date` exactly as published.
+  let latestSourceVersion: string | null = null;
 
   // Pass 1 — resolve identity and validate values.
   interface Pending {
@@ -189,9 +191,11 @@ export function adaptDynastyProcess(
     }
     seen.add(dupKey);
 
+    const sourceVersion = row.scrape_date?.trim() || null;
     const sourceTimestamp = parseScrapeDate(row.scrape_date) ?? options.ingestedAt;
     if (latestSourceStamp === null || sourceTimestamp > latestSourceStamp) {
       latestSourceStamp = sourceTimestamp;
+      latestSourceVersion = sourceVersion;
     }
 
     const ageMs = Date.parse(options.ingestedAt) - Date.parse(sourceTimestamp);
@@ -213,6 +217,7 @@ export function adaptDynastyProcess(
         sourcePosition: position,
         sourceTeam: row.team?.trim() || null,
         sourceTimestamp,
+        sourceVersion,
         ingestedAt: options.ingestedAt,
         freshness,
         provenance: 'external',
@@ -247,6 +252,7 @@ export function adaptDynastyProcess(
     source: DYNASTYPROCESS_SOURCE,
     format: options.format,
     sourceTimestamp: latestSourceStamp ?? options.ingestedAt,
+    sourceVersion: latestSourceVersion,
     ingestedAt: options.ingestedAt,
     snapshots,
     rejections,

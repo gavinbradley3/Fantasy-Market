@@ -24,7 +24,8 @@
     "pipeline:readiness-audit": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/readiness-audit.ts --now 2026-07-01T00:00:00.000Z",
     "ingest": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/ingest-nflverse.ts",
     "ingest:verify": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/ingest-nflverse.ts --verify-replay",
-    "market:probe": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/market-probe.ts"
+    "ingest:market": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/ingest-market.ts",
+    "verify:sleeper": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/verify-sleeper.ts"
   },
   "dependencies": {
     "react": "^18.3.1",

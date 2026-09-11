@@ -4,7 +4,8 @@
 
 import type { PublicationBundle, PublicationRecord, RefreshRunView } from '@/persistence';
 import type { SchedulerExecutionResult, SchedulerMetricsSnapshot, SchedulerState } from '@/scheduler';
-import type { PublicationReadPort, RunHistoryPort, SchedulerPort, TransportConfigDescriptor } from './types';
+import type { MarketReadPort, PublicationReadPort, RunHistoryPort, SchedulerPort, TransportConfigDescriptor } from './types';
+import type { MarketFormat, MarketSnapshot } from '@/market/types';
 
 export function execResult(over: Partial<SchedulerExecutionResult> = {}): SchedulerExecutionResult {
   return {
@@ -112,7 +113,7 @@ export function pubRecord(over: Partial<PublicationRecord> = {}): PublicationRec
   };
 }
 
-export class FakeStore implements PublicationReadPort, RunHistoryPort {
+export class FakeStore implements PublicationReadPort, RunHistoryPort, MarketReadPort {
   current: PublicationRecord | null = pubRecord();
   currentBundle: PublicationBundle | null = null;
   byId = new Map<string, PublicationRecord>([['pub-1', pubRecord()]]);
@@ -143,6 +144,33 @@ export class FakeStore implements PublicationReadPort, RunHistoryPort {
   getRefreshRun(runId: string): RefreshRunView | null {
     this.guard('getRefreshRun');
     return this.runs.get(runId) ?? null;
+  }
+
+  // --- MarketReadPort. Keyed by `${source}|${format}` so a test can prove the two formats
+  // never answer for each other. Empty by default: an un-ingested market is the normal
+  // starting state, not an error.
+  marketByKey = new Map<string, MarketSnapshot[]>();
+
+  getLatestMarketSnapshots(source: string, format: MarketFormat): MarketSnapshot[] {
+    this.guard('getLatestMarketSnapshots');
+    return this.marketByKey.get(`${source}|${format}`) ?? [];
+  }
+  getMarketSnapshotHistory(canonicalPlayerId: string, source: string, format: MarketFormat): MarketSnapshot[] {
+    this.guard('getMarketSnapshotHistory');
+    return (this.marketByKey.get(`${source}|${format}`) ?? []).filter((s) => s.canonicalPlayerId === canonicalPlayerId);
+  }
+  getMarketCaptureInstants(source: string, format: MarketFormat): string[] {
+    this.guard('getMarketCaptureInstants');
+    return [...new Set((this.marketByKey.get(`${source}|${format}`) ?? []).map((s) => s.ingestedAt))].sort();
+  }
+  getMarketSources(): { source: string; format: MarketFormat }[] {
+    this.guard('getMarketSources');
+    return [...this.marketByKey.entries()]
+      .filter(([, v]) => v.length > 0)
+      .map(([k]) => {
+        const [source, format] = k.split('|');
+        return { source, format: format as MarketFormat };
+      });
   }
 }
 

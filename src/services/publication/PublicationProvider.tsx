@@ -92,7 +92,15 @@ export function PublicationProvider({ client, children }: { client?: ApiClient; 
   return <PublicationContext.Provider value={value}>{children}</PublicationContext.Provider>;
 }
 
-function usePublicationContext(): PublicationContextValue {
+/**
+ * The shared API client + query cache + lifecycle signal.
+ *
+ * Exported so a sibling read (the external market on `/board`) can reuse the SAME client,
+ * cache and abort signal rather than standing up a second provider around the tree. The
+ * context is named for publication because that is what it was built for; it is really "the
+ * backend seam", and a second one would mean two caches and two lifetimes to reason about.
+ */
+export function usePublicationContext(): PublicationContextValue {
   const ctx = useContext(PublicationContext);
   if (!ctx) throw new Error('usePublishedMarket must be used inside <PublicationProvider>');
   return ctx;

@@ -12,6 +12,7 @@ import { schedulerStatus } from './routes/scheduler';
 import { currentExecution, refreshHistory, triggerRefresh } from './routes/refresh';
 import { currentPublication, publicationById, publicationHistory } from './routes/publications';
 import { runByRunId } from './routes/history';
+import { currentMarket } from './routes/market';
 
 export interface RouteContext {
   readonly app: ApplicationService;
@@ -43,6 +44,7 @@ const ROUTES: readonly Route[] = [
   { method: 'GET', segments: seg('/publication'), handler: currentPublication },
   { method: 'GET', segments: seg('/publication/:id'), handler: publicationById },
   { method: 'GET', segments: seg('/history/:runId'), handler: runByRunId },
+  { method: 'GET', segments: seg('/market'), handler: currentMarket },
 ];
 
 /**

@@ -11,6 +11,12 @@ export { RefreshService, projectExecution } from './RefreshService';
 export { SchedulerService, type NextRunEstimator } from './SchedulerService';
 export { PublicationService } from './PublicationService';
 export { HistoryService } from './HistoryService';
+export {
+  MarketService,
+  DEFAULT_MARKET_FORMAT,
+  DEFAULT_MARKET_SOURCE,
+  isMarketFormat,
+} from './MarketService';
 export { HealthService } from './HealthService';
 export { InMemoryExecutionRecorder } from './recorder';
 export { ApplicationError, underlyingCode, type ApplicationErrorCode } from './errors';
@@ -19,6 +25,7 @@ export type {
   SchedulerPort,
   PublicationReadPort,
   RunHistoryPort,
+  MarketReadPort,
   ExecutionRecorderPort,
   ApplicationDependencies,
   // DTOs

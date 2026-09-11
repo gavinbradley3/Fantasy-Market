@@ -131,7 +131,9 @@ describe('migration v3 — provider dataset version', () => {
     const d = db();
     expect(migrate(d, '2026-01-01T00:00:00.000Z', 2)).toBe(2);
     expect(columns(d, 'raw_payload_artifact')).not.toContain('source_version');
-    expect(migrate(d, '2026-01-02T00:00:00.000Z')).toBe(3);
+    // The full upgrade lands on whatever the latest migration is — asserting a literal here
+    // would make every future migration look like a regression in the v2→v3 upgrade path.
+    expect(migrate(d, '2026-01-02T00:00:00.000Z')).toBe(LATEST_MIGRATION_VERSION);
     expect(columns(d, 'raw_payload_artifact')).toContain('source_version');
     d.close();
   });

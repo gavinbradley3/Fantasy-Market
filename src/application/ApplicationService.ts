@@ -5,6 +5,7 @@
 
 import { HealthService } from './HealthService';
 import { HistoryService } from './HistoryService';
+import { MarketService } from './MarketService';
 import { PublicationService } from './PublicationService';
 import { RefreshService } from './RefreshService';
 import { SchedulerService, type NextRunEstimator } from './SchedulerService';
@@ -27,6 +28,8 @@ export class ApplicationService {
   readonly publications: PublicationService;
   readonly history: HistoryService;
   readonly health: HealthService;
+  /** External dynasty market snapshots — read-only, and never mixed into a publication. */
+  readonly market: MarketService;
 
   constructor(deps: ApplicationDependencies, nextRunEstimator?: NextRunEstimator) {
     const nowIso = deps.nowIso ?? defaultNowIso;
@@ -37,6 +40,7 @@ export class ApplicationService {
     this.publications = new PublicationService(deps.publications);
     this.history = new HistoryService(deps.runs, recorder);
     this.health = new HealthService(deps.scheduler, deps.publications, deps.transport, nowIso);
+    this.market = new MarketService(deps.market);
   }
 
   // ---- convenience passthroughs (stable top-level API surface) ----

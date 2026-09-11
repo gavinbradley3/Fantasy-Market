@@ -23,8 +23,10 @@ export const SCHEMA_VERSIONS = {
   publication: 'publication/2', // v2: board-level publication (a complete run's player set)
 } as const;
 
-/** Migration version this build of the code understands. Reads reject a newer DB. */
-export const MIGRATION_VERSION = 2;
+// The migration version this build understands is NOT declared here. It is derived from the
+// migration list itself (`LATEST_MIGRATION_VERSION` in ./migrations), because a hand-written
+// copy of that number drifts the moment a migration is added — and a stale copy makes the
+// read-path guard reject databases this build wrote itself.
 
 // The supported set per artifact (a set so future versions can be added without a rewrite).
 export const SUPPORTED_RAW_ENVELOPE_SCHEMAS: ReadonlySet<string> = new Set([SCHEMA_VERSIONS.rawEnvelope]);

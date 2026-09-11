@@ -16,6 +16,7 @@ import type {
   ExecutionStatus,
 } from '@/scheduler';
 import type { PublicationBundle, PublicationRecord, RefreshRunView } from '@/persistence';
+import type { MarketFormat, MarketSnapshot } from '@/market/types';
 
 // ---------------------------------------------------------------------------
 // Ports — the only surfaces the application services consume.
@@ -38,6 +39,19 @@ export interface PublicationReadPort {
   getPublicationRecord(publicationId: string): PublicationRecord | null;
   getPublicationHistory(limit?: number): PublicationRecord[];
   getCurrentPublication(): PublicationBundle | null;
+}
+
+/**
+ * Read-only EXTERNAL market surface, satisfied structurally by `PersistenceStore`.
+ *
+ * Read-only on purpose: ingestion is a deliberate, logged batch job, not something an API
+ * request can trigger. Nothing behind this port can write a market value.
+ */
+export interface MarketReadPort {
+  getLatestMarketSnapshots(source: string, format: MarketFormat): MarketSnapshot[];
+  getMarketSnapshotHistory(canonicalPlayerId: string, source: string, format: MarketFormat): MarketSnapshot[];
+  getMarketCaptureInstants(source: string, format: MarketFormat): string[];
+  getMarketSources(): { source: string; format: MarketFormat }[];
 }
 
 /** Read-only refresh-run surface, satisfied structurally by `PersistenceStore`. */
@@ -155,6 +169,7 @@ export interface ApplicationDependencies {
   readonly scheduler: SchedulerPort;
   readonly publications: PublicationReadPort;
   readonly runs: RunHistoryPort;
+  readonly market: MarketReadPort;
   readonly transport: TransportConfigDescriptor;
   /** Optional: defaults to an in-memory recorder. */
   readonly recorder?: ExecutionRecorderPort;

@@ -113,6 +113,8 @@ npm run generate:te-goldens   # regenerate TE golden fixtures (only after formul
 npm run serve:api        # local internal HTTP API → http://127.0.0.1:8787
 npm run ingest -- --seasons 2025          # ingest nflverse's CURRENT releases, publish a board
 npm run ingest -- --seasons 2025 --mode replay   # re-run from captured payloads, no network
+npm run ingest:market    # append a capture of DynastyProcess dynasty Superflex values
+npm run verify:sleeper   # check Sleeper reachability + schema (run OUTSIDE a restricted sandbox)
 ```
 
 ### Ingesting real nflverse data
@@ -186,10 +188,17 @@ No host or port is hard-coded in frontend source. See
 - **Stack:** React 18 · Vite · TypeScript · Tailwind · React Router · Zustand · Recharts · Vitest.
   Browser-side persistence is versioned `localStorage`; the internal HTTP API (Node) is a separate
   process the app reaches over HTTP only.
-- **Two data paths, deliberately separate.**
+- **Three data paths, deliberately separate.**
   - *The published market* (`/board`): `GET /publication` → `src/services/api` (browser-safe HTTP
     client) → `src/services/publication` (adapter + `usePublishedMarket`) → the page. This is real
     backend data and has **no demo fallback** — an API failure shows an error state.
+  - *External market context* (the market columns on `/board`): `GET /market` → `src/services/api`
+    → `src/services/market` (adapter + `useExternalMarket`) → the page. These are **somebody
+    else's numbers** (DynastyProcess dynasty Superflex), stored in their own `market_snapshot`
+    table, served with a required attribution envelope, and shown beside PlayerTicker's
+    valuations — never merged into them. The market read is supplementary: if it fails, the
+    board still renders its own valuations and the market columns show "—". See
+    [`docs/MARKET_DATA_SOURCES.md`](docs/MARKET_DATA_SOURCES.md).
   - *The Demo Market* (`/market` movers, stock card, watchlist, portfolio): the `MarketDataService`
     interface, injected at the composition root (`src/main.tsx`) as `LiveMarketDataService`, which
     wraps the deterministic `MockMarketDataService` core and overlays Sleeper metadata. These
@@ -240,6 +249,28 @@ No host or port is hard-coded in frontend source. See
 - The accessible-data model's scoring anchors are **authored football judgments, not parameters
   fitted to realized fantasy outcomes**. They are transparent and individually checkable, but they
   are not empirically calibrated; see §10 of the model spec for the full limitation list.
+- **External market values are external.** The market columns on `/board` carry DynastyProcess
+  dynasty Superflex ranks, derived from FantasyPros expert consensus. They are an external
+  comparison source, not PlayerTicker-owned data, and the response carries that attribution as a
+  required field. The upstream rights for **public re-publication** of those values are
+  unresolved, so there is no export endpoint, no bulk dump, and no re-serving of the upstream id
+  space or its consensus ranks. The source refreshes **weekly**, so no 1H or 24H market movement
+  is offered, and no movement at all is shown until two captures exist to measure between.
+  Coverage is partial — 349 of 616 board players at the time of writing — and an uncovered player
+  renders as "—", never as a zero. See [`docs/MARKET_DATA_SOURCES.md`](docs/MARKET_DATA_SOURCES.md).
+- **Model and market are compared on order, never on raw value.** A PlayerTicker dynasty
+  composite is a 0–100 model score; a DynastyProcess Superflex value is a ~0–10,000 trade-currency
+  number. Subtracting them computes cleanly and means nothing, so the board compares **ranks and
+  percentiles** — which both sides genuinely express — and carries each raw value labelled with
+  its own side. The comparison is always dynasty-vs-dynasty, whatever horizon the board is sorted
+  by.
+- **Sleeper is optional and PFF is not a dependency.** No valuation input requires Sleeper; it
+  supplies identity and metadata enrichment only, and its trending adds/drops are activity
+  signals that are never converted into market values
+  ([`docs/SLEEPER_INTEGRATION.md`](docs/SLEEPER_INTEGRATION.md)). Model interfaces name football
+  concepts, not vendors, with the provider carried on a separate provenance axis — so a future
+  licensed source can be added without touching an engine interface, and none is required today
+  ([`docs/FUTURE_DATA_MAP.md`](docs/FUTURE_DATA_MAP.md)).
 - No scraping of proprietary fantasy sites; no NFL logos, marks, or licensed headshots.
 
 ## Branch policy
