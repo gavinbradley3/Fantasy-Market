@@ -32,13 +32,15 @@ The repository contains two layers that are deliberately kept separate:
 - **WR valuation engine** (`src/wr-model/`, `evaluateWideReceiver`) — implemented per Section 26 of
   its specification, with golden fixtures and snapshot tests.
 - **RB valuation engine** (`src/rb-model/`, `evaluateRunningBack`) — implemented per Section 26 of
-  `RB_VALUATION_MODEL_v1.1_FINAL.md`, with golden fixtures and snapshot tests. **The specification
-  document itself is not in the repository** (see below).
+  `RB_VALUATION_MODEL_v1.1_FINAL.md`, with golden fixtures and snapshot tests.
+- **QB valuation engine** (`src/qb-model/`, `evaluateQuarterback`) — implemented per Section 26 of
+  `QB_VALUATION_MODEL_v1.2_FINAL.md`, with golden fixtures and snapshot tests.
 - **TE valuation engine** (`src/te-model/`, `evaluateTightEnd`) — implemented per Section 26 of its
   frozen specification, with golden fixtures, now integrated into the shared Player Model UI.
-- **Player Model UI** (`/player-model?position=WR|RB|TE`) — a shared position-flexible page over the
-  WR, RB, and TE engines (`/wr-model` remains as a WR-defaulting alias). Position-specific field
-  definitions, component labels, projection sections, and fixtures live in `src/pages/{wr,rb,te}/`.
+- **Player Model UI** (`/player-model?position=WR|RB|TE|QB`) — a shared position-flexible page over
+  the WR, RB, TE, and QB engines (`/wr-model` remains as a WR-defaulting alias). Position-specific
+  field definitions, component labels, projection sections, and fixtures live in
+  `src/pages/{wr,rb,te,qb}/`.
 - **Tests:** 663 Vitest tests across the app, market engine, services, UI, and all three position
   engines, including deterministic golden-fixture suites.
 
@@ -82,14 +84,15 @@ The TE engine was developed in isolation against an empty repository and keeps i
 
 | Position | Specification | Status |
 | --- | --- | --- |
-| QB | — | **Missing.** No QB specification or implementation exists in this repository or its history. |
-| RB | `RB_VALUATION_MODEL_v1.1_FINAL.md` | **Implementation present, specification missing.** The RB engine and its docs cite this file as sole binding authority, but it was never committed on any branch. It must be recovered from an external source. |
+| QB | [`docs/valuation-models/QB_VALUATION_MODEL_v1.2_FINAL.md`](docs/valuation-models/QB_VALUATION_MODEL_v1.2_FINAL.md) | **Documented and implemented** (Section 26 is the binding MVP contract). |
+| RB | [`docs/valuation-models/RB_VALUATION_MODEL_v1.1_FINAL.md`](docs/valuation-models/RB_VALUATION_MODEL_v1.1_FINAL.md) | **Documented and implemented** (Section 26 is the binding MVP contract). |
 | WR | [`docs/valuation-models/WR_VALUATION_MODEL_v1.2_FINAL.md`](docs/valuation-models/WR_VALUATION_MODEL_v1.2_FINAL.md) | **Documented and implemented** (Section 26 is the binding MVP contract). |
 | TE | [`docs/valuation-models/TE_VALUATION_MODEL_REFERENCE_V1_FROZEN.md`](docs/valuation-models/TE_VALUATION_MODEL_REFERENCE_V1_FROZEN.md) | **Documented, implemented, and integrated** (Section 26 is the frozen binding contract). Engine plus Player Model UI. |
 
-The WR specification names a governing document, `MARKET_MODEL_FOUNDATION_V2.md`, which is also not
-in the repository. Per-engine implementation plans, decision logs, and test reports live in
-[`docs/`](docs/).
+The WR specification names a governing document,
+[`docs/valuation-models/MARKET_MODEL_FOUNDATION_V2.md`](docs/valuation-models/MARKET_MODEL_FOUNDATION_V2.md),
+which is also present in the repository. Per-engine implementation plans, decision logs, and test
+reports live in [`docs/`](docs/).
 
 ## Development setup
 
@@ -252,7 +255,7 @@ No host or port is hard-coded in frontend source. See
 | Core application (market terminal) | Verified | Demo Market SPA; build + tests pass |
 | Live nflverse ingestion | Operating | Production pipeline runs on current nflverse releases; captures replay byte-identically |
 | Live Sleeper metadata | Fixture-tested | Overlay tested against fixtures; live API not exercised in CI |
-| QB model | Implemented | Engine + goldens pass; valued live at the FULL tier (111/111) |
+| QB model | Implemented + documented | Spec in `docs/valuation-models/`; engine + goldens pass; valued live at the FULL tier (111/111) |
 | RB model | Implemented + documented | Frozen engine + spec; live coverage via the accessible-data tier (226/237) |
 | WR model | Implemented + documented | Spec in `docs/valuation-models/`; engine + goldens pass; FULL tier live (310/340) |
 | TE model | Implemented + documented + integrated | Spec in `docs/valuation-models/`; live coverage via the accessible-data tier (167/180) |
