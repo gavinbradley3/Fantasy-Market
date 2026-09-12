@@ -32,13 +32,15 @@ The repository contains two layers that are deliberately kept separate:
 - **WR valuation engine** (`src/wr-model/`, `evaluateWideReceiver`) — implemented per Section 26 of
   its specification, with golden fixtures and snapshot tests.
 - **RB valuation engine** (`src/rb-model/`, `evaluateRunningBack`) — implemented per Section 26 of
-  `RB_VALUATION_MODEL_v1.1_FINAL.md`, with golden fixtures and snapshot tests. **The specification
-  document itself is not in the repository** (see below).
+  `RB_VALUATION_MODEL_v1.1_FINAL.md`, with golden fixtures and snapshot tests.
+- **QB valuation engine** (`src/qb-model/`, `evaluateQuarterback`) — implemented per Section 26 of
+  `QB_VALUATION_MODEL_v1.2_FINAL.md`, with golden fixtures and snapshot tests.
 - **TE valuation engine** (`src/te-model/`, `evaluateTightEnd`) — implemented per Section 26 of its
   frozen specification, with golden fixtures, now integrated into the shared Player Model UI.
-- **Player Model UI** (`/player-model?position=WR|RB|TE`) — a shared position-flexible page over the
-  WR, RB, and TE engines (`/wr-model` remains as a WR-defaulting alias). Position-specific field
-  definitions, component labels, projection sections, and fixtures live in `src/pages/{wr,rb,te}/`.
+- **Player Model UI** (`/player-model?position=WR|RB|TE|QB`) — a shared position-flexible page over
+  the WR, RB, TE, and QB engines (`/wr-model` remains as a WR-defaulting alias). Position-specific
+  field definitions, component labels, projection sections, and fixtures live in
+  `src/pages/{wr,rb,te,qb}/`.
 - **Tests:** 663 Vitest tests across the app, market engine, services, UI, and all three position
   engines, including deterministic golden-fixture suites.
 
@@ -82,14 +84,15 @@ The TE engine was developed in isolation against an empty repository and keeps i
 
 | Position | Specification | Status |
 | --- | --- | --- |
-| QB | — | **Missing.** No QB specification or implementation exists in this repository or its history. |
-| RB | `RB_VALUATION_MODEL_v1.1_FINAL.md` | **Implementation present, specification missing.** The RB engine and its docs cite this file as sole binding authority, but it was never committed on any branch. It must be recovered from an external source. |
+| QB | [`docs/valuation-models/QB_VALUATION_MODEL_v1.2_FINAL.md`](docs/valuation-models/QB_VALUATION_MODEL_v1.2_FINAL.md) | **Documented and implemented** (Section 26 is the binding MVP contract). |
+| RB | [`docs/valuation-models/RB_VALUATION_MODEL_v1.1_FINAL.md`](docs/valuation-models/RB_VALUATION_MODEL_v1.1_FINAL.md) | **Documented and implemented** (Section 26 is the binding MVP contract). |
 | WR | [`docs/valuation-models/WR_VALUATION_MODEL_v1.2_FINAL.md`](docs/valuation-models/WR_VALUATION_MODEL_v1.2_FINAL.md) | **Documented and implemented** (Section 26 is the binding MVP contract). |
 | TE | [`docs/valuation-models/TE_VALUATION_MODEL_REFERENCE_V1_FROZEN.md`](docs/valuation-models/TE_VALUATION_MODEL_REFERENCE_V1_FROZEN.md) | **Documented, implemented, and integrated** (Section 26 is the frozen binding contract). Engine plus Player Model UI. |
 
-The WR specification names a governing document, `MARKET_MODEL_FOUNDATION_V2.md`, which is also not
-in the repository. Per-engine implementation plans, decision logs, and test reports live in
-[`docs/`](docs/).
+The WR specification names a governing document,
+[`docs/valuation-models/MARKET_MODEL_FOUNDATION_V2.md`](docs/valuation-models/MARKET_MODEL_FOUNDATION_V2.md),
+which is also present in the repository. Per-engine implementation plans, decision logs, and test
+reports live in [`docs/`](docs/).
 
 ## Development setup
 
@@ -110,6 +113,8 @@ npm run generate:te-goldens   # regenerate TE golden fixtures (only after formul
 npm run serve:api        # local internal HTTP API → http://127.0.0.1:8787
 npm run ingest -- --seasons 2025          # ingest nflverse's CURRENT releases, publish a board
 npm run ingest -- --seasons 2025 --mode replay   # re-run from captured payloads, no network
+npm run ingest:market    # append a capture of DynastyProcess dynasty Superflex values
+npm run verify:sleeper   # check Sleeper reachability + schema (run OUTSIDE a restricted sandbox)
 ```
 
 ### Ingesting real nflverse data
@@ -183,10 +188,17 @@ No host or port is hard-coded in frontend source. See
 - **Stack:** React 18 · Vite · TypeScript · Tailwind · React Router · Zustand · Recharts · Vitest.
   Browser-side persistence is versioned `localStorage`; the internal HTTP API (Node) is a separate
   process the app reaches over HTTP only.
-- **Two data paths, deliberately separate.**
+- **Three data paths, deliberately separate.**
   - *The published market* (`/board`): `GET /publication` → `src/services/api` (browser-safe HTTP
     client) → `src/services/publication` (adapter + `usePublishedMarket`) → the page. This is real
     backend data and has **no demo fallback** — an API failure shows an error state.
+  - *External market context* (the market columns on `/board`): `GET /market` → `src/services/api`
+    → `src/services/market` (adapter + `useExternalMarket`) → the page. These are **somebody
+    else's numbers** (DynastyProcess dynasty Superflex), stored in their own `market_snapshot`
+    table, served with a required attribution envelope, and shown beside PlayerTicker's
+    valuations — never merged into them. The market read is supplementary: if it fails, the
+    board still renders its own valuations and the market columns show "—". See
+    [`docs/MARKET_DATA_SOURCES.md`](docs/MARKET_DATA_SOURCES.md).
   - *The Demo Market* (`/market` movers, stock card, watchlist, portfolio): the `MarketDataService`
     interface, injected at the composition root (`src/main.tsx`) as `LiveMarketDataService`, which
     wraps the deterministic `MockMarketDataService` core and overlays Sleeper metadata. These
@@ -221,8 +233,12 @@ No host or port is hard-coded in frontend source. See
 - **The published market carries real valuations for all four positions, in two clearly-labelled
   tiers.** QB and WR are valued by their full engines. RB and TE are valued by the
   **accessible-data model** — a deliberately reduced model over the data the pipeline can actually
-  acquire, because the frozen RB/TE engines require a charted route history that no free source has
-  published since 2023. Every board row shows its tier (`Full model` / `Limited data` / `No value`),
+  use, because the frozen RB/TE engines require a `career_routes` total that PlayerTicker has no
+  approved way to produce for those positions. Note this is a **modelling** gap, not a missing
+  feed: nflverse still publishes the underlying pass-play participation signal for seasons after
+  2023 (verified against the 2024 and 2025 exports), and the WR model already estimates routes
+  from it — what RB and TE lack is a specified method for converting per-play participation into
+  a career route total. Every board row shows its tier (`Full model` / `Limited data` / `No value`),
   accessible-tier valuations are never HIGH confidence, and a player with too little evidence is
   shown as an em-dash rather than a zero or an estimate. Live coverage at as-of 2026-02-15 over
   seasons 2023–2025: 814 of 868 selected players valued (QB 111/111, WR 310/340, RB 226/237,
@@ -233,6 +249,28 @@ No host or port is hard-coded in frontend source. See
 - The accessible-data model's scoring anchors are **authored football judgments, not parameters
   fitted to realized fantasy outcomes**. They are transparent and individually checkable, but they
   are not empirically calibrated; see §10 of the model spec for the full limitation list.
+- **External market values are external.** The market columns on `/board` carry DynastyProcess
+  dynasty Superflex ranks, derived from FantasyPros expert consensus. They are an external
+  comparison source, not PlayerTicker-owned data, and the response carries that attribution as a
+  required field. The upstream rights for **public re-publication** of those values are
+  unresolved, so there is no export endpoint, no bulk dump, and no re-serving of the upstream id
+  space or its consensus ranks. The source refreshes **weekly**, so no 1H or 24H market movement
+  is offered, and no movement at all is shown until two captures exist to measure between.
+  Coverage is partial — 349 of 616 board players at the time of writing — and an uncovered player
+  renders as "—", never as a zero. See [`docs/MARKET_DATA_SOURCES.md`](docs/MARKET_DATA_SOURCES.md).
+- **Model and market are compared on order, never on raw value.** A PlayerTicker dynasty
+  composite is a 0–100 model score; a DynastyProcess Superflex value is a ~0–10,000 trade-currency
+  number. Subtracting them computes cleanly and means nothing, so the board compares **ranks and
+  percentiles** — which both sides genuinely express — and carries each raw value labelled with
+  its own side. The comparison is always dynasty-vs-dynasty, whatever horizon the board is sorted
+  by.
+- **Sleeper is optional and PFF is not a dependency.** No valuation input requires Sleeper; it
+  supplies identity and metadata enrichment only, and its trending adds/drops are activity
+  signals that are never converted into market values
+  ([`docs/SLEEPER_INTEGRATION.md`](docs/SLEEPER_INTEGRATION.md)). Model interfaces name football
+  concepts, not vendors, with the provider carried on a separate provenance axis — so a future
+  licensed source can be added without touching an engine interface, and none is required today
+  ([`docs/FUTURE_DATA_MAP.md`](docs/FUTURE_DATA_MAP.md)).
 - No scraping of proprietary fantasy sites; no NFL logos, marks, or licensed headshots.
 
 ## Branch policy
@@ -252,7 +290,7 @@ No host or port is hard-coded in frontend source. See
 | Core application (market terminal) | Verified | Demo Market SPA; build + tests pass |
 | Live nflverse ingestion | Operating | Production pipeline runs on current nflverse releases; captures replay byte-identically |
 | Live Sleeper metadata | Fixture-tested | Overlay tested against fixtures; live API not exercised in CI |
-| QB model | Implemented | Engine + goldens pass; valued live at the FULL tier (111/111) |
+| QB model | Implemented + documented | Spec in `docs/valuation-models/`; engine + goldens pass; valued live at the FULL tier (111/111) |
 | RB model | Implemented + documented | Frozen engine + spec; live coverage via the accessible-data tier (226/237) |
 | WR model | Implemented + documented | Spec in `docs/valuation-models/`; engine + goldens pass; FULL tier live (310/340) |
 | TE model | Implemented + documented + integrated | Spec in `docs/valuation-models/`; live coverage via the accessible-data tier (167/180) |

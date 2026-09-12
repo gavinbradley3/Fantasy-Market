@@ -98,6 +98,37 @@ export interface PlayerRecord extends NormalizedRecordBase {
   readonly draftRound: number | null;
   readonly status: NormalizedStatus | null;
   readonly injuryDesignation: string | null;
+  /**
+   * WHICH PROVIDER SUPPLIED EACH FIELD, and when it attested it.
+   *
+   * After a multi-provider merge a record's fields no longer share one provider or one
+   * timestamp: biography comes from the most authoritative source and time-varying facts from
+   * the most recent one. A single record-level provider label is then a false claim about most
+   * of the record — it reported `status=DIRECT/sleeper` for 196 players whose status had come
+   * from an nflverse weekly roster row, because Sleeper had won the merge and relabelled it.
+   *
+   * A provider may not claim another provider's field. This map is how the canonical record
+   * knows the difference. Absent on a single-provider record, where every field trivially comes
+   * from that record's own provider and timestamp.
+   */
+  readonly fieldSources?: Readonly<Partial<Record<MergedFieldKey, FieldSource>>>;
+}
+
+/** The merged scalar fields that carry independent provenance. */
+export type MergedFieldKey =
+  | 'nameNormalized'
+  | 'position'
+  | 'age'
+  | 'nflSeasonsCompleted'
+  | 'draftRound'
+  | 'team'
+  | 'status'
+  | 'injuryDesignation';
+
+/** Who supplied one field's value, and when they attested it. */
+export interface FieldSource {
+  readonly provider: IngestionProvider;
+  readonly sourceTimestamp: string;
 }
 
 /** One roster membership snapshot (per team, per season/week). */
@@ -158,6 +189,21 @@ export interface GameStatRecord extends NormalizedRecordBase {
   readonly receptions: number | null;
   readonly receivingYards: number | null;
   readonly receivingTds: number | null;
+  /**
+   * Receiving air yards for the game — the depth signal `average_depth_of_target` divides by
+   * targets. Published by nflverse in the same weekly export as the columns above (100%
+   * populated across the 2025 release), and carried verbatim like them.
+   */
+  readonly receivingAirYards: number | null;
+  /**
+   * The PROVIDER'S OWN weekly target share for this player, verbatim.
+   *
+   * Kept rather than reconstructed because it comes with the provider's real team-target
+   * denominator. PlayerTicker's `buildTeamGameTotals` can only sum the players the snapshot
+   * holds rows for, which is a floor — so a share derived from it is an upper bound, while
+   * this one is the provider's measurement.
+   */
+  readonly targetShare: number | null;
 }
 
 /** Route/participation record (paid/limited coverage; drives WR/RB proxies). */

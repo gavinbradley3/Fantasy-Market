@@ -15,6 +15,8 @@ import {
 import { SoonButton } from '@/components/market/stockcard';
 import { DataFreshnessBadge } from '@/components/chrome/Honesty';
 import { EmptyState, ErrorState, LoadingSkeleton } from '@/components/states';
+import { PageHeader } from '@/components/chrome/PageHeader';
+import { CloseIcon } from '@/components/ui/icons';
 import { Footer } from '@/components/chrome/Footer';
 import { ARROW, directionOf, fmtDelta, fmtPct, fmtPrice } from '@/lib/format';
 import { cn, movementColor } from '@/lib/ui';
@@ -44,15 +46,11 @@ export default function WatchlistPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-text-primary">Watchlist</h1>
-          <p className="text-sm text-text-secondary">
-            Value since the day you started watching · {FORMATS[format].label}
-          </p>
-        </div>
-        <SoonButton label="Price alerts" />
-      </div>
+      <PageHeader
+        title="Watchlist"
+        subtitle={<>Value since the day you started watching · {FORMATS[format].label}</>}
+        actions={<SoonButton label="Price alerts" />}
+      />
 
       {watchlist.length === 0 ? (
         <EmptyState
@@ -92,8 +90,10 @@ export default function WatchlistPage() {
                 onClick={() => setSort(k)}
                 aria-pressed={sort === k}
                 className={cn(
-                  'rounded-full border px-2.5 py-1 transition',
-                  sort === k ? 'border-secondary/50 bg-secondary/15 text-text-primary' : 'border-border-subtle text-text-secondary',
+                  'rounded-control border px-2.5 py-1 font-medium transition-colors duration-standard',
+                  sort === k
+                    ? 'border-brand-blue/50 bg-brand-blue/10 text-text-primary'
+                    : 'border-border-default text-text-muted hover:border-border-strong hover:text-text-secondary',
                 )}
               >
                 {k === 'delta' ? 'Since added' : k === 'price' ? 'Price' : 'Date added'}
@@ -105,12 +105,12 @@ export default function WatchlistPage() {
             {sorted.map((e) => (
               <div
                 key={e.item.playerId}
-                className="flex items-center gap-3 rounded-card border border-border-subtle bg-surface p-3"
+                className="flex items-center gap-3 rounded-card border border-border-default bg-surface p-3"
               >
                 <Link to={`/player/${e.row.player.ticker}`} className="flex flex-1 items-center gap-3">
                   <PlayerAvatar seed={e.row.player.avatarSeed} name={e.row.player.displayName} size={40} />
                   <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex min-w-0 items-center gap-1.5">
                       <span className="truncate text-sm font-medium text-text-primary">{e.row.player.displayName}</span>
                       <TickerChip ticker={e.row.player.ticker} />
                     </div>
@@ -123,18 +123,18 @@ export default function WatchlistPage() {
                 <div className="hidden sm:block"><SignalBadge signal={e.row.signal.signal} explanation={e.row.signal.explanation} /></div>
                 <div className="hidden md:block"><MispricingMeter value={e.row.snapshot.mispricing} size="sm" /></div>
                 <div className="w-24 text-right">
-                  <div className="font-mono text-sm font-semibold tabnum text-text-primary">{fmtPrice(e.row.snapshot.marketPrice)}</div>
-                  <div className={cn('flex items-center justify-end gap-1 font-mono text-[11px] tabnum', movementColor(e.delta))}>
+                  <div className="data text-sm font-semibold tabnum text-text-primary">{fmtPrice(e.row.snapshot.marketPrice)}</div>
+                  <div className={cn('flex items-center justify-end gap-1 data text-[11px] tabnum', movementColor(e.delta))}>
                     <span aria-hidden>{ARROW[directionOf(e.delta)]}</span>
                     {fmtDelta(e.delta)} ({fmtPct(e.deltaPct)})
                   </div>
                 </div>
                 <button
                   onClick={() => removeWatch(e.item.playerId)}
-                  className="text-text-muted transition hover:text-down"
+                  className="rounded-control p-1 text-text-faint transition-colors duration-standard hover:bg-elevated hover:text-negative"
                   aria-label={`Remove ${e.row.player.ticker} from watchlist`}
                 >
-                  ✕
+                  <CloseIcon size={15} />
                 </button>
               </div>
             ))}
@@ -155,12 +155,12 @@ function SinceCard({ label, entry }: { label: string; entry: WatchlistEntry }) {
   return (
     <Link
       to={`/player/${entry.row.player.ticker}`}
-      className="flex items-center gap-3 rounded-card border border-border-subtle bg-surface p-3 transition hover:border-secondary/40"
+      className="flex items-center gap-3 rounded-card border border-border-default bg-surface p-3 transition hover:border-border-strong"
     >
       <PlayerAvatar seed={entry.row.player.avatarSeed} name={entry.row.player.displayName} size={40} />
       <div className="min-w-0 flex-1">
         <div className="text-[11px] uppercase tracking-wide text-text-muted">{label}</div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex min-w-0 items-center gap-1.5">
           <span className="truncate text-sm font-medium text-text-primary">{entry.row.player.displayName}</span>
           <TickerChip ticker={entry.row.player.ticker} />
         </div>

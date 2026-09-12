@@ -51,10 +51,12 @@ export function PlayerSelector({
             onKeyDown={(e) => onKeyDown(e, i)}
             onClick={() => onSelect(f.id)}
             className={cn(
-              'flex w-56 shrink-0 items-center gap-3 rounded-card border p-3 text-left transition',
+              // Wide enough for a full name: these tiles are how a reader picks a
+              // player, and every one of them was truncating mid-surname at w-56.
+              'flex w-[19rem] shrink-0 items-center gap-3 rounded-card border p-3 text-left transition-colors duration-standard',
               selected
-                ? 'border-secondary/60 bg-elevated'
-                : 'border-border-subtle bg-surface hover:border-secondary/30',
+                ? 'border-brand-blue/60 bg-elevated'
+                : 'border-border-default bg-surface hover:border-border-strong',
             )}
           >
             <PlayerAvatar seed={f.id} name={f.playerName} size={40} />
@@ -76,7 +78,7 @@ export function PlayerSelector({
               </div>
             </div>
             <div className="text-right">
-              <div className="font-mono text-base font-semibold tabnum text-text-primary">
+              <div className="data text-base font-semibold tabnum text-text-primary">
                 {d ? fmt1(d.weeklyEfo) : '—'}
               </div>
               <div className="text-[9px] uppercase tracking-wide text-text-muted">Wk pts</div>

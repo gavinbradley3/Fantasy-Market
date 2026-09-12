@@ -12,6 +12,7 @@ import {
 } from '@/components/market/primitives';
 import { SoonButton } from '@/components/market/stockcard';
 import { EmptyState, ErrorState, LoadingSkeleton } from '@/components/states';
+import { PageHeader } from '@/components/chrome/PageHeader';
 import { Footer } from '@/components/chrome/Footer';
 import { cn } from '@/lib/ui';
 import type { Position } from '@/types/market';
@@ -51,20 +52,18 @@ export default function PortfolioPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold text-text-primary">
+      <PageHeader
+        title={
+          <span className="flex flex-wrap items-center gap-2.5">
             Portfolio
-            <span className="rounded-full border border-warning/30 bg-warning/5 px-2 py-0.5 text-[11px] text-warning">
+            <span className="rounded-control border border-warning/30 bg-warning/10 px-2 py-0.5 text-[11px] font-medium text-warning">
               beta · manual
             </span>
-          </h1>
-          <p className="text-sm text-text-secondary">
-            Your roster as a portfolio of assets · {FORMATS[format].label}
-          </p>
-        </div>
-        <SoonButton label="Import from Sleeper" />
-      </div>
+          </span>
+        }
+        subtitle={<>Your roster as a portfolio of assets · {FORMATS[format].label}</>}
+        actions={<SoonButton label="Import from Sleeper" />}
+      />
 
       {portfolio.length === 0 ? (
         <EmptyState
@@ -90,9 +89,9 @@ export default function PortfolioPage() {
           </div>
 
           {/* Allocation bar */}
-          <div className="rounded-card border border-border-subtle bg-surface p-4">
+          <div className="rounded-card border border-border-default bg-surface p-4">
             <h3 className="mb-2 text-sm font-semibold text-text-primary">Allocation by position</h3>
-            <div className="flex h-4 overflow-hidden rounded-full bg-border-subtle" role="img" aria-label="Position allocation">
+            <div className="flex h-4 overflow-hidden rounded-full bg-border-default" role="img" aria-label="Position allocation">
               {(Object.entries(byPos) as [Position, number][]).map(([p, v]) => (
                 <div key={p} className={cn(POS_COLOR[p])} style={{ width: `${(v / totalValue) * 100}%` }} title={`${p}: ${v.toFixed(1)}`} />
               ))}
@@ -108,16 +107,16 @@ export default function PortfolioPage() {
           </div>
 
           <div className="grid gap-3 lg:grid-cols-2">
-            <div className="rounded-card border border-border-subtle bg-surface p-4">
+            <div className="rounded-card border border-border-default bg-surface p-4">
               <h3 className="mb-2 text-sm font-semibold text-text-primary">Risk distribution</h3>
               <div className="space-y-1.5">
                 {Object.entries(riskDist).map(([band, n]) => (
                   <div key={band} className="flex items-center gap-2">
                     <span className="w-16 text-xs text-text-secondary">{band}</span>
-                    <span className="h-2 flex-1 rounded-full bg-border-subtle">
-                      <span className="block h-full rounded-full bg-secondary" style={{ width: `${(n / rows.length) * 100}%` }} />
+                    <span className="h-2 flex-1 rounded-full bg-border-default">
+                      <span className="block h-full rounded-full bg-brand-blue" style={{ width: `${(n / rows.length) * 100}%` }} />
                     </span>
-                    <span className="w-6 text-right font-mono text-xs tabnum text-text-secondary">{n}</span>
+                    <span className="w-6 text-right data text-xs tabnum text-text-secondary">{n}</span>
                   </div>
                 ))}
               </div>
@@ -128,13 +127,13 @@ export default function PortfolioPage() {
               )}
             </div>
 
-            <div className="rounded-card border border-border-subtle bg-surface p-4">
+            <div className="rounded-card border border-border-default bg-surface p-4">
               <h3 className="mb-2 text-sm font-semibold text-text-primary">Riskiest holdings</h3>
               <div className="space-y-1">
                 {riskiest.map((r) => (
                   <Link key={r.player.identity.internal_id} to={`/player/${r.player.ticker}`} className="flex items-center justify-between rounded-control px-2 py-1.5 hover:bg-elevated/60">
                     <span className="flex items-center gap-2 text-sm text-text-primary"><TickerChip ticker={r.player.ticker} />{r.player.displayName}</span>
-                    <span className="font-mono text-xs tabnum text-warning">risk {r.snapshot.riskScore}</span>
+                    <span className="data text-xs tabnum text-warning">risk {r.snapshot.riskScore}</span>
                   </Link>
                 ))}
               </div>
@@ -142,9 +141,9 @@ export default function PortfolioPage() {
           </div>
 
           {/* Holdings list */}
-          <div className="rounded-card border border-border-subtle bg-surface p-2">
+          <div className="rounded-card border border-border-default bg-surface p-2">
             <h3 className="px-2 py-1 text-sm font-semibold text-text-primary">Holdings</h3>
-            <div className="divide-y divide-border-subtle/60">
+            <div className="divide-y divide-border-default/60">
               {topHoldings.concat(rows.filter((r) => !topHoldings.includes(r))).map((r) => (
                 <div key={r.player.identity.internal_id} className="flex items-center gap-3 px-2 py-2">
                   <Link to={`/player/${r.player.ticker}`} className="flex flex-1 items-center gap-3">
@@ -157,9 +156,9 @@ export default function PortfolioPage() {
                       <span className="text-[11px] text-text-muted">{r.player.team}</span>
                     </span>
                   </Link>
-                  <span className="font-mono text-sm tabnum text-text-primary">{r.snapshot.marketPrice.toFixed(1)}</span>
+                  <span className="data text-sm tabnum text-text-primary">{r.snapshot.marketPrice.toFixed(1)}</span>
                   <MovementBadge value={r.snapshot.movement.d7} />
-                  <button onClick={() => removeHolding(r.player.identity.internal_id)} className="text-text-muted hover:text-down" aria-label={`Remove ${r.player.ticker}`}>✕</button>
+                  <button onClick={() => removeHolding(r.player.identity.internal_id)} className="text-text-muted hover:text-negative" aria-label={`Remove ${r.player.ticker}`}>✕</button>
                 </div>
               ))}
             </div>
@@ -179,9 +178,9 @@ export default function PortfolioPage() {
 
 function StatCard({ label, value, sub }: { label: string; value: string; sub: string }) {
   return (
-    <div className="rounded-card border border-border-subtle bg-surface p-3">
+    <div className="rounded-card border border-border-default bg-surface p-3">
       <div className="text-[11px] uppercase tracking-wide text-text-muted">{label}</div>
-      <div className="font-mono text-2xl font-semibold tabnum text-text-primary">{value}</div>
+      <div className="data text-2xl font-semibold tabnum text-text-primary">{value}</div>
       <div className="text-[11px] text-text-secondary">{sub}</div>
     </div>
   );

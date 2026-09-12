@@ -47,7 +47,14 @@ export const ROLE_WINDOW_MIN_GAMES = 8;
 
 type CountingKey = keyof Pick<
   GameStatRecord,
-  'carries' | 'rushingYards' | 'rushingTds' | 'targets' | 'receptions' | 'receivingYards' | 'receivingTds'
+  | 'carries'
+  | 'rushingYards'
+  | 'rushingTds'
+  | 'targets'
+  | 'receptions'
+  | 'receivingYards'
+  | 'receivingTds'
+  | 'receivingAirYards'
 >;
 
 const COUNTING_KEYS: readonly CountingKey[] = [
@@ -58,6 +65,7 @@ const COUNTING_KEYS: readonly CountingKey[] = [
   'receptions',
   'receivingYards',
   'receivingTds',
+  'receivingAirYards',
 ];
 
 /**
@@ -81,6 +89,24 @@ function windowOf(games: readonly GameStatRecord[]): CountingWindow {
   const out: Record<string, number | null> = {};
   for (const key of COUNTING_KEYS) out[key] = sumOrNull(games, key);
   return { games: games.length, ...out } as CountingWindow;
+}
+
+/**
+ * The games that describe a player's CURRENT role.
+ *
+ * A full latest season is preferred over the rolling recent window (see the contract note on
+ * `ObservedProduction.roleWindow`); the rolling window stands in when the latest season is
+ * too short to describe a role. Exported so every consumer of "the current role window"
+ * shares one definition instead of re-deriving it — two subtly different role windows would
+ * put two engines on different questions.
+ *
+ * `games` must already be filtered to the player and to the as-of by the caller.
+ */
+export function roleWindowGames(games: readonly GameStatRecord[]): readonly GameStatRecord[] {
+  const { career, recent } = windowsFor(games);
+  if (career.length === 0) return [];
+  const split = seasonSplit(career);
+  return split.latest && split.latest.length >= ROLE_WINDOW_MIN_GAMES ? split.latest : recent;
 }
 
 /** The two newest seasons present in a career window, newest first. */
@@ -166,10 +192,7 @@ export function observedProduction(
   const { career, recent } = windowsFor(games);
   if (career.length === 0) return null;
   const split = seasonSplit(career);
-  // The role window prefers a full latest season over the rolling recent window; see the
-  // contract note on `ObservedProduction.roleWindow` for why.
-  const roleGames =
-    split.latest && split.latest.length >= ROLE_WINDOW_MIN_GAMES ? split.latest : recent;
+  const roleGames = roleWindowGames(games);
   return {
     career: windowOf(career),
     recent: windowOf(recent),
@@ -177,10 +200,36 @@ export function observedProduction(
     latestSeason: split.latest ? windowOf(split.latest) : null,
     priorSeason: split.prior ? windowOf(split.prior) : null,
     teamShares: sharesOver(roleGames, teamTotals),
+    providerTargetShare: providerShareOver(roleGames),
     seasonsPlayed: split.seasons,
     newestGameKickoff: career.length > 0 ? career[0].kickoff : null,
     rosteredTeamWeeks,
   };
+}
+
+/**
+ * The provider's own target share over a window, recovered week by week.
+ *
+ * nflverse publishes a weekly `target_share` alongside the player's targets, so each week's
+ * true team-target denominator is `targets ÷ target_share`. Summing both sides across the
+ * window yields the provider's measurement rather than PlayerTicker's reconstructed floor.
+ *
+ * A week that cannot supply a denominator — no targets, or no share — contributes to NEITHER
+ * side, so a blank week can never dilute the ratio.
+ */
+function providerShareOver(games: readonly GameStatRecord[]): number | null {
+  let playerTargets = 0;
+  let teamTargets = 0;
+  for (const g of games) {
+    const targets = g.targets;
+    const share = g.targetShare;
+    if (typeof targets !== 'number' || !Number.isFinite(targets) || targets <= 0) continue;
+    if (typeof share !== 'number' || !Number.isFinite(share) || share <= 0) continue;
+    playerTargets += targets;
+    teamTargets += targets / share;
+  }
+  if (teamTargets <= 0) return null;
+  return Math.min(1, playerTargets / teamTargets);
 }
 
 /**

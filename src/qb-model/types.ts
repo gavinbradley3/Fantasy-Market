@@ -25,13 +25,27 @@ export type QBRoleStatus =
   | "RECENTLY_BENCHED"
   | "BACKUP";
 
+/**
+ * QB availability states (Section 26.3, revised — see Section 28).
+ *
+ * `NOT_ROSTERED` was added because the enum previously had NO neutral non-injury state, which
+ * forced every canonically `inactive` quarterback to be reported as `OUT`. "Inactive" covers a
+ * practice-squad arm, a reserve, a free agent between contracts and a retired player as well as
+ * a genuinely hurt one, so `OUT` was a semantically false claim: PlayerTicker was issuing an
+ * injury diagnosis from the absence of a roster spot. 47 of 111 quarterbacks on the live board
+ * carried it.
+ *
+ * It is a ROSTER state, not an injury state, and it is only ever reached when no injury
+ * designation exists. An injury designation always wins.
+ */
 export type QBInjuryStatus =
   | "HEALTHY"
   | "QUESTIONABLE"
   | "DOUBTFUL"
   | "OUT"
   | "IR"
-  | "PUP";
+  | "PUP"
+  | "NOT_ROSTERED";
 
 export interface QBScoring {
   points_per_completion: number;
@@ -130,6 +144,15 @@ export interface QBMVPInput {
   team_change: boolean;
   major_system_change: boolean;
   recent_role_change: boolean;
+
+  /**
+   * Career adjusted yards per attempt (§26.6.3-CA). Null when no career passing sample exists,
+   * in which case the career anchor degrades to the draft-capital prior — the pre-revision
+   * behaviour.
+   */
+  career_adjusted_yards_per_attempt?: number | null;
+  /** Career rushing yards per start (§26.6.3-CA). Null when no career start sample exists. */
+  career_rushing_yards_per_start?: number | null;
 
   prior_recent_pass_attempts: number | null;
   prior_adjusted_yards_per_attempt: number | null;

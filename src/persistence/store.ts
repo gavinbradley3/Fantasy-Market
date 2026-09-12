@@ -9,6 +9,10 @@
 // Node-only. Synchronous (node:sqlite is synchronous), which keeps transactions simple.
 
 import type { NormalizedSnapshot } from '@/ingestion';
+// TYPE-ONLY, and deliberately the types module rather than the `@/market` barrel: persistence
+// stores market snapshots but must not pull in the market adapters or their network code.
+// The import is erased at compile time, so it adds nothing to the persistence runtime.
+import type { MarketFormat, MarketSnapshot } from '@/market/types';
 import type { NormalizedInferenceInput } from '@/inference/production/types';
 import type { RawPayloadEnvelope } from '@/transport';
 import {
@@ -53,6 +57,30 @@ function bool(v: unknown): boolean {
 function bit(v: boolean): number {
   return v ? 1 : 0;
 }
+/**
+ * Row → domain. Nullable columns stay null: the difference between "the source published no
+ * value" and "the source published 0" is real, and coercing here would erase it forever.
+ */
+function mapMarketSnapshot(r: Record<string, unknown>): MarketSnapshot {
+  return {
+    canonicalPlayerId: r.canonical_player_id as string,
+    source: r.source as string,
+    format: r.format as MarketFormat,
+    value: (r.value as number | null) ?? null,
+    overallRank: (r.overall_rank as number | null) ?? null,
+    positionRank: (r.position_rank as number | null) ?? null,
+    sourceConsensusRank: (r.source_consensus_rank as number | null) ?? null,
+    sourcePlayerId: (r.source_player_id as string | null) ?? null,
+    sourcePosition: (r.source_position as string | null) ?? null,
+    sourceTeam: (r.source_team as string | null) ?? null,
+    sourceTimestamp: r.source_timestamp as string,
+    sourceVersion: (r.source_version as string | null) ?? null,
+    ingestedAt: r.ingested_at as string,
+    freshness: r.freshness as MarketSnapshot['freshness'],
+    provenance: r.provenance as MarketSnapshot['provenance'],
+  };
+}
+
 function assertSchema(supported: ReadonlySet<string>, version: string, artifact: string): void {
   if (!supported.has(version)) {
     throw new PersistenceError('UNSUPPORTED_PERSISTED_SCHEMA', `unsupported ${artifact} schema version ${version}`, { stage: 'read', detail: version });
@@ -372,6 +400,25 @@ export class PersistenceStore {
     return { run: this.mapRun(row), sources: this.getSourceOutcomes(runId), inference: this.getRunInference(runId) };
   }
 
+  /**
+   * The most recent refresh runs, newest first, each with its per-source outcomes.
+   *
+   * Read-only operational history. It exists so a refresh can answer "when did nflverse last
+   * succeed" and "was Sleeper attempted" without a monitoring service: the run table already
+   * records both, and this is the query that reads them back.
+   */
+  recentRefreshRuns(limit = 20): RefreshRunView[] {
+    const capped = Math.max(1, Math.min(Math.trunc(limit), 500));
+    const rows = this.db
+      .prepare('SELECT * FROM refresh_run ORDER BY started_at DESC, run_id DESC LIMIT ?')
+      .all(capped) as Record<string, unknown>[];
+    return rows.map((row) => {
+      assertSchema(SUPPORTED_RUN_SCHEMAS, row.schema_version as string, 'refresh-run');
+      const runId = row.run_id as string;
+      return { run: this.mapRun(row), sources: this.getSourceOutcomes(runId), inference: this.getRunInference(runId) };
+    });
+  }
+
   private mapRun(row: Record<string, unknown>): RefreshRunRecord {
     return {
       runId: row.run_id as string,
@@ -461,22 +508,40 @@ export class PersistenceStore {
   }
 
   /**
-   * Publish the COMPLETE board produced by one successful, complete refresh run — atomically.
+   * Publish the COMPLETE board produced by one complete refresh run — atomically.
    * The board is the full, deterministically-ordered set of the run's player inference
-   * associations (from `run_inference`). Rejects non-success runs, runs with no snapshot,
-   * runs with zero associations, and any incomplete/mismatched/corrupt artifact. Idempotent:
-   * the deterministic board publication id means re-publishing the same board reuses one row
-   * and one pointer; a different board content yields a different id.
+   * associations (from `run_inference`). Rejects failed runs, runs where a REQUIRED provider
+   * failed, runs with no snapshot, runs with zero associations, and any incomplete/mismatched/
+   * corrupt artifact. Idempotent: the deterministic board publication id means re-publishing
+   * the same board reuses one row and one pointer; a different board content yields a
+   * different id.
+   *
+   * WHY THE GATE IS `requiredFailure`, NOT `status === 'success'`.
+   * A run's status goes to 'partial' when ANY source fails, including an OPTIONAL one. Gating
+   * publication on 'success' therefore let one optional provider delete the entire board: with
+   * Sleeper enrichment requested and Sleeper unreachable, 17 of 18 nflverse sources succeeded,
+   * the snapshot was built, every player was valued — and nothing published, because the run
+   * was 'partial'. An 867-player board became zero entries for a reason unrelated to any
+   * player on it.
+   *
+   * `requiredFailure` is the signal that actually answers "is this board trustworthy": it was
+   * already computed from the refresh policy's `requiredProviders` and already stored on the
+   * run. A partial run whose required providers all succeeded has a complete board built from
+   * complete required evidence; what it is missing is enrichment, and a missing enrichment is
+   * published as an absent field, not as an absent board.
    */
   publishBoard(params: PublishBoardParams): PublicationRecord {
     const view = this.getRefreshRun(params.runId);
     if (!view) throw new PersistenceError('ARTIFACT_NOT_FOUND', `run ${params.runId} not found`, { stage: 'publication', detail: params.runId });
-    if (view.run.status !== 'success') {
-      throw new PersistenceError('PUBLICATION_NOT_ALLOWED', `run status ${view.run.status} is not publishable (only 'success')`, { stage: 'publication', detail: view.run.status });
+    if (view.run.status === 'failure') {
+      throw new PersistenceError('PUBLICATION_NOT_ALLOWED', `run status ${view.run.status} is not publishable`, { stage: 'publication', detail: view.run.status });
+    }
+    if (view.run.requiredFailure) {
+      throw new PersistenceError('PUBLICATION_NOT_ALLOWED', 'a run in which a required provider failed is not publishable', { stage: 'publication', detail: view.run.status });
     }
     const snapshotId = view.run.snapshotId;
     if (!snapshotId) {
-      throw new PersistenceError('PUBLICATION_NOT_ALLOWED', 'a successful run without a snapshot cannot publish', { stage: 'publication', detail: params.runId });
+      throw new PersistenceError('PUBLICATION_NOT_ALLOWED', 'a run without a snapshot cannot publish', { stage: 'publication', detail: params.runId });
     }
     if (view.inference.length === 0) {
       throw new PersistenceError('PUBLICATION_NOT_ALLOWED', 'a run with no inference associations cannot publish', { stage: 'publication', detail: params.runId });
@@ -625,6 +690,109 @@ export class PersistenceStore {
       engineVersion: input.engine_version as string,
       createdAt: input.created_at as string,
     };
+  }
+
+  // ---------------------------------------------------------------------------
+  // External dynasty market snapshots (migration 4).
+  //
+  // These rows are NOT PlayerTicker valuations. They are what an external source says a
+  // player is worth, stored beside the model rather than mixed into it, and every row keeps
+  // the attribution needed to say who published it.
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Append a capture. Returns the number of rows actually written.
+   *
+   * APPEND, NOT UPSERT. `ingested_at` is part of the key, so a capture at a new instant is
+   * always a new row and the previous one is untouched — which is the only reason movement
+   * over time can be computed at all.
+   *
+   * The conflict clause NAMES the primary key rather than using a blanket `INSERT OR IGNORE`:
+   * re-running the identical capture must be a no-op, but a row that violates NOT NULL is a
+   * defect and has to be heard. `OR IGNORE` would swallow both indistinguishably, quietly
+   * writing a capture with players missing from it.
+   *
+   * The whole batch is one transaction: a half-written capture would look, to any movement
+   * query, like a market in which two thirds of the league moved at once.
+   */
+  appendMarketSnapshots(snapshots: readonly MarketSnapshot[]): number {
+    if (snapshots.length === 0) return 0;
+    return this.runInTransaction(() => {
+      const stmt = this.db.prepare(`
+        INSERT INTO market_snapshot (
+          canonical_player_id, source, format, ingested_at, value, overall_rank, position_rank,
+          source_consensus_rank, source_player_id, source_position, source_team,
+          source_timestamp, source_version, freshness, provenance
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        ON CONFLICT (canonical_player_id, source, format, ingested_at) DO NOTHING
+      `);
+      let written = 0;
+      for (const s of snapshots) {
+        const res = stmt.run(
+          s.canonicalPlayerId, s.source, s.format, s.ingestedAt, s.value,
+          s.overallRank, s.positionRank, s.sourceConsensusRank, s.sourcePlayerId,
+          s.sourcePosition, s.sourceTeam, s.sourceTimestamp, s.sourceVersion,
+          s.freshness, s.provenance,
+        );
+        written += Number(res.changes);
+      }
+      return written;
+    });
+  }
+
+  /** Every snapshot for one player/source/format, OLDEST FIRST — the movement series. */
+  getMarketSnapshotHistory(canonicalPlayerId: string, source: string, format: MarketFormat): MarketSnapshot[] {
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM market_snapshot
+          WHERE canonical_player_id = ? AND source = ? AND format = ?
+          ORDER BY ingested_at ASC`,
+      )
+      .all(canonicalPlayerId, source, format) as Record<string, unknown>[];
+    return rows.map(mapMarketSnapshot);
+  }
+
+  /**
+   * The most recent snapshot PER PLAYER for one source/format, best rank first.
+   *
+   * Per player, not per capture: a player the latest capture happened to omit keeps their
+   * last known value with its own older `ingestedAt`, rather than vanishing from the market.
+   * The timestamp on each row says how old it is, so staleness stays visible.
+   */
+  getLatestMarketSnapshots(source: string, format: MarketFormat): MarketSnapshot[] {
+    const rows = this.db
+      .prepare(
+        `SELECT s.* FROM market_snapshot s
+           JOIN (
+             SELECT canonical_player_id, MAX(ingested_at) AS m
+               FROM market_snapshot WHERE source = ? AND format = ?
+              GROUP BY canonical_player_id
+           ) t
+             ON t.canonical_player_id = s.canonical_player_id AND t.m = s.ingested_at
+          WHERE s.source = ? AND s.format = ?
+          ORDER BY s.overall_rank IS NULL, s.overall_rank ASC, s.canonical_player_id ASC`,
+      )
+      .all(source, format, source, format) as Record<string, unknown>[];
+    return rows.map(mapMarketSnapshot);
+  }
+
+  /** The distinct capture instants held for a source/format — the snapshot timeline. */
+  getMarketCaptureInstants(source: string, format: MarketFormat): string[] {
+    const rows = this.db
+      .prepare(
+        `SELECT DISTINCT ingested_at FROM market_snapshot
+          WHERE source = ? AND format = ? ORDER BY ingested_at ASC`,
+      )
+      .all(source, format) as Record<string, unknown>[];
+    return rows.map((r) => r.ingested_at as string);
+  }
+
+  /** Distinct (source, format) pairs that hold at least one snapshot. */
+  getMarketSources(): { source: string; format: MarketFormat }[] {
+    const rows = this.db
+      .prepare('SELECT DISTINCT source, format FROM market_snapshot ORDER BY source ASC, format ASC')
+      .all() as Record<string, unknown>[];
+    return rows.map((r) => ({ source: r.source as string, format: r.format as MarketFormat }));
   }
 
   /** Defensive: assert the open DB is a version this build supports. */

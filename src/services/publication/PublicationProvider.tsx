@@ -25,7 +25,8 @@ import {
   type ReactNode,
 } from 'react';
 import { QueryClient, type QueryState } from '@/services/query/QueryClient';
-import { ApiClient, ApiError, fetchCurrentPublication, isApiError, resolveApiBaseUrl } from '@/services/api';
+import { ApiClient, ApiError, fetchCurrentPublication, isApiError } from '@/services/api';
+import { resolveSiteDataSource, type SiteDataSource } from '@/services/siteData';
 import { adaptPublication } from './adapter';
 import type { PublishedHorizon, PublishedMarket } from './types';
 
@@ -43,6 +44,8 @@ export type PublicationResult =
 
 interface PublicationContextValue {
   readonly client: ApiClient;
+  /** Where this provider reads from, so consumers can fetch the sibling documents too. */
+  readonly source: SiteDataSource;
   readonly query: QueryClient;
   /**
    * The signal every read is bound to. Aborted when the provider unmounts, so no request
@@ -62,12 +65,30 @@ interface PublicationContextValue {
 
 const PublicationContext = createContext<PublicationContextValue | null>(null);
 
-/** Build the app's default client from the environment. No host or port is hard-coded. */
+/**
+ * Build the app's default client and data source from the environment.
+ *
+ * A production build reads the STATIC board the scheduled refresh published; a developer reads
+ * the local API server. `resolveSiteDataSource` owns that decision — see its comment — and no
+ * host, port or path is hard-coded here.
+ */
 export function createDefaultApiClient(): ApiClient {
-  return new ApiClient({ baseUrl: resolveApiBaseUrl(import.meta.env) });
+  return new ApiClient({ baseUrl: resolveSiteDataSource(import.meta.env).baseUrl });
 }
 
-export function PublicationProvider({ client, children }: { client?: ApiClient; children: ReactNode }) {
+export function createDefaultSiteDataSource(): SiteDataSource {
+  return resolveSiteDataSource(import.meta.env);
+}
+
+export function PublicationProvider({
+  client,
+  source,
+  children,
+}: {
+  client?: ApiClient;
+  source?: SiteDataSource;
+  children: ReactNode;
+}) {
   const controllerRef = useRef<AbortController>(new AbortController());
 
   // One QueryClient per injected API client: swapping the client (tests, a different base URL)
@@ -75,6 +96,7 @@ export function PublicationProvider({ client, children }: { client?: ApiClient; 
   const value = useMemo<PublicationContextValue>(
     () => ({
       client: client ?? createDefaultApiClient(),
+      source: source ?? createDefaultSiteDataSource(),
       query: new QueryClient(),
       getSignal: () => {
         // Replace a spent controller lazily. Child effects run BEFORE the parent's, so a
@@ -92,7 +114,15 @@ export function PublicationProvider({ client, children }: { client?: ApiClient; 
   return <PublicationContext.Provider value={value}>{children}</PublicationContext.Provider>;
 }
 
-function usePublicationContext(): PublicationContextValue {
+/**
+ * The shared API client + query cache + lifecycle signal.
+ *
+ * Exported so a sibling read (the external market on `/board`) can reuse the SAME client,
+ * cache and abort signal rather than standing up a second provider around the tree. The
+ * context is named for publication because that is what it was built for; it is really "the
+ * backend seam", and a second one would mean two caches and two lifetimes to reason about.
+ */
+export function usePublicationContext(): PublicationContextValue {
   const ctx = useContext(PublicationContext);
   if (!ctx) throw new Error('usePublishedMarket must be used inside <PublicationProvider>');
   return ctx;
@@ -131,13 +161,15 @@ export interface UsePublishedMarketOptions {
  */
 export function usePublishedMarket(options: UsePublishedMarketOptions = {}): UsePublishedMarketResult {
   const horizon = options.horizon ?? 'weekly';
-  const { client, query, getSignal } = usePublicationContext();
-  const key = JSON.stringify(['publication', horizon]);
+  const { client, query, getSignal, source } = usePublicationContext();
+  // The source's path is part of the cache key: a provider swapped between the static export and
+  // the dev API must not serve the other one's cached board.
+  const key = JSON.stringify(['publication', horizon, source.publicationPath]);
 
   const fetcher = useCallback(async (): Promise<PublicationResult> => {
     const signal = getSignal();
     try {
-      const response = await fetchCurrentPublication(client, { signal });
+      const response = await fetchCurrentPublication(client, { signal }, source.publicationPath);
       return { kind: 'market', market: adaptPublication(response, { horizon }) };
     } catch (err) {
       // 404 is the backend saying "nothing published yet" — a real answer, not a failure.

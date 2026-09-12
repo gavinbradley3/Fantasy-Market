@@ -5,6 +5,7 @@
 
 import type { ApplicationService, RefreshExecutionResult } from '@/application';
 import type { PublicationBundle, PublicationRecord, RefreshRunView } from '@/persistence';
+import type { MarketFormat, MarketSnapshot } from '@/market/types';
 
 type Any = Record<string, unknown>;
 
@@ -104,8 +105,32 @@ export interface FakeApp {
   runs: Map<string, RefreshRunView>;
   history: ReturnType<typeof execResult>[];
   publicationHistoryList: PublicationRecord[];
+  /** Keyed `${source}|${format}` so a test can prove one format never answers for the other. */
+  marketByKey: Map<string, MarketSnapshot[]>;
   throwOnPublications?: unknown;
   throwOnRefresh?: unknown;
+  throwOnMarket?: unknown;
+}
+
+export function marketSnapshot(over: Partial<MarketSnapshot> = {}): MarketSnapshot {
+  return {
+    canonicalPlayerId: 'pt-d80f2bd29165c373',
+    source: 'dynastyprocess',
+    format: 'dynasty_superflex',
+    value: 10256,
+    overallRank: 1,
+    positionRank: 1,
+    sourceConsensusRank: 1,
+    sourcePlayerId: '17298',
+    sourcePosition: 'QB',
+    sourceTeam: 'BUF',
+    sourceTimestamp: '2026-09-11T00:00:00.000Z',
+    sourceVersion: '2026-09-11',
+    ingestedAt: '2026-09-11T18:00:00.000Z',
+    freshness: 'fresh',
+    provenance: 'external',
+    ...over,
+  };
 }
 
 /** Build a structural ApplicationService fake; override behavior via the returned handle. */
@@ -119,6 +144,7 @@ export function fakeApplication(): FakeApp {
     runs: new Map([['run-1', runView()]]),
     history: [execResult({ runId: 'run-2' }), execResult({ runId: 'run-1' })],
     publicationHistoryList: [pubMetadata({ publicationId: 'pub-2' }), pubMetadata()],
+    marketByKey: new Map<string, MarketSnapshot[]>([['dynastyprocess|dynasty_superflex', [marketSnapshot()]]]),
     application: undefined as unknown as ApplicationService,
   };
 
@@ -151,6 +177,18 @@ export function fakeApplication(): FakeApp {
     },
     history: {
       byRunId: (runId: string) => (rec(`history.byRunId:${runId}`), handle.runs.get(runId) ?? null),
+    },
+    market: {
+      latest: (source: string, format: MarketFormat) => {
+        rec(`market.latest:${source}|${format}`);
+        if (handle.throwOnMarket) throw handle.throwOnMarket;
+        return handle.marketByKey.get(`${source}|${format}`) ?? [];
+      },
+      captureInstants: (source: string, format: MarketFormat) => {
+        rec(`market.captureInstants:${source}|${format}`);
+        if (handle.throwOnMarket) throw handle.throwOnMarket;
+        return [...new Set((handle.marketByKey.get(`${source}|${format}`) ?? []).map((s) => s.ingestedAt))].sort();
+      },
     },
   };
   handle.application = app as unknown as ApplicationService;

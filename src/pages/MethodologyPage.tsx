@@ -21,7 +21,7 @@ import { Footer } from '@/components/chrome/Footer';
 
 function Card({ id, title, children }: { id?: string; title: string; children: React.ReactNode }) {
   return (
-    <section id={id} className="scroll-mt-24 rounded-card border border-border-subtle bg-surface p-4">
+    <section id={id} className="scroll-mt-24 rounded-card border border-border-default bg-surface p-4">
       <h2 className="mb-3 text-lg font-semibold text-text-primary">{title}</h2>
       {children}
     </section>
@@ -37,7 +37,7 @@ export default function MethodologyPage() {
   return (
     <div className="space-y-4">
       <header>
-        <h1 className="text-2xl font-bold text-text-primary">Methodology & Data Transparency</h1>
+        <h1 className="text-[26px] font-bold leading-tight text-text-primary">Methodology & Data Transparency</h1>
         <p className="mt-1 max-w-2xl text-sm text-text-secondary">
           No black box. Every price on PlayerTicker comes from a formula you can read on this page —
           the inputs, the weights, and the rules that assign every signal. Right now the market runs
@@ -88,7 +88,7 @@ export default function MethodologyPage() {
         />
         <p className="mt-3 text-sm text-text-secondary">
           <strong className="text-text-primary">Market Value</strong> is sticky and sentiment-contaminated by design:
-          <code className="mx-1 rounded bg-base px-1.5 py-0.5 font-mono text-xs text-text-primary">
+          <code className="mx-1 rounded bg-canvas px-1.5 py-0.5 data text-xs text-text-primary">
             MV(t) = {MARKET_VALUE.stickiness}·MV(t−1) + {MARKET_VALUE.fundamentalPull}·Fundamental + {MARKET_VALUE.sentimentPull}·Sentiment + Catalyst
           </code>
           It drifts toward fundamentals but overshoots on hype and lags on quiet decline — which is
@@ -111,7 +111,7 @@ export default function MethodologyPage() {
       <Card id="signals" title="Signals & tags (rule table)">
         <p className="mb-3 text-sm text-text-secondary">
           Signals are rule-based from mispricing, risk, volatility and confidence — evaluated in order,
-          first match wins. Each stored signal records which rule fired (<code className="rounded bg-base px-1 font-mono text-xs">ruleFired</code>) for
+          first match wins. Each stored signal records which rule fired (<code className="rounded bg-canvas px-1 data text-xs">ruleFired</code>) for
           auditability. A ±{SIGNAL_HYSTERESIS}-point hysteresis band prevents daily flip-flopping.
         </p>
         <Table
@@ -171,7 +171,7 @@ export default function MethodologyPage() {
       </Card>
 
       <p className="text-center text-sm text-text-secondary">
-        <Link to="/board" className="text-secondary hover:underline">Explore the Board →</Link>
+        <Link to="/board" className="text-brand-blue hover:underline">Explore the Board →</Link>
       </p>
 
       <Footer />
@@ -202,7 +202,7 @@ function Table({ head, rows }: { head: string[]; rows: (string | number)[][] }) 
         </thead>
         <tbody>
           {rows.map((r, i) => (
-            <tr key={i} className="border-t border-border-subtle/60">
+            <tr key={i} className="border-t border-border-default/60">
               {r.map((c, j) => (
                 <td key={j} className={j === 0 ? 'py-1.5 pr-3 text-text-primary' : 'py-1.5 pr-3 text-text-secondary'}>{c}</td>
               ))}

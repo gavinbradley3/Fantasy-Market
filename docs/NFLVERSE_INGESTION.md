@@ -93,6 +93,13 @@ Seasons after 2023 are marked uncovered, routing the WR route model to its stric
 estimate rung. Where the provider's own era classification is unclear, the under-claiming side is
 taken on purpose.
 
+`covered: false` records that a season falls outside the proxy's AUTHORIZED window — it does not
+mean the provider stopped publishing. nflverse still ships `pbp_participation` for 2024 and 2025,
+and the columns this adapter reads (`offense_players`, `time_to_throw`) appear at the same rate as
+in 2023, verified against those exports. The WR model consumes the uncovered seasons through its
+cautious rung; RB and TE get nothing from them only because no RB/TE method for converting
+participation into a career route total has been specified.
+
 ## Point-in-time integrity
 
 A board carries an as-of date, and nothing dated after it may inform it.

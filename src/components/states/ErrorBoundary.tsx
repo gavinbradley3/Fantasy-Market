@@ -39,12 +39,12 @@ export class AppErrorBoundary extends Component<Props, State> {
     return (
       <div
         role="alert"
-        className="flex min-h-screen flex-col items-center justify-center bg-base px-6 text-center"
+        className="flex min-h-screen flex-col items-center justify-center bg-canvas px-6 text-center"
       >
-        <p className="font-mono text-4xl" aria-hidden>
+        <p className="data text-4xl" aria-hidden>
           ▼
         </p>
-        <h1 className="mt-4 font-display text-xl font-semibold text-text-primary">
+        <h1 className="mt-4 font-ui text-xl font-semibold text-text-primary">
           Something went wrong
         </h1>
         <p className="mt-2 max-w-md text-sm text-text-secondary">
@@ -52,20 +52,20 @@ export class AppErrorBoundary extends Component<Props, State> {
           portfolio are safe — they're stored locally on this device.
         </p>
         {import.meta.env.DEV && (
-          <pre className="mt-3 max-w-xl overflow-x-auto rounded-control border border-down/30 bg-surface p-3 text-left text-xs text-down">
+          <pre className="mt-3 max-w-xl overflow-x-auto rounded-control border border-negative/30 bg-surface p-3 text-left text-xs text-negative">
             {this.state.error.message}
           </pre>
         )}
         <div className="mt-5 flex gap-3">
           <button
             onClick={this.reset}
-            className="rounded-control border border-border-subtle px-4 py-2 text-sm font-semibold text-text-primary transition hover:bg-elevated"
+            className="rounded-control border border-border-default px-4 py-2 text-sm font-semibold text-text-primary transition hover:bg-elevated"
           >
             Try again
           </button>
           <button
             onClick={this.reload}
-            className="rounded-control bg-up px-4 py-2 text-sm font-semibold text-base transition hover:brightness-110"
+            className="rounded-control bg-positive px-4 py-2 text-sm font-semibold text-base transition hover:brightness-110"
           >
             Reload PlayerTicker
           </button>

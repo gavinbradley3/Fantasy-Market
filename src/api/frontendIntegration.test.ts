@@ -133,7 +133,10 @@ describe('the frontend API client against the real backend', () => {
         expect(p.composites).not.toBeNull();
         expect(Number.isFinite(p.value as number)).toBe(true);
         expect(p.confidenceScore).not.toBeNull();
-        expect(p.volatilityScore).not.toBeNull();
+        // Volatility is a frozen-engine output, so it travels only on the FULL tier. The
+        // accessible tier publishes none rather than borrowing the premium engine's.
+        if (p.modelTier === 'FULL') expect(p.volatilityScore).not.toBeNull();
+        else expect(p.volatilityScore).toBeNull();
         // Ranked by the adapter's ordering over the backend's own value.
         expect(p.overallRank).not.toBeNull();
         // The value is honest about how little evidence backed it.

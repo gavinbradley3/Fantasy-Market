@@ -46,7 +46,7 @@ const RANGES: { key: HistoryRange; label: string }[] = [
 
 function Section({ title, children, aside }: { title: string; children: React.ReactNode; aside?: React.ReactNode }) {
   return (
-    <section className="rounded-card border border-border-subtle bg-surface p-4">
+    <section className="rounded-card border border-border-default bg-surface p-4">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-text-primary">{title}</h3>
         {aside}
@@ -99,7 +99,7 @@ export default function PlayerPage() {
     return (
       <div className="py-16 text-center">
         <p className="text-lg text-text-primary">No player found for “{ticker}”.</p>
-        <Link to="/board" className="mt-3 inline-block text-secondary hover:underline">
+        <Link to="/board" className="mt-3 inline-block text-brand-blue hover:underline">
           ← Back to the Board
         </Link>
       </div>
@@ -115,13 +115,16 @@ export default function PlayerPage() {
 
   return (
     <div className="space-y-4">
-      {/* Demo badge banner atop the card (§34) */}
-      <p className="rounded-control border border-warning/25 bg-warning/5 px-3 py-1.5 text-center text-xs text-warning">
+      {/* Demo badge banner atop the card (§34). The app shell already carries a
+          standing demo notice, so this one keeps the wording the stock card needs
+          while staying visually quieter than the data it introduces. */}
+      <p className="flex items-center justify-center gap-2 rounded-control border border-border-default bg-surface-subtle px-3 py-2 text-center text-xs text-text-muted">
+        <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-warning" />
         Demo Market — simulated data for product preview. Not current player information.
       </p>
 
       {/* 1. Identity header + 2. price block */}
-      <div className="rounded-card border border-border-subtle bg-surface p-4">
+      <div className="rounded-card border border-border-default bg-surface p-4">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-center gap-3">
             <PlayerAvatar seed={player.avatarSeed} name={player.displayName} size={56} />
@@ -144,7 +147,7 @@ export default function PlayerPage() {
           </div>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-end gap-x-8 gap-y-3 border-t border-border-subtle pt-4">
+        <div className="mt-4 flex flex-wrap items-end gap-x-8 gap-y-3 border-t border-border-default pt-4">
           <div>
             <div className="mb-1 flex items-center gap-2">
               <MarketPriceBadge price={s.marketPrice} size="xl" />
@@ -196,9 +199,18 @@ export default function PlayerPage() {
           </Suspense>
         )}
         <div className="mt-2 flex flex-wrap items-center gap-3 text-[11px] text-text-muted">
-          <span className="flex items-center gap-1"><span className="inline-block h-0.5 w-4 bg-up" /> Market price</span>
-          <span className="flex items-center gap-1"><span className="inline-block h-0.5 w-4 border-t border-dashed border-secondary" /> Model value</span>
-          <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-up" /> Catalyst</span>
+          {/* Swatches mirror PriceChart exactly: focal series in brand blue, the
+              model reference muted and dashed, catalysts in their own status colours. */}
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block h-0.5 w-4 rounded-full bg-brand-blue" /> Market price
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block h-0.5 w-4 border-t border-dashed border-text-muted" /> Model
+            value
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block h-2 w-2 rounded-full bg-positive" /> Catalyst
+          </span>
           {addedMarker && <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-warning" /> Added to watchlist</span>}
         </div>
       </Section>
@@ -219,7 +231,7 @@ export default function PlayerPage() {
               <h4 className="mb-1 text-[11px] uppercase tracking-wide text-text-muted">Supporting factors</h4>
               <ul className="space-y-1 text-xs text-text-secondary">
                 {signal.supportingFactors.map((f, i) => (
-                  <li key={i} className="flex gap-1.5"><span className="text-up">+</span>{f}</li>
+                  <li key={i} className="flex gap-1.5"><span className="text-positive">+</span>{f}</li>
                 ))}
               </ul>
             </div>
@@ -227,7 +239,7 @@ export default function PlayerPage() {
               <h4 className="mb-1 text-[11px] uppercase tracking-wide text-text-muted">Risk factors</h4>
               <ul className="space-y-1 text-xs text-text-secondary">
                 {signal.riskFactors.map((f, i) => (
-                  <li key={i} className="flex gap-1.5"><span className="text-down">–</span>{f}</li>
+                  <li key={i} className="flex gap-1.5"><span className="text-negative">–</span>{f}</li>
                 ))}
               </ul>
             </div>
@@ -245,7 +257,7 @@ export default function PlayerPage() {
               <span className="text-sm text-text-secondary">Volatility</span>
               <VolatilityMeter value={s.volatility} />
             </div>
-            <div className="border-t border-border-subtle pt-3">
+            <div className="border-t border-border-default pt-3">
               <RiskBreakdown composite={s.riskScore} breakdown={s.riskBreakdown} />
             </div>
           </div>
@@ -291,7 +303,7 @@ export default function PlayerPage() {
       <Section title="Format Notes">
         <ul className="mb-3 space-y-1 text-sm text-text-secondary">
           {formatNotes.map((n, i) => (
-            <li key={i} className="flex gap-2"><span className="text-secondary">·</span>{n}</li>
+            <li key={i} className="flex gap-2"><span className="text-brand-blue">·</span>{n}</li>
           ))}
         </ul>
         <div className="overflow-x-auto">
@@ -306,11 +318,11 @@ export default function PlayerPage() {
             </thead>
             <tbody>
               {comparison.map((c) => (
-                <tr key={c.format} className={cn('border-t border-border-subtle/60', c.format === format && 'bg-elevated/40')}>
+                <tr key={c.format} className={cn('border-t border-border-default/60', c.format === format && 'bg-elevated/40')}>
                   <td className="py-1 pr-2 text-text-secondary">{FORMATS[c.format].label}</td>
-                  <td className="py-1 pr-2 text-right font-mono tabnum text-text-primary">{c.marketPrice.toFixed(1)}</td>
-                  <td className="py-1 pr-2 text-right font-mono tabnum text-text-secondary">{c.fundamentalValue.toFixed(1)}</td>
-                  <td className="py-1 text-right font-mono tabnum text-text-secondary">{fmtSigned(c.mispricing)}</td>
+                  <td className="py-1 pr-2 text-right data text-text-primary">{c.marketPrice.toFixed(1)}</td>
+                  <td className="py-1 pr-2 text-right data text-text-secondary">{c.fundamentalValue.toFixed(1)}</td>
+                  <td className="py-1 text-right data text-text-secondary">{fmtSigned(c.mispricing)}</td>
                 </tr>
               ))}
             </tbody>
@@ -318,15 +330,15 @@ export default function PlayerPage() {
         </div>
       </Section>
 
-      <div className="rounded-card border border-border-subtle bg-surface p-4">
+      <div className="rounded-card border border-border-default bg-surface p-4">
         {detail.trending && (detail.trending.adds24h ?? detail.trending.drops24h) !== undefined && (
           <p className="mb-2 text-[11px] text-text-secondary">
             Sleeper trending (24h):
             {detail.trending.adds24h !== undefined && (
-              <span className="ml-1 font-mono tabnum text-up">+{detail.trending.adds24h.toLocaleString()} adds</span>
+              <span className="ml-1 data text-positive">+{detail.trending.adds24h.toLocaleString()} adds</span>
             )}
             {detail.trending.drops24h !== undefined && (
-              <span className="ml-1 font-mono tabnum text-down">−{detail.trending.drops24h.toLocaleString()} drops</span>
+              <span className="ml-1 data text-negative">−{detail.trending.drops24h.toLocaleString()} drops</span>
             )}
             <span className="ml-1 text-text-muted">— informational only; never affects prices or signals.</span>
           </p>
@@ -334,7 +346,7 @@ export default function PlayerPage() {
         <ValueDisclaimer />
         <p className="mt-2 text-[11px] text-text-muted">
           Signal: {SIGNAL_META[signal.signal].label} — rule {signal.ruleFired}.{' '}
-          <Link to="/methodology" className="text-secondary hover:underline">How is this computed?</Link>
+          <Link to="/methodology" className="text-brand-blue hover:underline">How is this computed?</Link>
         </p>
       </div>
 
@@ -347,7 +359,7 @@ function Metric({ label, value, tone }: { label: string; value: string; tone?: '
   return (
     <div>
       <dt className="text-[11px] uppercase tracking-wide text-text-muted">{label}</dt>
-      <dd className={cn('font-mono text-base font-semibold tabnum', tone === 'up' ? 'text-up' : tone === 'down' ? 'text-down' : 'text-text-primary')}>
+      <dd className={cn('data text-base font-semibold tabnum', tone === 'up' ? 'text-positive' : tone === 'down' ? 'text-negative' : 'text-text-primary')}>
         {value}
       </dd>
     </div>

@@ -11,7 +11,10 @@ import { availabilityProbability, type AvailabilityState, type InjuryStatus } fr
 import type { NormalizedEvidence } from '@/inference/production/orchestrate';
 import type { CompetitionPosition, CompetitionTeammate } from '@/inference/competition';
 import type { RosterStatus } from '@/inference/features/types';
+import type { QBDepthChartStatus } from '@/inference/roles/roles';
 import { observedCountingFacts, D2_ROLE_WINDOW_GAMES, RECENT_GAME_WINDOW } from './observedFacts';
+import { observedReceivingRates } from './observedReceiving';
+import { observedCareerRates } from './observedCareerRates';
 import { buildTeamGameTotals, observedProduction, type TeamGameTotals } from './observedProduction';
 import { compareOrdinal, withinAsOf } from './ordering';
 import type { NormalizedSnapshot } from './snapshot';
@@ -19,6 +22,7 @@ import type {
   GameStatRecord,
   InjuryRecord,
   IngestionProvider,
+  MergedFieldKey,
   OfficialStartRecord,
   ParticipationRecord,
   PlayerRecord,
@@ -98,6 +102,15 @@ function indexOf(snapshot: NormalizedSnapshot): SnapshotIndex {
 
 const EMPTY: readonly never[] = [];
 
+/**
+ * Start rate over the role window at or above which a quarterback is his team's STARTER.
+ *
+ * A majority of the team's recent games is the plainest reading of "this is the starter", and
+ * it stands in for the snap-share signal the spec's depth-chart classifier wants and the free
+ * weekly export does not publish.
+ */
+const QB_STARTER_START_RATE = 0.5;
+
 export interface BuiltEvidence {
   readonly player: CanonicalPlayer;
   readonly facts: Record<string, unknown>;
@@ -171,6 +184,12 @@ interface PointInTimeFacts {
   readonly injuryDesignation: string | null;
   /** True when the identity export's own content is attested at or before the as-of. */
   readonly identityAttested: boolean;
+  /** The provider that supplied the surviving `status` — a roster row's, or the identity export's. */
+  readonly statusProvider: IngestionProvider;
+  /** The provider that supplied `injuryDesignation`. */
+  readonly designationProvider: IngestionProvider;
+  /** The provider that supplied the surviving `team`. */
+  readonly teamProvider: IngestionProvider;
   /**
    * When the source that actually supplied `team`/`status` attested them.
    *
@@ -200,16 +219,36 @@ function resolvePointInTime(
   canonicalId: string,
   asOf: string,
 ): PointInTimeFacts {
-  const identityAttested = withinAsOf(asOf, rec.sourceTimestamp);
+  // Gated PER FIELD, on the timestamp of the source that actually supplied that field. On a
+  // merged record these differ: biography comes from the most authoritative provider and
+  // team/status/designation from the most recent one, so only the supplying source's own stamp
+  // can say whether a value is evidence for this as-of. Using the record's single timestamp
+  // either admits post-as-of evidence onto a historical board or withholds evidence valid for
+  // it, depending on which provider happened to win the merge.
+  const attestedFor = (field: 'status' | 'team' | 'injuryDesignation'): boolean =>
+    withinAsOf(asOf, rec.fieldSources?.[field]?.sourceTimestamp ?? rec.sourceTimestamp);
+  const statusAttested = attestedFor('status');
+  const teamAttested = attestedFor('team');
+  const designationAttested = attestedFor('injuryDesignation');
   const roster = latest(index.rostersByPlayer.get(canonicalId) ?? EMPTY, asOf);
   return {
-    team: roster?.team ?? (identityAttested ? rec.team : null),
-    status: roster ? ROSTER_TO_CANONICAL[roster.rosterStatus] : identityAttested ? (rec.status as CanonicalStatus | null) : null,
-    // An injury designation has no historical source here at all, so it is only ever used
-    // when the identity export itself is attested for the as-of.
-    injuryDesignation: identityAttested ? rec.injuryDesignation : null,
-    identityAttested,
-    attestedAt: roster?.sourceTimestamp ?? rec.sourceTimestamp,
+    team: roster?.team ?? (teamAttested ? rec.team : null),
+    status: roster ? ROSTER_TO_CANONICAL[roster.rosterStatus] : statusAttested ? (rec.status as CanonicalStatus | null) : null,
+    // An injury designation has no historical source here at all, so it is only ever used when
+    // the source that supplied it attested it at or before the as-of. A current designation must
+    // never leak backward onto a board whose as-of predates it.
+    injuryDesignation: designationAttested ? rec.injuryDesignation : null,
+    identityAttested: statusAttested,
+    attestedAt: roster?.sourceTimestamp ?? rec.fieldSources?.status?.sourceTimestamp ?? rec.sourceTimestamp,
+    // Whoever actually supplied the status that survived: an nflverse roster row when one
+    // exists, otherwise the identity export's own source.
+    statusProvider: roster
+      ? roster.freshness.provider
+      : rec.fieldSources?.status?.provider ?? rec.freshness.provider,
+    designationProvider: rec.fieldSources?.injuryDesignation?.provider ?? rec.freshness.provider,
+    teamProvider: roster
+      ? roster.freshness.provider
+      : rec.fieldSources?.team?.provider ?? rec.freshness.provider,
   };
 }
 
@@ -219,8 +258,25 @@ function buildCanonicalPlayer(
   asOf: string,
   pit: PointInTimeFacts,
 ): CanonicalPlayer {
-  const pid = toProviderId(rec.freshness.provider);
+  // PER-FIELD ATTRIBUTION. Every field is labelled with the provider that actually supplied it
+  // and the instant that provider attested it. A single record-level label was a false claim
+  // about most of a merged record: it reported a status as Sleeper's when the value had come
+  // from an nflverse weekly roster row, because Sleeper had won the merge and relabelled it.
+  //
+  // `CanonicalPlayer` already carries a `FieldState` per field with its own provider,
+  // provenance and timestamp — the contract was sufficient all along and only the construction
+  // below was collapsing it to one provider.
+  const recordPid = toProviderId(rec.freshness.provider);
   const ts = rec.sourceTimestamp;
+  /** The provider and timestamp for one merged biographical field. */
+  const src = (field: MergedFieldKey): { pid: ProviderId; at: string } => {
+    const fs = rec.fieldSources?.[field];
+    return fs ? { pid: toProviderId(fs.provider), at: fs.sourceTimestamp } : { pid: recordPid, at: ts };
+  };
+  const nameSrc = src('nameNormalized');
+  const ageSrc = src('age');
+  const seasonsSrc = src('nflSeasonsCompleted');
+  const draftSrc = src('draftRound');
   const status = pit.status;
   return {
     identity: {
@@ -234,31 +290,73 @@ function buildCanonicalPlayer(
       newly_created: false,
     },
     position,
-    full_name: present(rec.nameNormalized, pid, ts),
-    team: pit.team ? present(pit.team, pid, pit.attestedAt) : notProvided(),
-    age: rec.age !== null ? present(rec.age, pid, ts) : notProvided(),
+    full_name: present(rec.nameNormalized, nameSrc.pid, nameSrc.at),
+    // Team, status and injury designation are attributed to whoever actually supplied the value
+    // that survived point-in-time resolution — a weekly roster row when one exists, otherwise
+    // the identity export's own source.
+    team: pit.team ? present(pit.team, toProviderId(pit.teamProvider), pit.attestedAt) : notProvided(),
+    age: rec.age !== null ? present(rec.age, ageSrc.pid, ageSrc.at) : notProvided(),
     birth_date: notProvided(),
-    nfl_seasons_completed: rec.nflSeasonsCompleted !== null ? present(rec.nflSeasonsCompleted, pid, ts) : notProvided(),
+    nfl_seasons_completed:
+      rec.nflSeasonsCompleted !== null ? present(rec.nflSeasonsCompleted, seasonsSrc.pid, seasonsSrc.at) : notProvided(),
     rookie_year: notProvided(),
     draft_year: notProvided(),
-    draft_round: rec.draftRound !== null ? present(rec.draftRound, pid, ts) : notProvided(),
+    draft_round: rec.draftRound !== null ? present(rec.draftRound, draftSrc.pid, draftSrc.at) : notProvided(),
     draft_pick: notProvided(),
     height_inches: notProvided(),
     weight_pounds: notProvided(),
     jersey_number: notProvided(),
-    status: status ? present(status, pid, pit.attestedAt) : notProvided(),
-    injury_designation: pit.injuryDesignation ? present(pit.injuryDesignation, pid, ts) : notProvided(),
+    status: status ? present(status, toProviderId(pit.statusProvider), pit.attestedAt) : notProvided(),
+    injury_designation: pit.injuryDesignation
+      ? present(
+          pit.injuryDesignation,
+          toProviderId(pit.designationProvider),
+          rec.fieldSources?.injuryDesignation?.sourceTimestamp ?? ts,
+        )
+      : notProvided(),
     headshot_url: notProvided(),
-    provenance: { sources: [pid], generated_at: asOf },
+    // Every distinct provider that contributed a field to this record, canonically ordered.
+    // Listing one provider for a mixed-provider record understated the evidence behind it.
+    provenance: {
+      sources: [
+        ...new Set<ProviderId>([
+          nameSrc.pid,
+          ageSrc.pid,
+          seasonsSrc.pid,
+          draftSrc.pid,
+          toProviderId(pit.statusProvider),
+          toProviderId(pit.teamProvider),
+          ...(pit.injuryDesignation ? [toProviderId(pit.designationProvider)] : []),
+        ]),
+      ].sort(),
+      generated_at: asOf,
+    },
   };
 }
 
 /** Build the complete evidence bundle for one player. */
+export interface EvidenceOptions {
+  /**
+   * The seasons a NON-QB position is valued over.
+   *
+   * CAREER EVIDENCE vs VALUATION WINDOW. The refresh may acquire extra seasons of game stats
+   * so the QB engine's career terms describe a career rather than a three-year window (see
+   * `careerSeasons` in the source plan). Those extra seasons must not silently widen what RB,
+   * TE and WR are valued over — their models were validated on the declared window, and
+   * changing their inputs is not the same decision as giving QB a real career.
+   *
+   * So: QB reads every ingested game; every other position is scoped to these seasons. Absent,
+   * nothing is scoped and all positions read everything, which is the previous behaviour.
+   */
+  readonly valuationSeasons?: readonly number[];
+}
+
 export function buildEvidenceFor(
   snapshot: NormalizedSnapshot,
   canonicalId: string,
   position: SupportedPosition,
   asOf: string,
+  options: EvidenceOptions = {},
 ): BuiltEvidence | null {
   const index = indexOf(snapshot);
   const playerRec = index.playersById.get(canonicalId);
@@ -269,7 +367,14 @@ export function buildEvidenceFor(
   const pit = resolvePointInTime(playerRec, index, canonicalId, asOf);
   const team = pit.team;
 
-  const myGames = (index.gamesByPlayer.get(canonicalId) ?? EMPTY).filter((g) => g.seasonType === 'REG' && withinAsOf(asOf, g.kickoff));
+  const allGames = (index.gamesByPlayer.get(canonicalId) ?? EMPTY).filter((g) => g.seasonType === 'REG' && withinAsOf(asOf, g.kickoff));
+  // QB reads the full ingested history; every other position stays inside the valuation
+  // window. See `EvidenceOptions.valuationSeasons`.
+  const valuationSeasons = options.valuationSeasons;
+  const myGames =
+    position === 'QB' || !valuationSeasons || valuationSeasons.length === 0
+      ? allGames
+      : allGames.filter((g) => valuationSeasons.includes(g.season));
   const myParticipation = (index.participationByPlayer.get(canonicalId) ?? EMPTY).filter((p) => withinAsOf(asOf, p.kickoff));
   const myInjury = latest(index.injuriesByPlayer.get(canonicalId) ?? EMPTY, asOf);
   const myTxns = (index.transactionsByPlayer.get(canonicalId) ?? EMPTY).filter((t) => withinAsOf(asOf, t.date));
@@ -350,6 +455,67 @@ export function buildEvidenceFor(
     evidence.d1 = { position: 'TE', chartedCareerRoutes: null };
   }
 
+  // --- QB role ladder (§3.4) ---
+  //
+  // THE DEFECT THIS CLOSES. `classifyQBRoleStatus`, the `QBRoleSignals` contract and the
+  // orchestrator that consumes them all existed; nothing ever built the evidence. So
+  // `role_status` fell to its ENUM neutral — BACKUP — for every quarterback in the league,
+  // which made Role Security (21% of the dynasty composite) constant at ~21 for a starter and
+  // a third-stringer alike.
+  //
+  // Everything below comes from official start records already in the snapshot. Signals the
+  // pipeline genuinely cannot observe (a benching, a temporary injury replacement, a signed
+  // veteran bridge, a two-QB rotation) stay false, so only the rungs that real evidence
+  // supports can fire and every other quarterback still lands on BACKUP — by evidence now,
+  // not by default.
+  //
+  // DEPTH CHART FROM STARTS. The spec's `classifyQBDepthChartStatus` wants snap share, and the
+  // weekly stats export publishes no snap columns. Starts answer the same question from the
+  // same snapshot — a quarterback who starts his team's games is his team's starter — so the
+  // status is derived from the start rate and labelled as such, rather than left contradicting
+  // a role the start record has already established.
+  if (position === 'QB') {
+    const observedGameIds = new Set(myGames.map((g) => g.gameId));
+    const officials = (index.officialStartsByPlayer.get(canonicalId) ?? EMPTY).filter((o) =>
+      observedGameIds.has(o.gameId),
+    );
+    if (officials.length > 0) {
+      const rows = myGames.map((g) => gameRow(g));
+      const newestFirst = [...rows].sort((a, b) => (a.kickoff < b.kickoff ? 1 : -1));
+      const roleWindowIds = new Set(newestFirst.slice(0, D2_ROLE_WINDOW_GAMES).map((r) => r.gameId));
+      const startedIds = new Set(officials.filter((o) => o.started).map((o) => o.gameId));
+
+      const roleWindowGames = Math.min(rows.length, D2_ROLE_WINDOW_GAMES);
+      const roleWindowStarts = [...startedIds].filter((id) => roleWindowIds.has(id)).length;
+      const recentStartRate = roleWindowGames > 0 ? roleWindowStarts / roleWindowGames : null;
+
+      const rosterStatus = rosterStatusFor(index.rostersByPlayer.get(canonicalId) ?? EMPTY, asOf);
+      const depthChartStatus: QBDepthChartStatus =
+        team === null
+          ? 'FREE_AGENT'
+          : rosterStatus === 'PRACTICE_SQUAD'
+            ? 'PRACTICE_SQUAD'
+            : recentStartRate !== null && recentStartRate >= QB_STARTER_START_RATE
+              ? 'STARTER'
+              : 'BACKUP';
+
+      evidence.qbRole = {
+        // Not observable from the free stack; left false so no rung fires without evidence.
+        benchedWithin4Weeks: false,
+        temporaryInjuryReplacement: false,
+        veteranBridgeSigned: false,
+        twoQbStartSignal: false,
+        recentStartRate,
+        careerStarts: startedIds.size,
+        // Counted from the provider's own start records, which is the provenance §9.3 requires
+        // for the ESTABLISHED_STARTER rung.
+        startsProvenance: 'DERIVED',
+        nflSeasonsCompleted: playerRec.nflSeasonsCompleted ?? 0,
+        depthChartStatus,
+      };
+    }
+  }
+
   // --- D2 (QB starts) ---
   if (position === 'QB') {
     const rows = myGames.map((g) => gameRow(g));
@@ -426,6 +592,25 @@ export function buildEvidenceFor(
   if (newestGame !== undefined) {
     for (const key of Object.keys(facts)) factTimestamps[key] = newestGame;
   }
+  // --- observed CAREER rates (QB) ---
+  // The career baseline the engine's quality components had no way to see (§26.6.3-CA). Career
+  // starts come from the role evidence built just above, so the rushing rate's denominator is
+  // the same start count the rest of the engine uses. QB only: no other engine takes these.
+  if (position === 'QB') {
+    Object.assign(facts, observedCareerRates(myGames, evidence.qbRole?.careerStarts ?? null));
+  }
+
+  // --- observed receiving rates (WR) ---
+  // The WR engine declares `target_share` and `average_depth_of_target`; neither was ever
+  // supplied, so every receiver fell back to the same constants and two of the engine's eight
+  // components were identical league-wide. Both are ratios over provider columns the snapshot
+  // already holds, so they join `facts` (and therefore win over any AIL estimate) exactly as
+  // the counting facts do. WR only: RB and TE are valued by the accessible tier, which reads
+  // its own observed production and must not have its inputs changed here.
+  if (position === 'WR') {
+    Object.assign(facts, observedReceivingRates(myGames));
+  }
+
   // Observed practice_status enum, when an injury record is present.
   if (myInjury) {
     facts.practice_status = myInjury.practiceStatus;
@@ -434,10 +619,10 @@ export function buildEvidenceFor(
 
   // --- observed production (accessible model tier) ---
   // A SECOND, separate channel from `facts`: it feeds the accessible-tier models only and is
-  // never merged into a frozen engine's supplement, so every frozen input and every QB/WR
-  // checksum is unaffected. Built for RB and TE only, which are the positions the accessible
-  // tier serves; leaving it undefined elsewhere keeps QB/WR normalized-input bytes identical.
-  if (position === 'RB' || position === 'TE') {
+  // never merged into a frozen engine's supplement, so every frozen input and every QB
+  // checksum is unaffected. Built for the positions the accessible tier serves — RB, TE and now
+  // WR; leaving it undefined for QB keeps QB normalized-input bytes identical.
+  if (position === 'RB' || position === 'TE' || position === 'WR') {
     // Distinct (season, week) roster rows at or before the as-of. Every roster status counts,
     // including IR/PUP: being under contract and unable to play IS an availability failure,
     // which is exactly what durability is meant to measure.

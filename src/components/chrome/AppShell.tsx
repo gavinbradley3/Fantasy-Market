@@ -3,6 +3,8 @@ import { Link, NavLink, useLocation } from 'react-router-dom';
 import { FormatRibbon } from '@/components/chrome/FormatRibbon';
 import { SearchOverlay } from '@/components/chrome/SearchOverlay';
 import { DataModeBanner } from '@/components/chrome/Honesty';
+import { Logo } from '@/components/chrome/Logo';
+import { ActivityIcon, PieIcon, RowsIcon, SearchIcon, StarIcon } from '@/components/ui/icons';
 import { useMarketStatus } from '@/hooks/useMarketData';
 import { cn } from '@/lib/ui';
 
@@ -16,29 +18,20 @@ const NAV = [
 ];
 
 const MOBILE_NAV = [
-  { to: '/market', label: 'Market', icon: '▤' },
-  { to: '/board', label: 'Board', icon: '☷' },
-  { to: '__search', label: 'Search', icon: '⌕' },
-  { to: '/watchlist', label: 'Watch', icon: '★' },
-  { to: '/portfolio', label: 'Portfolio', icon: '◕' },
-];
+  { to: '/market', label: 'Market', Icon: ActivityIcon },
+  { to: '/board', label: 'Board', Icon: RowsIcon },
+  { to: '__search', label: 'Search', Icon: SearchIcon },
+  { to: '/watchlist', label: 'Watch', Icon: StarIcon },
+  { to: '/portfolio', label: 'Portfolio', Icon: PieIcon },
+] as const;
 
-function Wordmark() {
-  return (
-    <Link to="/" className="flex items-center gap-2">
-      <span className="text-up" aria-hidden>
-        {/* simple tick glyph, no NFL marks */}
-        <svg width="20" height="20" viewBox="0 0 32 32" fill="none">
-          <path d="M4 21 L11 14 L16 18 L27 7" stroke="#2DD4A7" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-          <circle cx="27" cy="7" r="2.6" fill="#2DD4A7" />
-        </svg>
-      </span>
-      <span className="font-display text-lg font-bold tracking-tight text-text-primary">
-        Player<span className="text-up">Ticker</span>
-      </span>
-    </Link>
-  );
-}
+/**
+ * Routes that render PUBLISHED production data rather than the Demo Market.
+ *
+ * Kept as an explicit set rather than a prop so adding a real surface is one line here and
+ * cannot be forgotten at a call site.
+ */
+const REAL_DATA_ROUTES = new Set<string>(['/board']);
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [searchOpen, setSearchOpen] = useState(false);
@@ -62,18 +55,28 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen">
-      <DataModeBanner status={marketStatus} />
+      {/* The demo banner describes the DEMO MARKET surfaces, whose prices and signals are
+          simulated. It must not appear over The Board, which renders the published valuation —
+          real model output over real nflverse data. Showing it there would tell a reader the
+          one genuinely live surface is simulated, which is the same kind of mislabel as the
+          reverse and just as misleading. The Board states its own provenance through its
+          freshness note and its per-player tier and confidence. */}
+      {!REAL_DATA_ROUTES.has(pathname) && <DataModeBanner status={marketStatus} />}
 
       {/* Desktop / top nav */}
-      <header className="sticky top-0 z-30 border-b border-border-subtle bg-base/95 backdrop-blur">
-        <div className="mx-auto flex max-w-app items-center gap-3 px-4 py-3">
-          <div className="shrink-0">
-            <Wordmark />
-          </div>
+      <header className="sticky top-0 z-30 border-b border-border-default bg-canvas/90 backdrop-blur-md">
+        <div className="mx-auto flex max-w-app items-center gap-5 px-5 md:px-8">
+          <Link
+            to="/"
+            className="shrink-0 py-3.5 transition-opacity duration-standard hover:opacity-80"
+            aria-label="PlayerTicker home"
+          >
+            <Logo size={26} />
+          </Link>
           {/* Nav can shrink and scroll internally so the header never forces
               horizontal page overflow at tight widths (e.g. 768–1023px). */}
           <nav
-            className="no-scrollbar ml-1 hidden min-w-0 flex-1 items-center gap-1 overflow-x-auto md:flex"
+            className="no-scrollbar hidden min-w-0 flex-1 items-stretch gap-0.5 self-stretch overflow-x-auto md:flex"
             aria-label="Primary"
           >
             {NAV.map((n) => (
@@ -82,8 +85,11 @@ export function AppShell({ children }: { children: ReactNode }) {
                 to={n.to}
                 className={({ isActive }) =>
                   cn(
-                    'shrink-0 rounded-control px-3 py-1.5 text-sm transition',
-                    isActive ? 'bg-elevated text-text-primary' : 'text-text-secondary hover:text-text-primary',
+                    'relative flex shrink-0 items-center px-3 text-[13px] font-medium transition-colors duration-standard',
+                    'after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:transition-colors after:duration-standard',
+                    isActive
+                      ? 'text-text-primary after:bg-brand-blue'
+                      : 'text-text-muted after:bg-transparent hover:text-text-secondary',
                   )
                 }
               >
@@ -94,23 +100,25 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="ml-auto flex shrink-0 items-center gap-2">
             <button
               onClick={() => setSearchOpen(true)}
-              className="flex items-center gap-2 rounded-full border border-border-subtle bg-elevated px-3 py-1.5 text-sm text-text-muted transition hover:text-text-secondary"
+              className="flex items-center gap-2 rounded-control border border-border-default bg-surface px-2.5 py-1.5 text-[13px] text-text-muted transition-colors duration-standard hover:border-border-strong hover:text-text-secondary"
               aria-label="Search players"
             >
-              <span aria-hidden>⌕</span>
+              <SearchIcon size={15} />
               <span className="hidden sm:inline">Search</span>
-              <kbd className="hidden rounded bg-base px-1.5 text-[10px] text-text-muted sm:inline">/</kbd>
+              <kbd className="ml-1 hidden rounded border border-border-default bg-canvas px-1.5 py-0.5 font-ui text-[10px] text-text-faint sm:inline">
+                /
+              </kbd>
             </button>
             <FormatRibbon compact />
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-app px-4 pb-28 pt-5 md:pb-12">{children}</main>
+      <main className="mx-auto max-w-app px-5 pb-28 pt-6 md:px-8 md:pb-16">{children}</main>
 
       {/* Mobile bottom nav (§17, §21.7) */}
       <nav
-        className="fixed inset-x-0 bottom-0 z-30 border-t border-border-subtle bg-base/95 pb-safe backdrop-blur md:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 border-t border-border-default bg-canvas/95 pb-safe backdrop-blur-md md:hidden"
         aria-label="Primary mobile"
       >
         <div className="mx-auto flex max-w-app items-stretch justify-around">
@@ -118,21 +126,19 @@ export function AppShell({ children }: { children: ReactNode }) {
             const isSearch = n.to === '__search';
             const active = !isSearch && pathname === n.to;
             const cls = cn(
-              'flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] transition',
-              active ? 'text-up' : 'text-text-secondary',
+              // 44px+ touch target.
+              'flex min-h-[52px] flex-1 flex-col items-center justify-center gap-1 py-2 text-[10px] font-medium transition-colors duration-standard',
+              active ? 'text-text-primary' : 'text-text-muted',
             );
+            const glyph = <n.Icon size={19} className={active ? 'text-brand-blue' : undefined} />;
             return isSearch ? (
               <button key={n.to} onClick={() => setSearchOpen(true)} className={cls}>
-                <span aria-hidden className="text-lg leading-none">
-                  {n.icon}
-                </span>
+                {glyph}
                 {n.label}
               </button>
             ) : (
               <NavLink key={n.to} to={n.to} className={cls}>
-                <span aria-hidden className="text-lg leading-none">
-                  {n.icon}
-                </span>
+                {glyph}
                 {n.label}
               </NavLink>
             );

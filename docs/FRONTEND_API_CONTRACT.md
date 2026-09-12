@@ -49,6 +49,7 @@ frontend source.**
 | Method & path | Where it is used | Notes |
 |---|---|---|
 | `GET /publication` | The Board (`src/pages/BoardPage.tsx`) via `usePublishedMarket()` | The current published board |
+| `GET /market` | The Board's market columns via `useExternalMarket()` | **External** dynasty market quotes |
 | `GET /health` | `fetchHealth()` — available to any provenance surface | Backend self-report |
 
 No other endpoint is called. In particular the frontend **never** issues `POST /refresh`:
@@ -126,6 +127,79 @@ The frontend renders that faithfully — an em-dash and an `UNAVAILABLE` badge p
 sentence explaining it — rather than showing a zero, an estimate, or a demo price. When the
 frontier is crossed, the same path lights up with no frontend change (the valued path is
 covered by tests today).
+
+---
+
+## 4b. `GET /market`
+
+**External data, and the contract says so.** These are not PlayerTicker valuations: they are
+quotes published by a third party, joined to PlayerTicker canonical ids. The endpoint is
+read-only — there is no write path behind it, because ingestion is a deliberate, logged batch
+job (`npm run ingest:market`), not something an HTTP caller can set off.
+
+### Query parameters
+
+| Param | Default | Behaviour |
+|---|---|---|
+| `format` | `dynasty_superflex` | `dynasty_superflex` \| `dynasty_1qb`. An unknown value is **rejected with 400**, never defaulted — answering a 1QB request with Superflex numbers would misprice every quarterback. |
+| `source` | `dynastyprocess` | Short lowercase key. A malformed key is a 400. |
+
+### Status behaviour
+
+`200` always, including when no market has been ingested: an empty market is a real answer
+(`quoteCount: 0`), not a 404. A persistence failure is `503`. There is no "nothing yet" error
+kind to handle, unlike `GET /publication`.
+
+### Response shape
+
+```jsonc
+{
+  "source": "dynastyprocess",
+  "format": "dynasty_superflex",
+  "attribution": {                       // REQUIRED — the client rejects a body without it
+    "publisher": "DynastyProcess",
+    "url": "https://github.com/dynastyprocess/data",
+    "licence": "GPL-3.0",
+    "derivedFrom": "FantasyPros expert consensus",
+    "refreshCadence": "weekly",          // the ceiling on any movement window the UI may offer
+    "usage": "External comparison source, not PlayerTicker-owned market data. …"
+  },
+  "sourceTimestamp": "2026-09-11T00:00:00.000Z",  // newest quote's own stamp, or null
+  "sourceVersion": "2026-09-11",                  // the source's own dataset version, verbatim
+  "capturedAt": "2026-09-11T21:33:45.639Z",       // newest capture instant held, or null
+  "captureCount": 2,                              // < 2 ⇒ no movement can be MEASURED
+  "quoteCount": 439,
+  "quotes": [
+    {
+      "canonicalPlayerId": "pt-d80f2bd29165c373",
+      "source": "dynastyprocess",        // repeated per record so a detached quote stays attributed
+      "format": "dynasty_superflex",
+      "value": 10256,                    // the SOURCE's scale. null = no value published, never 0
+      "overallRank": 1,
+      "positionRank": 1,
+      "sourceTimestamp": "2026-09-11T00:00:00.000Z",
+      "ingestedAt": "2026-09-11T21:33:45.639Z",
+      "freshness": "fresh",
+      "provenance": "external"
+    }
+  ]
+}
+```
+
+### What is deliberately NOT served
+
+`sourcePlayerId` (the upstream id space) and `sourceConsensusRank` (the FantasyPros consensus
+rank) are retained in storage for audit and **withheld from the API**. Re-serving them would be
+redistributing another party's dataset rather than showing what PlayerTicker compares against.
+See [`MARKET_DATA_SOURCES.md`](MARKET_DATA_SOURCES.md).
+
+### Comparing it to the model
+
+Raw values are **not comparable**: a PlayerTicker dynasty composite is a 0–100 model score and a
+market value is a ~0–10,000 trade-currency number with no published conversion. The comparison
+is made on **rank and percentile** (`@/market/comparison`), always dynasty-vs-dynasty regardless
+of the horizon the board is displaying, and a player either side does not cover comes back with
+`comparable: false` rather than a zero.
 
 ---
 

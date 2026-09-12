@@ -31,10 +31,13 @@ export function PositionSelector({
   };
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
+      {/* Underlined tabs rather than a segmented capsule: the capsule form reads as
+          a large decorative control, and this sits at the top of a page that is
+          otherwise flat panels and rows. */}
       <div
         role="radiogroup"
         aria-label="Select a position"
-        className="inline-flex rounded-full border border-border-subtle bg-base p-1"
+        className="inline-flex items-stretch gap-1 border-b border-border-default"
       >
         {OPTIONS.map((o, i) => {
           const isSel = o.position === selected;
@@ -49,10 +52,11 @@ export function PositionSelector({
               onKeyDown={(e) => onKeyDown(e, i)}
               onClick={() => onSelect(o.position)}
               className={cn(
-                'min-h-[40px] rounded-full px-4 py-1.5 text-sm font-semibold transition',
+                'relative min-h-[40px] px-3 py-2 text-sm font-medium transition-colors duration-standard',
+                'after:absolute after:inset-x-2 after:-bottom-px after:h-0.5 after:rounded-full',
                 isSel
-                  ? 'bg-secondary/20 text-text-primary'
-                  : 'text-text-secondary hover:text-text-primary',
+                  ? 'text-text-primary after:bg-brand-blue'
+                  : 'text-text-muted after:bg-transparent hover:text-text-secondary',
               )}
             >
               {o.full}

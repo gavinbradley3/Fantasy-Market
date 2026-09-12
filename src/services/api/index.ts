@@ -10,6 +10,7 @@ export { ApiError, isAbortError, isApiError, kindForStatus } from './errors';
 export type { ApiErrorKind, ApiErrorOptions } from './errors';
 export { fetchCurrentPublication, publicationResponseSchema } from './publication';
 export { fetchHealth, healthResponseSchema } from './health';
+export { fetchMarket, marketResponseSchema, type FetchMarketOptions } from './market';
 export type {
   ApiBoardEntry,
   ApiComposites,
@@ -18,4 +19,7 @@ export type {
   ApiPositionCode,
   ApiPublicationMetadata,
   ApiPublicationResponse,
+  ApiMarketAttribution,
+  ApiMarketQuote,
+  ApiMarketResponse,
 } from './types';

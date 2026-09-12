@@ -35,7 +35,7 @@ import {
   serializeProductionEnvelope,
 } from './serialize';
 import { orchestrateInference, type OrchestrationResult } from './orchestrate';
-import { decideTier } from './modelTier';
+import { decideTier, wrPremiumEvidenceSatisfied } from './modelTier';
 import {
   ProductionValidationError,
   type NormalizedInferenceInput,
@@ -117,7 +117,7 @@ interface FinalizeArgs {
   readonly orchestration: OrchestrationResult | null;
   /** canonical NORMALIZED INPUT to hash for `normalizedInputChecksum` (M2). */
   readonly canonicalInput: unknown;
-  /** Observed production for the accessible tier (RB/TE only; undefined elsewhere). */
+  /** Observed production for the accessible tier (RB/TE/WR; undefined for QB). */
   readonly production?: ObservedProduction;
 }
 
@@ -164,6 +164,18 @@ function finalize(args: FinalizeArgs): ProductionResult {
   // premium inputs no free source publishes (today: career_routes for RB/TE). A player the
   // full model valued never reaches the accessible tier.
   const readinessMissingFields = invocation.missing.map((m) => m.field).sort(compareStrings);
+  // WR alone can pass readiness on a capped route ESTIMATE, so for WR the tier question is not
+  // "did the engine run" but "was it given the premium evidence that makes it the premium
+  // engine". Every other position has no proxy ladder, so a full model that ran had its inputs.
+  const provenanceByField: Record<string, string | null> = {};
+  for (const f of fields) provenanceByField[f.field] = f.provenance ?? null;
+  const premiumEvidenceSatisfied =
+    position !== 'WR' ||
+    wrPremiumEvidenceSatisfied({
+      supplement: mergedSupplement as Readonly<Record<string, unknown>>,
+      factKeys: Object.keys(args.facts),
+      provenanceByField,
+    });
   const tierDecision = decideTier({
     position,
     player: args.player,
@@ -172,6 +184,7 @@ function finalize(args: FinalizeArgs): ProductionResult {
     readinessMissing: readinessMissingFields,
     production: args.production,
     expectedGamesRemaining: expectedGamesRemainingOf(mergedSupplement),
+    premiumEvidenceSatisfied,
   });
   const accessibleOutput = tierDecision.accessible?.tier === 'ACCESSIBLE' ? tierDecision.accessible : null;
   const valued = invocation.engineOutput !== null || accessibleOutput !== null;

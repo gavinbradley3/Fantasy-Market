@@ -115,6 +115,8 @@ export interface BuildInputOptions {
   readonly position: SupportedPosition;
   readonly asOf: string;
   readonly engineVersion: string;
+  /** Seasons non-QB positions are valued over; QB always reads the full ingested history. */
+  readonly valuationSeasons?: readonly number[];
 }
 
 /** Assemble the `NormalizedInferenceInput` for one player from a snapshot. */
@@ -122,7 +124,9 @@ export function buildNormalizedInferenceInput(
   snapshot: NormalizedSnapshot,
   options: BuildInputOptions,
 ): NormalizedInferenceInput | null {
-  const built = buildEvidenceFor(snapshot, options.canonicalId, options.position, options.asOf);
+  const built = buildEvidenceFor(snapshot, options.canonicalId, options.position, options.asOf, {
+    ...(options.valuationSeasons ? { valuationSeasons: options.valuationSeasons } : {}),
+  });
   if (!built) return null;
   return {
     player: built.player,

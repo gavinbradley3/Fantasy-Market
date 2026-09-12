@@ -16,6 +16,7 @@ import {
   TickerChip,
 } from '@/components/market/primitives';
 import { Footer } from '@/components/chrome/Footer';
+import { ButtonLink } from '@/components/ui/Button';
 
 const CATEGORIES: { label: string; href: string }[] = [
   { label: 'Buy-Low Windows', href: '/board?tag=buy_low_window&sort=mis' },
@@ -43,26 +44,35 @@ export default function LandingPage() {
           {boardQ.status === 'loading' && <LoadingSkeleton className="h-12 w-full" />}
           {board.length > 0 && <Tape rows={board} />}
         </div>
+        {/* Grid items default to min-width:auto, so a long player name inside the
+            movers panel could set a min-content floor wider than a phone screen and
+            push the whole page sideways. min-w-0 lets them shrink. */}
         <div className="grid items-center gap-6 lg:grid-cols-2">
-          <div>
-            <h1 className="font-display text-4xl font-bold leading-tight text-text-primary sm:text-5xl">
-              Fantasy football has a market. <span className="text-up">Track it.</span>
+          <div className="min-w-0">
+            {/* "Track it." takes the brand blue from the wordmark, not the market's
+                green: green means a value went up, and a headline is not a value. */}
+            <h1 className="text-[40px] font-bold leading-[1.08] tracking-[-0.02em] text-text-primary sm:text-[52px]">
+              Fantasy football has a market. <span className="text-brand-blue">Track it.</span>
             </h1>
-            <p className="mt-4 max-w-md text-base text-text-secondary">
+            <p className="mt-5 max-w-md text-[15px] leading-relaxed text-text-secondary">
               Player values move every week. Spot risers, fallers, buy-low windows, and market
               overreactions before your league catches up.
             </p>
-            <div className="mt-6 flex flex-wrap gap-3">
-              <Link to="/market" className="rounded-control bg-up px-5 py-2.5 font-semibold text-base transition hover:brightness-110">
+            <div className="mt-7 flex flex-wrap gap-2.5">
+              <ButtonLink to="/market" variant="primary" size="lg">
                 View the Market
-              </Link>
-              <Link to="/watchlist" className="rounded-control border border-border-subtle px-5 py-2.5 font-semibold text-text-primary transition hover:bg-elevated">
+              </ButtonLink>
+              <ButtonLink to="/watchlist" variant="secondary" size="lg">
                 Track My Players
-              </Link>
+              </ButtonLink>
             </div>
-            <div className="mt-5 flex flex-wrap gap-2">
+            <div className="mt-6 flex flex-wrap gap-2">
               {CATEGORIES.map((c) => (
-                <Link key={c.href} to={c.href} className="rounded-full border border-border-subtle bg-surface px-3 py-1.5 text-xs text-text-secondary transition hover:border-secondary/40 hover:text-text-primary">
+                <Link
+                  key={c.href}
+                  to={c.href}
+                  className="rounded-pill border border-border-default bg-surface px-3 py-1.5 text-xs font-medium text-text-muted transition-colors duration-standard hover:border-border-strong hover:text-text-primary"
+                >
                   {c.label}
                 </Link>
               ))}
@@ -70,8 +80,8 @@ export default function LandingPage() {
           </div>
 
           {/* Movers preview — loading / error / success lifecycle */}
-          <div className="rounded-card border border-border-subtle bg-surface p-3">
-            <div className="mb-1 flex items-center justify-between px-1">
+          <div className="min-w-0 rounded-card border border-border-default bg-surface p-4">
+            <div className="mb-1 flex items-center justify-between gap-2 px-1">
               <span className="text-sm font-semibold text-text-primary">Today's movers</span>
               <span className="text-[11px] text-text-muted">Demo Market preview</span>
             </div>
@@ -79,15 +89,26 @@ export default function LandingPage() {
             {moversQ.status === 'error' && (
               <ErrorState message="Today's movers couldn't load." onRetry={moversQ.refetch} />
             )}
+            {/* One column, not two: side by side inside the hero panel there was not
+                enough width left for a player's name, and a truncated name defeats
+                the point of leading with player identity. */}
             {movers && (
-              <div className="grid gap-2 sm:grid-cols-2">
+              <div className="mt-3 space-y-4">
                 <div>
-                  <p className="px-2 text-[11px] font-semibold uppercase tracking-wide text-up">Risers</p>
-                  {movers.risers.slice(0, 3).map((r) => <MoverRow key={r.player.identity.internal_id} row={r} metric="d1" />)}
+                  <p className="eyebrow px-2 text-positive">Risers</p>
+                  <div className="mt-1 divide-y divide-border-default">
+                    {movers.risers.slice(0, 3).map((r) => (
+                      <MoverRow key={r.player.identity.internal_id} row={r} metric="d1" />
+                    ))}
+                  </div>
                 </div>
                 <div>
-                  <p className="px-2 text-[11px] font-semibold uppercase tracking-wide text-down">Fallers</p>
-                  {movers.fallers.slice(0, 3).map((r) => <MoverRow key={r.player.identity.internal_id} row={r} metric="d1" />)}
+                  <p className="eyebrow px-2 text-negative">Fallers</p>
+                  <div className="mt-1 divide-y divide-border-default">
+                    {movers.fallers.slice(0, 3).map((r) => (
+                      <MoverRow key={r.player.identity.internal_id} row={r} metric="d1" />
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
@@ -95,16 +116,17 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Why different */}
-      <section className="grid gap-4 sm:grid-cols-3">
+      {/* Three claims, not three cards. Boxing each one would have added borders
+          without adding grouping — they are already parallel and already separate. */}
+      <section className="grid gap-x-10 gap-y-7 border-t border-border-default pt-7 sm:grid-cols-3">
         {[
           { h: 'Movement, not rankings', b: 'The trend line is the primary object. Rank is one column, not the product.' },
           { h: 'Mispricing, not consensus', b: 'We separate market price from model value and surface the gap — the edge.' },
           { h: 'Every number explained', b: 'Price, signal, mispricing, and risk are each one tap from their reasoning.' },
         ].map((c) => (
-          <div key={c.h} className="rounded-card border border-border-subtle bg-surface p-4">
-            <h3 className="mb-1 text-base font-semibold text-text-primary">{c.h}</h3>
-            <p className="text-sm text-text-secondary">{c.b}</p>
+          <div key={c.h}>
+            <h3 className="mb-1.5 text-[15px] font-semibold text-text-primary">{c.h}</h3>
+            <p className="text-sm leading-relaxed text-text-muted">{c.b}</p>
           </div>
         ))}
       </section>
@@ -112,10 +134,10 @@ export default function LandingPage() {
       {/* Featured stock card — the product advertising itself */}
       {featured && (
         <section>
-          <h2 className="mb-3 text-lg font-semibold text-text-primary">A live demo stock card</h2>
+          <h2 className="eyebrow mb-3">A live demo stock card</h2>
           <Link
             to={`/player/${featured.player.ticker}`}
-            className="block rounded-card border border-border-subtle bg-surface p-4 transition hover:border-secondary/40"
+            className="block rounded-card border border-border-default bg-surface p-5 transition-colors duration-standard hover:border-border-strong"
           >
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="flex items-center gap-3">
@@ -141,7 +163,7 @@ export default function LandingPage() {
                 </div>
               </div>
             </div>
-            <div className="mt-4 flex flex-wrap items-center gap-4 border-t border-border-subtle pt-3">
+            <div className="mt-4 flex flex-wrap items-center gap-4 border-t border-border-default pt-4">
               <Sparkline data={featured.spark} width={160} height={36} ariaLabel="trend" />
               <MispricingMeter value={featured.snapshot.mispricing} />
               <div className="flex flex-wrap gap-1">
@@ -153,16 +175,32 @@ export default function LandingPage() {
       )}
 
       {/* Teasers */}
-      <section className="grid gap-4 sm:grid-cols-2">
-        <div className="rounded-card border border-border-subtle bg-surface p-4">
-          <h3 className="mb-1 text-base font-semibold text-text-primary">Track any player</h3>
-          <p className="mb-3 text-sm text-text-secondary">See value change since the day you started watching. Your watchlist updates with every daily tick.</p>
-          <Link to="/watchlist" className="text-sm text-secondary hover:underline">Start a watchlist →</Link>
+      <section className="grid gap-x-10 gap-y-7 border-t border-border-default pt-7 sm:grid-cols-2">
+        <div>
+          <h3 className="mb-1.5 text-[15px] font-semibold text-text-primary">Track any player</h3>
+          <p className="mb-3 text-sm leading-relaxed text-text-muted">
+            See value change since the day you started watching. Your watchlist updates with every
+            daily tick.
+          </p>
+          <Link
+            to="/watchlist"
+            className="text-sm font-medium text-text-secondary underline-offset-4 transition-colors duration-standard hover:text-brand-blue hover:underline"
+          >
+            Start a watchlist
+          </Link>
         </div>
-        <div className="rounded-card border border-border-subtle bg-surface p-4">
-          <h3 className="mb-1 text-base font-semibold text-text-primary">No black box</h3>
-          <p className="mb-3 text-sm text-text-secondary">See exactly how prices are computed — the inputs, the weights, and the rules behind every signal. Right now the market runs in labeled demo mode.</p>
-          <Link to="/methodology" className="text-sm text-secondary hover:underline">Read the methodology →</Link>
+        <div>
+          <h3 className="mb-1.5 text-[15px] font-semibold text-text-primary">No black box</h3>
+          <p className="mb-3 text-sm leading-relaxed text-text-muted">
+            See exactly how prices are computed — the inputs, the weights, and the rules behind
+            every signal. Right now the market runs in labeled demo mode.
+          </p>
+          <Link
+            to="/methodology"
+            className="text-sm font-medium text-text-secondary underline-offset-4 transition-colors duration-standard hover:text-brand-blue hover:underline"
+          >
+            Read the methodology
+          </Link>
         </div>
       </section>
 

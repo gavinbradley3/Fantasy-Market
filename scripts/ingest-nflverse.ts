@@ -1,7 +1,7 @@
 /**
  * PlayerTicker live nflverse ingestion.
  *
- *   npm run ingest -- --season 2025 [--as-of <iso>] [--mode live|replay] [options]
+ *   npm run ingest -- [--seasons 2026] [--as-of <iso>] [--mode live|replay] [options]
  *
  * Runs the PRODUCTION pipeline against nflverse's current releases and persists the result:
  *
@@ -19,12 +19,19 @@
  *            the property the `--verify-replay` flag checks automatically.
  *
  * Options:
- *   --seasons <list>      seasons to acquire, comma separated (default 2025). Career
- *                         counting stats span exactly these seasons.
+ *   --seasons <list>      seasons to acquire, comma separated. Defaults to the CURRENT
+ *                         season, derived from the clock (see src/ingestion/season.ts) —
+ *                         there is no hard-coded year. Career counting stats span exactly
+ *                         the seasons used, so widening this list widens the career window.
  *   --as-of <iso>         valuation as-of instant (default: now). Pin it for reproducibility.
  *   --db <path>           SQLite database path (default .local/playerticker.db)
  *   --captures <dir>      raw payload capture directory (default .local/captures)
- *   --sleeper             also acquire Sleeper identity for a cross-provider identity join
+ *   --no-sleeper          skip the optional Sleeper enrichment. Sleeper is ATTEMPTED BY
+ *                         DEFAULT: production policy is "try Sleeper, never depend on it". It
+ *                         is not in REQUIRED_PROVIDERS, so a Sleeper timeout, block, provider
+ *                         error or schema mismatch leaves the run `partial` and still publishes
+ *                         the nflverse board. Nothing is invented when it fails.
+ *   --sleeper             accepted for compatibility; the default already does this
  *   --verify-replay       after a live run, replay the captures and assert the board matches
  *   --json                print the summary as JSON
  *
@@ -39,13 +46,16 @@ import { FilePayloadStore } from '@/transport/fileStore';
 import { createLivePipeline } from '@/runtime';
 import type { PersistenceStore } from '@/persistence';
 import type { TransportConfigDescriptor } from '@/application';
+import { describeSeasonSelection, isPlausibleSeason, resolveSeasons, type SeasonSource } from '@/ingestion/season';
+import { checkHeap } from '@/ops/heapGuard';
 
-const DEFAULT_SEASON = 2025;
 const DEFAULT_DB = '.local/playerticker.db';
 const DEFAULT_CAPTURES = '.local/captures';
 
 interface Args {
-  seasons: number[];
+  /** null until resolved — an unsupplied list is derived, never a hard-coded year. */
+  seasons: number[] | null;
+  careerSeasons: number[] | null;
   asOf: string;
   db: string;
   captures: string;
@@ -57,12 +67,14 @@ interface Args {
 
 function parseArgs(argv: string[]): Args {
   const args: Args = {
-    seasons: [DEFAULT_SEASON],
+    seasons: null,
+    careerSeasons: null,
     asOf: new Date().toISOString(),
     db: DEFAULT_DB,
     captures: DEFAULT_CAPTURES,
     mode: 'live',
-    sleeper: false,
+    // Attempted by default. See `--no-sleeper`.
+    sleeper: true,
     verifyReplay: false,
     json: false,
   };
@@ -70,6 +82,12 @@ function parseArgs(argv: string[]): Args {
     const next = () => argv[++i];
     switch (argv[i]) {
       case '--season':
+      case '--career-seasons': {
+        const parsed = next().split(',').map((x) => Number.parseInt(x.trim(), 10));
+        if (parsed.some((y) => !isPlausibleSeason(y))) throw new Error('invalid --career-seasons');
+        args.careerSeasons = parsed;
+        break;
+      }
       case '--seasons': {
         // Accepts one year or a comma-separated list: --seasons 2023,2024,2025
         const parsed = next().split(',').map((v) => Number(v.trim()));
@@ -92,6 +110,7 @@ function parseArgs(argv: string[]): Args {
         break;
       }
       case '--sleeper': args.sleeper = true; break;
+      case '--no-sleeper': args.sleeper = false; break;
       case '--verify-replay': args.verifyReplay = true; break;
       case '--json': args.json = true; break;
       default: throw new Error(`unknown argument ${argv[i]}`);
@@ -100,9 +119,17 @@ function parseArgs(argv: string[]): Args {
   return args;
 }
 
+/** `Args` after the season list has been resolved — what the run actually executes on. */
+interface ResolvedArgs extends Omit<Args, 'seasons'> {
+  readonly seasons: number[];
+  readonly seasonSource: SeasonSource;
+}
+
 interface RunSummary {
   readonly mode: 'live' | 'replay';
   readonly seasons: readonly number[];
+  /** 'explicit' when an operator named the seasons, 'derived' when taken from the clock. */
+  readonly seasonSource: SeasonSource;
   readonly asOf: string;
   readonly published: boolean;
   readonly publicationId: string | null;
@@ -111,10 +138,33 @@ interface RunSummary {
   readonly valued: number;
   readonly byPosition: Record<string, { total: number; valued: number }>;
   readonly checksums: readonly string[];
+  /**
+   * Wall time and PEAK resident memory for the run.
+   *
+   * Reported on every run, not only when someone is investigating. A scheduled job that is
+   * quietly approaching its heap ceiling gives no other warning before it starts failing, and
+   * "how much memory does this need" is not answerable from a crash. `maxRSS` is the kernel's
+   * own high-water mark for the process, so it includes the SQLite page cache and the decoded
+   * provider payloads as well as the V8 heap.
+   */
+  readonly durationSeconds: number;
+  readonly peakRssMb: number;
+  readonly heapUsedMb: number;
 }
 
 /** Compose the stack, run one refresh, and read the published board back out. */
-async function runOnce(args: Args, mode: 'live' | 'replay'): Promise<RunSummary> {
+/** Wall time and peak resident memory, measured around one run. */
+function resources(startedAtMs: number): { durationSeconds: number; peakRssMb: number; heapUsedMb: number } {
+  return {
+    durationSeconds: (Date.now() - startedAtMs) / 1000,
+    // The kernel's high-water mark for the whole process, in kilobytes.
+    peakRssMb: Math.round(process.resourceUsage().maxRSS / 1024),
+    heapUsedMb: Math.round(process.memoryUsage().heapUsed / 1_048_576),
+  };
+}
+
+async function runOnce(args: ResolvedArgs, mode: 'live' | 'replay'): Promise<RunSummary> {
+  const startedAtMs = Date.now();
   mkdirSync(dirname(resolve(args.db)), { recursive: true });
   mkdirSync(resolve(args.captures), { recursive: true });
 
@@ -127,6 +177,7 @@ async function runOnce(args: Args, mode: 'live' | 'replay'): Promise<RunSummary>
       store: () => store,
       payloadStore: new FilePayloadStore(resolve(args.captures)),
       seasons: args.seasons,
+      ...(args.careerSeasons ? { careerSeasons: args.careerSeasons } : {}),
       asOf: () => args.asOf,
       includeSleeper: args.sleeper,
       replayOnly: mode === 'replay',
@@ -142,9 +193,10 @@ async function runOnce(args: Args, mode: 'live' | 'replay'): Promise<RunSummary>
     const res = await composed.api.handle({ method: 'GET', path: '/publication', query: {} });
     if (res.status !== 200) {
       return {
-            mode, seasons: args.seasons, asOf: args.asOf,
+        mode, seasons: args.seasons, seasonSource: args.seasonSource, asOf: args.asOf,
         published: false, publicationId: null, entryCount: 0, snapshotId: null,
         valued: 0, byPosition: {}, checksums: [],
+        ...resources(startedAtMs),
       };
     }
     const pub = res.body as {
@@ -167,6 +219,7 @@ async function runOnce(args: Args, mode: 'live' | 'replay'): Promise<RunSummary>
     return {
       mode,
       seasons: args.seasons,
+      seasonSource: args.seasonSource,
       asOf: args.asOf,
       published: Boolean(body.published),
       publicationId: pub.publication.publicationId,
@@ -175,6 +228,7 @@ async function runOnce(args: Args, mode: 'live' | 'replay'): Promise<RunSummary>
       valued,
       byPosition,
       checksums: record ? [String(record.publicationId)] : [],
+      ...resources(startedAtMs),
     };
   } finally {
     composed.close();
@@ -184,13 +238,15 @@ async function runOnce(args: Args, mode: 'live' | 'replay'): Promise<RunSummary>
 function render(summary: RunSummary): string {
   const lines = [
     `mode          ${summary.mode}`,
-    `seasons       ${summary.seasons.join(', ')}`,
+    `seasons       ${summary.seasons.join(', ')} (${summary.seasonSource})`,
     `as-of         ${summary.asOf}`,
     `published     ${summary.published}`,
     `publication   ${summary.publicationId ?? '(none)'}`,
     `snapshot      ${summary.snapshotId ?? '(none)'}`,
     `entries       ${summary.entryCount}`,
     `valued        ${summary.valued}`,
+    `duration      ${summary.durationSeconds.toFixed(1)}s`,
+    `peak memory   ${summary.peakRssMb} MB resident (heap ${summary.heapUsedMb} MB at exit)`,
     '',
     'position   entries   valued',
   ];
@@ -202,7 +258,29 @@ function render(summary: RunSummary): string {
 }
 
 async function main(): Promise<number> {
-  const args = parseArgs(process.argv.slice(2));
+  const parsed = parseArgs(process.argv.slice(2));
+
+  // Resolve the season list ONCE, here, and say out loud where it came from. An unsupplied
+  // list is derived from the clock, so a checkout that sits unused cannot keep ingesting the
+  // season it was written in.
+  const selection = resolveSeasons(parsed.seasons, new Date(parsed.asOf));
+  if (!parsed.json) {
+    console.log(`[ingest] seasons: ${describeSeasonSelection(selection)}`);
+  }
+  const args: ResolvedArgs = { ...parsed, seasons: [...selection.seasons], seasonSource: selection.source };
+
+  // Checked BEFORE any provider is contacted. Without this the process spends two minutes
+  // fetching and parsing every payload and is then killed mid-computation, which reads like a
+  // provider or pipeline fault and is neither.
+  const heap = checkHeap({
+    seasonCount: args.seasons.length,
+    careerSeasonCount: args.careerSeasons?.length ?? 0,
+  });
+  if (!heap.ok) {
+    console.error(heap.message);
+    return 1;
+  }
+  if (!args.json) console.log(`[ingest] ${heap.message}`);
 
   const first = await runOnce(args, args.mode);
   console.log(args.json ? JSON.stringify(first, null, 2) : render(first));

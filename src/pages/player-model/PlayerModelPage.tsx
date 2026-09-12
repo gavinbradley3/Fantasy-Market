@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import type { Horizon } from '@/rb-model/types';
 import { ErrorState } from '@/components/states';
-import { SectionCard } from '@/pages/player-model/ui';
 import { PositionSelector } from '@/pages/player-model/PositionSelector';
 import { PlayerSelector } from '@/pages/player-model/PlayerSelector';
 import {
@@ -66,17 +65,18 @@ export default function PlayerModelPage({
   );
 
   return (
-    <div className="mx-auto max-w-5xl space-y-4">
+    <div className="mx-auto max-w-5xl space-y-6">
       {/* 1) Demo disclosure */}
       <DemoDisclosure />
 
-      {/* 2) Position selector */}
-      <SectionCard title="Position">
-        <PositionSelector selected={position} onSelect={changePosition} />
-      </SectionCard>
+      {/* 2) Position selector — tabs read as page-level navigation, so they sit on
+             the page rather than inside a panel of their own. */}
+      <PositionSelector selected={position} onSelect={changePosition} />
 
-      {/* 3) Player selector */}
-      <SectionCard title="Choose a profile">
+      {/* 3) Player selector. The profile tiles are already bordered surfaces; the
+             panel that used to wrap them made every choice a card inside a card. */}
+      <section>
+        <h2 className="eyebrow mb-3">Choose a profile</h2>
         <PlayerSelector
           label={mod.selectorLabel}
           fixtures={mod.primary}
@@ -85,10 +85,8 @@ export default function PlayerModelPage({
           onSelect={setFixtureId}
         />
         {mod.edge.length > 0 && (
-          <div className="mt-4">
-            <div className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-text-muted">
-              {mod.edgeGroupLabel}
-            </div>
+          <div className="mt-5">
+            <div className="eyebrow mb-2">{mod.edgeGroupLabel}</div>
             <PlayerSelector
               label={`${mod.selectorLabel} — ${mod.edgeGroupLabel.toLowerCase()}`}
               fixtures={mod.edge}
@@ -98,7 +96,7 @@ export default function PlayerModelPage({
             />
           </div>
         )}
-      </SectionCard>
+      </section>
 
       {!result.ok ? (
         <ErrorState message={result.message} />
@@ -111,14 +109,15 @@ export default function PlayerModelPage({
           {result.projection}
 
           {/* 6) Horizon selector */}
-          <SectionCard title="Horizon">
+          <section>
+            <h2 className="eyebrow mb-3">Horizon</h2>
             <HorizonSelector selected={horizon} onSelect={setHorizon} />
-            <p className="mt-2 text-[11px] text-text-muted">
+            <p className="mt-2.5 max-w-3xl text-[11px] leading-relaxed text-text-muted">
               The horizon changes which factors the model emphasizes and how the drivers below are
               ranked. Weekly and Rest-of-Season include fantasy-point projections; longer horizons
               summarize the component profile only.
             </p>
-          </SectionCard>
+          </section>
 
           {/* 7) Horizon context */}
           <HorizonContext view={result.view} />

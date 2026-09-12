@@ -92,6 +92,8 @@ export function baseInput(overrides: Partial<QBMVPInput> = {}): QBMVPInput {
     team_change: false,
     major_system_change: false,
     recent_role_change: false,
+    career_adjusted_yards_per_attempt: null,
+    career_rushing_yards_per_start: null,
     prior_recent_pass_attempts: 270,
     prior_adjusted_yards_per_attempt: 7.7,
     prior_interception_rate: 0.024,

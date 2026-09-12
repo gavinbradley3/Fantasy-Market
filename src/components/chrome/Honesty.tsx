@@ -15,21 +15,25 @@ export function DataModeBanner({ status }: { status: MarketStatus | undefined })
   const unavailable = status.mode === 'unavailable';
   return (
     <div
-      className={cn(
-        'border-b',
-        unavailable ? 'border-down/25 bg-down/10' : 'border-warning/25 bg-warning/10',
-      )}
+      // A standing condition, not an alarm: one status dot carries the colour and
+      // the text stays readable, so a banner that is always on screen in demo mode
+      // never competes with the market data underneath it.
+      className="border-b border-border-default bg-surface-subtle"
     >
-      <div
-        className={cn(
-          'mx-auto flex max-w-app items-center justify-center gap-2 px-4 py-1.5 text-center text-xs',
-          unavailable ? 'text-down' : 'text-warning',
-        )}
-      >
-        <span aria-hidden>●</span>
-        <span className="font-medium">{status.notice}</span>
-        <Link to="/methodology" className="underline underline-offset-2 hover:text-text-primary">
-          How this works →
+      <div className="mx-auto flex max-w-app flex-wrap items-center justify-center gap-x-2 gap-y-1 px-5 py-2 text-center text-xs md:px-8">
+        <span
+          aria-hidden
+          className={cn(
+            'h-1.5 w-1.5 shrink-0 rounded-full',
+            unavailable ? 'bg-negative' : 'bg-warning',
+          )}
+        />
+        <span className="font-medium text-text-secondary">{status.notice}</span>
+        <Link
+          to="/methodology"
+          className="font-medium text-text-muted underline-offset-4 transition-colors duration-standard hover:text-brand-blue hover:underline"
+        >
+          How this works
         </Link>
       </div>
     </div>
@@ -37,10 +41,10 @@ export function DataModeBanner({ status }: { status: MarketStatus | undefined })
 }
 
 const FRESH_STYLE: Record<Freshness, string> = {
-  fresh: 'text-up border-up/30 bg-up/5',
-  recent: 'text-secondary border-secondary/30 bg-secondary/5',
-  stale: 'text-warning border-warning/30 bg-warning/5',
-  outdated: 'text-down border-down/30 bg-down/5',
+  fresh: 'text-positive border-positive/30 bg-positive/10',
+  recent: 'text-brand-blue border-brand-blue/30 bg-brand-blue/10',
+  stale: 'text-warning border-warning/30 bg-warning/10',
+  outdated: 'text-negative border-negative/30 bg-negative/10',
 };
 
 export function DataFreshnessBadge({
@@ -63,7 +67,7 @@ export function DataFreshnessBadge({
     <Tooltip label={`Last market close: ${when}. Freshness: ${FRESHNESS_LABEL[f]}.`}>
       <span
         className={cn(
-          'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium',
+          'inline-flex items-center gap-1 rounded-control border px-2 py-0.5 text-[11px] font-medium',
           FRESH_STYLE[f],
         )}
       >
@@ -76,8 +80,8 @@ export function DataFreshnessBadge({
 
 const CONF_STYLE: Record<Confidence, string> = {
   low: 'text-warning border-warning/30',
-  medium: 'text-secondary border-secondary/30',
-  high: 'text-up border-up/30',
+  medium: 'text-brand-blue border-brand-blue/30',
+  high: 'text-positive border-positive/30',
 };
 
 export function ConfidencePill({ confidence }: { confidence: Confidence }) {
@@ -85,13 +89,11 @@ export function ConfidencePill({ confidence }: { confidence: Confidence }) {
     <Tooltip label="Confidence reflects sample size, data freshness and input variance. Demo data is capped at Medium — it never claims High confidence.">
       <span
         className={cn(
-          'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium',
+          'inline-flex items-center gap-1.5 rounded-control border px-2 py-0.5 text-[11px] font-medium',
           CONF_STYLE[confidence],
         )}
       >
-        <span aria-hidden className="text-current">
-          ◗
-        </span>
+        <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-current" />
         {confidenceLabel(confidence)} confidence
       </span>
     </Tooltip>

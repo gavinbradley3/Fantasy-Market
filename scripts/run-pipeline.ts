@@ -49,6 +49,7 @@ import type { SnapStageOptions } from '@/pipeline/snaps/runSnaps';
 import type { ParticipationOptions } from '@/pipeline/participation/runParticipation';
 import { DEFAULT_STALE_MAX_AGE_MS, PIPELINE_SCHEMA_VERSION } from '@/pipeline/constants';
 import { SleeperClient } from '@/services/marketData/live/sleeperClient';
+import { currentIngestSeason } from '@/ingestion/season';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DEFAULTS = {
@@ -57,7 +58,7 @@ const DEFAULTS = {
   metrics: join(ROOT, 'fixtures', 'pipeline', 'metrics.sample.json'),
   statsSnapshots: join(ROOT, 'fixtures', 'pipeline', 'stats', 'snapshots'),
 };
-const DEFAULT_CURRENT_SEASON = 2025;
+
 
 type Mode = 'fixture' | 'live' | 'validate';
 
@@ -89,7 +90,7 @@ function parseArgs(argv: string[]): Args {
     metrics: DEFAULTS.metrics,
     stats: false,
     statsSnapshots: DEFAULTS.statsSnapshots,
-    currentSeason: DEFAULT_CURRENT_SEASON,
+    currentSeason: currentIngestSeason(new Date()),
     includePostseason: false,
     snaps: false,
     snapSnapshots: DEFAULTS.statsSnapshots,

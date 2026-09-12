@@ -22,6 +22,7 @@ function win(games: number, per: Partial<Record<keyof CountingWindow, number>>):
   const o: Record<string, number | null> = {
     games, carries: null, rushingYards: null, rushingTds: null,
     targets: null, receptions: null, receivingYards: null, receivingTds: null,
+    receivingAirYards: null,
   };
   for (const [k, v] of Object.entries(per)) o[k] = (v as number) * games;
   return o as unknown as CountingWindow;
@@ -30,7 +31,8 @@ function win(games: number, per: Partial<Record<keyof CountingWindow, number>>):
 function inp(position: 'RB' | 'TE', career: CountingWindow, over: Record<string, unknown> = {}) {
   const production: ObservedProduction = {
     career, recent: career, roleWindow: career, latestSeason: null, priorSeason: null,
-    teamShares: null, seasonsPlayed: 1, newestGameKickoff: '2026-01-04T18:00:00.000Z',
+    teamShares: null, providerTargetShare: null, seasonsPlayed: 1,
+    newestGameKickoff: '2026-01-04T18:00:00.000Z',
     rosteredTeamWeeks: career.games,
   };
   return {

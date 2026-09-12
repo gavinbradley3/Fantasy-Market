@@ -37,6 +37,7 @@ describe('real Scheduler + PersistenceStore satisfy the ports with zero adapters
       scheduler,
       publications: store,
       runs: store,
+      market: store,
       transport: { requiredProviders: ['nflverse'], replayEnabled: true },
       nowIso: () => '2026-07-23T00:00:00.000Z',
     });

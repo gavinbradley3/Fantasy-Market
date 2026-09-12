@@ -156,7 +156,7 @@ export function buildQbView(
         This QB MVP uses deterministic formulas and fictional fixture data. Weekly and ROS outputs are
         expected values, not guarantees. Long-term fantasy-point projections, market prices, trade
         values, and real-player data are outside the current model.{' '}
-        <Link to="/methodology" className="text-secondary hover:underline">
+        <Link to="/methodology" className="text-brand-blue hover:underline">
           Methodology
         </Link>
         .

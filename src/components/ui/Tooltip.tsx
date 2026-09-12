@@ -30,7 +30,7 @@ export function Tooltip({
           role="tooltip"
           id={id}
           className={cn(
-            'pointer-events-none absolute left-1/2 z-50 w-60 -translate-x-1/2 rounded-control border border-border-subtle bg-elevated px-3 py-2 text-left text-xs font-normal leading-relaxed text-text-secondary shadow-elevated',
+            'pointer-events-none absolute left-1/2 z-50 w-60 -translate-x-1/2 rounded-control border border-border-default bg-elevated px-3 py-2 text-left text-xs font-normal leading-relaxed text-text-secondary shadow-elevated',
             side === 'top' ? 'bottom-full mb-2' : 'top-full mt-2',
           )}
         >
@@ -45,7 +45,7 @@ export function Tooltip({
 export function ExplainDot({ label }: { label: ReactNode }) {
   return (
     <Tooltip label={label}>
-      <span className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-border-subtle text-[10px] text-text-muted transition hover:text-text-secondary">
+      <span className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-border-default text-[10px] text-text-muted transition hover:text-text-secondary">
         ?
       </span>
     </Tooltip>

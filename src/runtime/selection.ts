@@ -37,6 +37,11 @@ const MODELLED: ReadonlySet<string> = new Set(['QB', 'RB', 'WR', 'TE']);
 export interface SelectionOptions {
   readonly asOf: string;
   readonly engineVersions?: EngineVersions;
+  /**
+   * Seasons non-QB positions are valued over. Recorded on every build so the evidence builder
+   * can scope them while QB reads the full ingested history (see `EvidenceOptions`).
+   */
+  readonly valuationSeasons?: readonly number[];
 }
 
 /** The players a refresh will run inference for, in canonical id order. */
@@ -47,11 +52,23 @@ export function selectInferenceBuilds(
   const engineVersions = options.engineVersions ?? DEFAULT_ENGINE_VERSIONS;
   const asOfMs = Date.parse(options.asOf);
 
-  // Canonical ids with at least one qualifying regular-season game record.
+  // Canonical ids with at least one qualifying regular-season game record IN THE VALUATION
+  // WINDOW.
+  //
+  // The window matters here, not just in the evidence builder. A refresh may acquire extra
+  // seasons of game stats so quarterback career fields describe a career; those seasons must
+  // not also decide WHO is on the board. Selecting on them would enrol every player who
+  // appeared in any ingested season — a decade of retirees — as entries carrying no current
+  // evidence. Career history deepens the players the window selects; it never adds players.
+  const valuationSeasons = options.valuationSeasons;
+  const inWindow = (season: number) =>
+    !valuationSeasons || valuationSeasons.length === 0 || valuationSeasons.includes(season);
+
   const withEvidence = new Set<string>();
   for (const g of snapshot.games) {
     if (g.canonicalId === null) continue;
     if (g.seasonType !== 'REG') continue;
+    if (!inWindow(g.season)) continue;
     if (Date.parse(g.kickoff) > asOfMs) continue;
     withEvidence.add(g.canonicalId);
   }
@@ -67,6 +84,7 @@ export function selectInferenceBuilds(
       position: position as SupportedPosition,
       asOf: options.asOf,
       engineVersion: engineVersions[position as SupportedPosition],
+      ...(options.valuationSeasons ? { valuationSeasons: options.valuationSeasons } : {}),
     });
   }
 

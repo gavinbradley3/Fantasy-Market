@@ -1,0 +1,62 @@
+/* PlayerTicker brand tokens — the single source of truth for color, type, radius
+   and elevation. Mirrors src/styles/tokens.json; src/styles/tokens.test.ts fails
+   the build if the two ever drift apart.
+
+   Tailwind utilities read the same values from tailwind.config.js. Use these CSS
+   variables directly only where a utility class cannot reach: SVG attributes,
+   chart libraries and inline styles. */
+:root {
+  --pt-bg-canvas: #0b0f14;
+  --pt-bg-surface: #11161d;
+  --pt-bg-surface-elevated: #151b23;
+  --pt-bg-surface-subtle: #0f141a;
+
+  --pt-border-default: #1f2630;
+  --pt-border-strong: #2b3441;
+  --pt-border-focus: #5c6eff;
+
+  --pt-text-primary: #f2f4f7;
+  --pt-text-secondary: #b0b8c4;
+  --pt-text-muted: #8a94a6;
+  --pt-text-faint: #606a78;
+
+  --pt-brand-purple: #7b61ff;
+  --pt-brand-blue: #3882f6;
+  --pt-brand-cyan: #4cc9f0;
+
+  --pt-positive: #3ed598;
+  --pt-negative: #ff6b6b;
+  --pt-warning: #f5b942;
+  --pt-info: #5ba8ff;
+
+  /* Position hues are deliberately low-chroma so a mixed-position board reads as
+     neutral at a glance. They never overlap the status or brand ramps. */
+  --pt-pos-qb: #8193c4;
+  --pt-pos-rb: #c2a06b;
+  --pt-pos-wr: #63aeb4;
+  --pt-pos-te: #a995d6;
+
+  --pt-font-ui: 'Sora', system-ui, sans-serif;
+  --pt-font-data: 'Outfit', 'Sora', system-ui, sans-serif;
+
+  --pt-radius-sm: 8px;
+  --pt-radius-md: 12px;
+  --pt-radius-pill: 999px;
+
+  --pt-space-1: 4px;
+  --pt-space-2: 8px;
+  --pt-space-3: 12px;
+  --pt-space-4: 16px;
+  --pt-space-5: 20px;
+  --pt-space-6: 24px;
+  --pt-space-8: 32px;
+  --pt-space-10: 40px;
+  --pt-space-12: 48px;
+
+  --pt-shadow-elevated: 0 12px 32px rgba(0, 0, 0, 0.32);
+  --pt-brand-gradient: linear-gradient(135deg, #7b61ff 0%, #3882f6 100%);
+
+  /* Motion: 120–180ms, ease-out only. */
+  --pt-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --pt-duration: 140ms;
+}

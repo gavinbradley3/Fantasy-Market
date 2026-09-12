@@ -1,0 +1,154 @@
+name: Refresh board
+
+# WHY GITHUB ACTIONS
+# PlayerTicker had no deployment platform, no scheduler and no server-side runtime before this
+# workflow (see docs/OPERATIONS.md for the full audit). Actions was chosen because it is the one
+# platform the project already uses, its runners have unrestricted outbound HTTPS to nflverse,
+# Sleeper and DynastyProcess, and a job may run for hours with a heap size we control. A
+# serverless function platform could not host this work: the ingest takes minutes, not seconds,
+# and writes a multi-hundred-megabyte SQLite working store.
+#
+# WHAT SURVIVES A RUN
+# The SQLite database does NOT. It is a per-run working store — 527 MB for the production season
+# window, most of it raw provider payloads — and it is rebuilt from the providers every time.
+# What survives is the small static export committed to the `site-data` branch: the published
+# board, the latest market quotes, the append-only market history and a status document. Git is
+# the durable store and its history is the last-known-good record.
+
+on:
+  schedule:
+    # Every 6 hours. nflverse's weekly player-stats release lands after the last game of a week
+    # and is then corrected over the following day or two, so this keeps the board inside one
+    # release cycle without repeatedly polling a file that changes weekly.
+    - cron: '20 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      seasons:
+        description: 'Season override, comma separated (blank = resolve from the clock)'
+        required: false
+        type: string
+
+# One board refresh at a time. A second run starting while the first is mid-publish could
+# interleave writes to the same branch and leave a board and a status document from different
+# runs. `cancel-in-progress: false` makes the newcomer WAIT rather than kill a run that may be
+# seconds from publishing.
+concurrency:
+  group: playerticker-refresh-board
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    # MEMORY IS THE BINDING CONSTRAINT ON RUNNER CHOICE, and it needs a deliberate decision.
+    #
+    # A measured production run (3 valuation seasons + a 9-season career window) peaks at
+    # 6,604 MB resident with 4,625 MB of live V8 heap. GitHub's standard hosted runner is
+    # 4-core/16 GB for PUBLIC repositories and 2-core/7 GB for PRIVATE ones. On a 7 GB runner
+    # the peak leaves roughly 400 MB of headroom and the kernel is likely to kill the job.
+    #
+    # So: if this repository is public, `ubuntu-latest` is fine. If it is private, set the
+    # repository variable PT_RUNNER to a larger label (for example `ubuntu-latest-4-core`)
+    # before enabling the schedule. docs/OPERATIONS.md has the numbers and the reasoning.
+    runs-on: ${{ vars.PT_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 60
+    permissions:
+      # The only write this job needs: committing the static export to the data branch.
+      contents: write
+    outputs:
+      committed: ${{ steps.commit.outputs.committed }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      # The export branch is checked out into a subdirectory so the append-only market history
+      # is the REAL previous history rather than an empty file. Without this, every run would
+      # start from nothing and "append-only" would be a single line.
+      - name: Fetch previous site data
+        run: |
+          git fetch origin site-data --depth=1 || echo "no site-data branch yet — first run"
+          if git rev-parse --verify origin/site-data >/dev/null 2>&1; then
+            git worktree add ../site-data origin/site-data
+          else
+            mkdir -p ../site-data
+          fi
+
+      - name: Ingest nflverse (+ optional Sleeper enrichment)
+        env:
+          # Above the 4,625 MB measured live heap, with room for the collector to move objects
+          # rather than merely hold them. The ingest checks this limit BEFORE contacting any
+          # provider and fails with the cause and the fix rather than being killed two minutes
+          # in, and it reports its own peak on every run so drift toward the ceiling is visible
+          # before it becomes a crash.
+          NODE_OPTIONS: --max-old-space-size=6144
+        run: |
+          SEASON_ARGS=""
+          if [ -n "${{ inputs.seasons }}" ]; then SEASON_ARGS="--seasons ${{ inputs.seasons }}"; fi
+          # Sleeper is attempted by DEFAULT and is not a required provider: a timeout, block,
+          # provider error or schema mismatch leaves the run `partial` and still publishes the
+          # nflverse board. No flag is needed to get enrichment, and none is needed to survive
+          # losing it.
+          npm run ingest -- \
+            $SEASON_ARGS \
+            --career-seasons 2017,2018,2019,2020,2021,2022,2023,2024,2025 \
+            --db "$RUNNER_TEMP/playerticker.db" \
+            --captures "$RUNNER_TEMP/captures"
+
+      - name: Export static site data
+        run: |
+          npm run export:site-data -- \
+            --db "$RUNNER_TEMP/playerticker.db" \
+            --out ../site-data
+
+      # Commits ONLY when the ingest published a board and the export wrote one. A failed run
+      # leaves the branch exactly as it was, which is how the last known-good board survives a
+      # provider outage: nothing overwrites it.
+      - name: Commit site data
+        id: commit
+        run: |
+          cd ../site-data
+          if [ ! -f board.json ]; then
+            echo "::error::no board.json was exported — refusing to commit. Previous board preserved."
+            exit 1
+          fi
+          git config user.name  "playerticker-bot"
+          git config user.email "playerticker-bot@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "no change in exported data"
+            echo "committed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git commit -m "chore(data): board refresh $(date -u +%Y-%m-%dT%H:%MZ)"
+          # Retried because two data-writing workflows can finish close together. Rebase keeps
+          # the append-only history linear instead of creating a merge that could drop a line.
+          for i in 1 2 3 4 5; do
+            if git push origin HEAD:site-data; then
+              echo "committed=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            git fetch origin site-data && git rebase origin/site-data || exit 1
+            sleep $((i * 3))
+          done
+          exit 1
+
+      - name: Report status
+        if: always()
+        run: cat ../site-data/status.json 2>/dev/null || echo "no status document produced"
+
+  # A refresh that published new data deploys it. This is the step that makes a scheduled
+  # refresh visible to users with no human involvement: data lands on `site-data`, the deploy
+  # copies it into the site, Pages serves it. Skipped when nothing changed, so an unchanged
+  # source does not cause a pointless deploy.
+  deploy:
+    needs: refresh
+    if: needs.refresh.outputs.committed == 'true'
+    uses: ./.github/workflows/deploy.yml
+    permissions:
+      contents: read
+      pages: write
+      id-token: write

@@ -8,6 +8,15 @@ import {
 } from '@/inference/registry/family';
 import type { RosterStatus } from '@/inference/features/types';
 
+/**
+ * Canonical availability states.
+ *
+ * `NOT_ROSTERED` is a ROSTER state, distinct from both an injury and from UNKNOWN. It means a
+ * source positively attested that the player is not on an active roster and supplied no injury
+ * designation — which is different from having no status at all (UNKNOWN), and very different
+ * from being ruled out (OUT). Collapsing it into OUT made PlayerTicker issue an injury
+ * diagnosis from the absence of a roster spot.
+ */
 export type InjuryStatus =
   | 'HEALTHY'
   | 'QUESTIONABLE'
@@ -16,6 +25,7 @@ export type InjuryStatus =
   | 'IR'
   | 'PUP'
   | 'SUSPENDED'
+  | 'NOT_ROSTERED'
   | 'UNKNOWN';
 
 export type PracticeStatus = 'FULL' | 'LIMITED' | 'DNP' | 'UNKNOWN';
@@ -100,6 +110,12 @@ export function workloadRampFactor(state: AvailabilityState): number {
       return WORKLOAD_RAMP.HEALTHY;
     case 'UNKNOWN':
       return WORKLOAD_RAMP.UNKNOWN_STATUS;
+    // A workload RAMP asks how much of a normal load the player takes this week. For someone
+    // with no roster spot the answer is none, which is the same answer as the inactive list and
+    // is exactly what `inactive` produced before this state existed — so the RB and TE ramp is
+    // unchanged by its introduction.
+    case 'NOT_ROSTERED':
+      return WORKLOAD_RAMP.INACTIVE_LIST;
   }
 }
 

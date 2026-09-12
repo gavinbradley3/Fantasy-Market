@@ -8,7 +8,7 @@ import type { ApplicationDependencies } from './types';
 
 function deps(over: Partial<ApplicationDependencies> = {}): ApplicationDependencies {
   const store = new FakeStore();
-  return { scheduler: new InstantScheduler(), publications: store, runs: store, transport: transportDescriptor, nowIso: fixedNow, ...over };
+  return { scheduler: new InstantScheduler(), publications: store, runs: store, market: store, transport: transportDescriptor, nowIso: fixedNow, ...over };
 }
 
 describe('façade composition', () => {

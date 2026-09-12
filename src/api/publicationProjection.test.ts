@@ -203,3 +203,53 @@ describe('projectPublishedPlayer', () => {
     expect(p.limitations).toEqual([]);
   });
 });
+
+describe('the published tier decides which model’s numbers are published', () => {
+  it('publishes the ACCESSIBLE model’s numbers when the tier says ACCESSIBLE, even though a frozen engine output is present', () => {
+    // A WR stood down for want of real route evidence carries BOTH outputs. Reading by presence
+    // would publish the premium engine's composites and confidence under an ACCESSIBLE badge.
+    const p = projectPublishedPlayer(
+      normalizedInput(),
+      envelope({
+        model_tier: 'ACCESSIBLE',
+        accessible_model: {
+          modelVersion: 'wr-accessible-1.0',
+          composites: { weekly: 40, ros: 41, oneYear: 42, threeYear: 43, dynasty: 44 },
+          positionValue: 42,
+          role: 'Starting receiver',
+          confidence: { score: 61, label: 'MEDIUM' },
+        },
+      }),
+    );
+    expect(p.modelTier).toBe('ACCESSIBLE');
+    expect(p.modelVersion).toBe('wr-accessible-1.0');
+    expect(p.composites?.dynasty).toBe(44);
+    expect(p.confidenceScore).toBe(61);
+    expect(p.confidenceLabel).toBe('MEDIUM');
+    // Volatility is a frozen-engine output and is not borrowed by the accessible tier.
+    expect(p.volatilityScore).toBeNull();
+  });
+
+  it('publishes NO value for an explicitly INSUFFICIENT player, whatever the frozen engine produced', () => {
+    // Three never-targeted receivers hit exactly this case on the live board: INSUFFICIENT to
+    // the receiving model, while the frozen engine still produced a dynasty composite from its
+    // league constants — one of them 56.6, which would have outranked real starters.
+    const p = projectPublishedPlayer(
+      normalizedInput(),
+      envelope({
+        model_tier: 'INSUFFICIENT',
+        accessible_insufficient: { reasonCode: 'NO_RECEIVING_OPPORTUNITY', reason: 'never targeted' },
+      }),
+    );
+    expect(p.modelTier).toBe('INSUFFICIENT');
+    expect(p.composites).toBeNull();
+    expect(p.insufficientReason).toBe('never targeted');
+  });
+
+  it('still reads an envelope written before the tier field existed, by presence', () => {
+    // An absent tier badges INSUFFICIENT (the safe direction) but must not blank an older
+    // board's composites, which is a different failure from closing the leak above.
+    const p = projectPublishedPlayer(normalizedInput(), envelope());
+    expect(p.composites?.dynasty).toBe(59);
+  });
+});

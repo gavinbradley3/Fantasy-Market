@@ -27,7 +27,7 @@ export function TickerChip({ ticker, className }: { ticker: string; className?: 
   return (
     <span
       className={cn(
-        'ticker rounded bg-elevated px-1.5 py-0.5 text-xs font-semibold text-text-secondary',
+        'ticker rounded border border-border-default bg-surface-subtle px-1.5 py-0.5 text-[11px] font-semibold text-text-muted',
         className,
       )}
     >
@@ -36,12 +36,17 @@ export function TickerChip({ ticker, className }: { ticker: string; className?: 
   );
 }
 
-export function PositionGlyph({ position }: { position: Position }) {
-  const m = POSITION_META[position];
+export function PositionGlyph({ position }: { position: Position | string }) {
+  // Published positions come from the backend, so an unrecognised one renders
+  // neutrally rather than throwing.
+  const m = POSITION_META[position] ?? {
+    label: String(position),
+    className: 'text-text-secondary border-border-default bg-surface-subtle',
+  };
   return (
     <span
       className={cn(
-        'inline-flex h-5 min-w-[1.75rem] items-center justify-center rounded border px-1 text-[10px] font-semibold',
+        'inline-flex h-[18px] min-w-[28px] items-center justify-center rounded border px-1 text-[10px] font-semibold tracking-wide',
         m.className,
       )}
     >
@@ -68,11 +73,11 @@ export function PlayerAvatar({
     .toUpperCase();
   return (
     <span
-      className="flex shrink-0 items-center justify-center rounded-full font-display font-semibold text-text-primary"
+      className="flex shrink-0 items-center justify-center rounded-full border border-border-default font-ui font-semibold text-text-secondary"
       style={{
         width: size,
         height: size,
-        fontSize: size * 0.36,
+        fontSize: size * 0.34,
         background: `linear-gradient(135deg, ${g.from}, ${g.to})`,
       }}
       aria-hidden
@@ -90,35 +95,57 @@ export function MarketPriceBadge({
   price: number;
   size?: 'md' | 'lg' | 'xl';
 }) {
-  const cls = size === 'xl' ? 'text-5xl' : size === 'lg' ? 'text-3xl' : 'text-xl';
+  const cls =
+    size === 'xl'
+      ? 'text-[40px] leading-none tracking-[-0.02em]'
+      : size === 'lg'
+        ? 'text-[28px] leading-none tracking-[-0.02em]'
+        : 'text-lg leading-none';
   return (
     <Tooltip label={`Value Index ${fmtPrice(price)} — ${priceBandLabel(price)}. A fictional 0–100 fantasy value index, not a dollar price.`}>
-      <span className={cn('font-mono font-semibold tabnum text-text-primary', cls)}>
-        {fmtPrice(price)}
-      </span>
+      <span className={cn('data font-semibold text-text-primary', cls)}>{fmtPrice(price)}</span>
     </Tooltip>
   );
 }
 
+/**
+ * Value movement.
+ *
+ * `chip` is the brand's delta-chip treatment: coloured text on a subtle tinted
+ * ground, never a solid pill. `plain` drops the ground for dense table cells where
+ * a chip on every row would be louder than the data. Direction is always carried by
+ * the arrow and sign as well as the colour, so the meaning survives without it.
+ */
 export function MovementBadge({
   value,
   window,
   showWindow = false,
+  variant = 'chip',
   className,
 }: {
   value: number;
   window?: '24H' | '7D' | '30D' | 'Season';
   showWindow?: boolean;
+  variant?: 'chip' | 'plain';
   className?: string;
 }) {
   const dir = directionOf(value);
+  const ground =
+    dir === 'up' ? 'bg-positive/10' : dir === 'down' ? 'bg-negative/10' : 'bg-elevated';
   return (
     <span
-      className={cn('inline-flex items-center gap-1 font-mono text-sm tabnum', movementColor(value), className)}
+      className={cn(
+        'inline-flex items-center gap-1 data text-[13px] font-semibold',
+        movementColor(value),
+        variant === 'chip' && cn('rounded-control px-1.5 py-0.5', ground),
+        className,
+      )}
     >
-      <span aria-hidden>{ARROW[dir]}</span>
+      <span aria-hidden className="text-[9px] leading-none">
+        {ARROW[dir]}
+      </span>
       <span>{fmtDelta(value)}</span>
-      {showWindow && window && <span className="text-text-muted">{window}</span>}
+      {showWindow && window && <span className="font-ui text-[11px] text-text-muted">{window}</span>}
       <span className="sr-only">
         {dir === 'up' ? 'up' : dir === 'down' ? 'down' : 'flat'} {Math.abs(value).toFixed(1)}
         {window ? ` over ${window}` : ''}
@@ -129,9 +156,9 @@ export function MovementBadge({
 
 // ---------- Signal ----------
 const SIGNAL_STYLE: Record<'up' | 'down' | 'neutral', string> = {
-  up: 'text-up border-up/40 bg-up/10',
-  down: 'text-down border-down/40 bg-down/10',
-  neutral: 'text-text-secondary border-border-subtle bg-elevated',
+  up: 'text-positive border-positive/30 bg-positive/10',
+  down: 'text-negative border-negative/30 bg-negative/10',
+  neutral: 'text-text-secondary border-border-default bg-elevated',
 };
 
 export function SignalBadge({
@@ -150,7 +177,7 @@ export function SignalBadge({
     <Tooltip label={explanation ?? `${meta.label} — see the stock card for the full reasoning.`}>
       <span
         className={cn(
-          'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold',
+          'inline-flex items-center gap-1.5 rounded-control border px-2 py-0.5 text-[11px] font-semibold',
           SIGNAL_STYLE[meta.tone],
           confidenceLow && 'opacity-70',
           className,
@@ -167,7 +194,9 @@ export function AssetClassTag({ id }: { id: AssetClass }) {
   const def = CLASS_BY_ID[id];
   return (
     <Tooltip label={def.definition}>
-      <span className="inline-flex items-center rounded-full border border-secondary/30 bg-secondary/5 px-2 py-0.5 text-[11px] font-medium text-secondary">
+      {/* Asset class is taxonomy, not performance, so it stays neutral. Reserving
+          colour for movement is what keeps movement legible. */}
+      <span className="inline-flex items-center rounded-control border border-border-default bg-surface-subtle px-2 py-0.5 text-[11px] font-medium text-text-secondary">
         {def.label}
       </span>
     </Tooltip>
@@ -175,9 +204,9 @@ export function AssetClassTag({ id }: { id: AssetClass }) {
 }
 
 const TAG_TONE: Record<'up' | 'down' | 'neutral', string> = {
-  up: 'border-up/30 bg-up/5 text-up',
-  down: 'border-down/30 bg-down/5 text-down',
-  neutral: 'border-warning/30 bg-warning/5 text-warning',
+  up: 'border-positive/25 bg-positive/10 text-positive',
+  down: 'border-negative/25 bg-negative/10 text-negative',
+  neutral: 'border-border-default bg-elevated text-text-secondary',
 };
 
 export function MarketTag({ id }: { id: MarketTagId }) {
@@ -186,7 +215,7 @@ export function MarketTag({ id }: { id: MarketTagId }) {
     <Tooltip label={def.definition}>
       <span
         className={cn(
-          'inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium',
+          'inline-flex items-center rounded-control border px-2 py-0.5 text-[11px] font-medium',
           TAG_TONE[def.tone],
         )}
       >
@@ -200,8 +229,16 @@ export function MarketTag({ id }: { id: MarketTagId }) {
 export function VolatilityMeter({ value, showLabel = true }: { value: number; showLabel?: boolean }) {
   const filled = volatilitySegments(value);
   const band = volatilityBand(value);
+  // Volatility is instability, not value direction, so it never borrows the
+  // positive/negative ramp — it runs neutral → caution → alarm.
   const tone =
-    filled >= 4 ? 'bg-down' : filled === 3 ? 'bg-warning' : filled === 2 ? 'bg-secondary' : 'bg-up';
+    filled >= 4
+      ? 'bg-negative'
+      : filled === 3
+        ? 'bg-warning'
+        : filled === 2
+          ? 'bg-text-secondary'
+          : 'bg-text-faint';
   return (
     <Tooltip label={`Volatility ${value}/100 (${band}). Higher means less stable week-to-week value — a start/sit trust signal.`}>
       <span className="inline-flex items-center gap-1.5">
@@ -209,7 +246,7 @@ export function VolatilityMeter({ value, showLabel = true }: { value: number; sh
           {[0, 1, 2, 3].map((i) => (
             <span
               key={i}
-              className={cn('h-2.5 w-3 rounded-sm', i < filled ? tone : 'bg-border-subtle')}
+              className={cn('h-2 w-2.5 rounded-[2px]', i < filled ? tone : 'bg-border-default')}
             />
           ))}
         </span>
@@ -233,17 +270,22 @@ export function MispricingMeter({
   const band = mispricingBandLabel(value);
   return (
     <Tooltip label={`Mispricing ${fmtSigned(value)} — ${band}. The gap between model value and market price; positive means the market may be undervaluing this asset.`}>
-      <span className={cn('inline-flex flex-col gap-1', size === 'sm' ? 'w-24' : 'w-32')}>
-        <span className="flex items-center justify-between text-[11px]">
-          <span className={cn('font-mono font-semibold tabnum', positive ? 'text-up' : value < 0 ? 'text-down' : 'text-text-secondary')}>
+      <span className={cn('inline-flex flex-col gap-1', size === 'sm' ? 'w-24' : 'w-44')}>
+        <span className="flex items-center justify-between gap-2 text-[11px]">
+          <span
+            className={cn(
+              'data font-semibold',
+              positive ? 'text-positive' : value < 0 ? 'text-negative' : 'text-text-secondary',
+            )}
+          >
             {fmtSigned(value)}
           </span>
-          <span className="text-text-muted">{band}</span>
+          <span className="truncate text-text-muted">{band}</span>
         </span>
-        <span className="relative h-1.5 w-full rounded-full bg-border-subtle" aria-hidden>
-          <span className="absolute left-1/2 top-0 h-full w-px bg-text-muted/60" />
+        <span className="relative h-1 w-full rounded-full bg-border-default" aria-hidden>
+          <span className="absolute left-1/2 top-0 h-full w-px bg-text-faint" />
           <span
-            className={cn('absolute top-0 h-full rounded-full', positive ? 'bg-up' : 'bg-down')}
+            className={cn('absolute top-0 h-full rounded-full', positive ? 'bg-positive' : 'bg-negative')}
             style={{
               left: positive ? '50%' : `${50 + half}%`,
               width: `${Math.abs(half)}%`,
@@ -276,19 +318,24 @@ export function RiskBreakdown({
     <div className="space-y-2">
       <div className="flex items-baseline justify-between">
         <span className="text-sm text-text-secondary">Risk score</span>
-        <span className="font-mono text-lg font-semibold tabnum text-text-primary">{composite}</span>
+        <span className="data text-data-lg font-semibold text-text-primary">{composite}</span>
       </div>
       <div className="space-y-1.5">
         {entries.map(([k, v]) => (
           <div key={k} className="flex items-center gap-2">
             <span className="w-20 text-xs text-text-secondary">{RISK_LABEL[k]}</span>
-            <span className="h-1.5 flex-1 rounded-full bg-border-subtle" aria-hidden>
+            <span className="h-1 flex-1 rounded-full bg-border-default" aria-hidden>
               <span
-                className={cn('block h-full rounded-full', v >= 65 ? 'bg-down' : v >= 40 ? 'bg-warning' : 'bg-up')}
+                className={cn(
+                  'block h-full rounded-full',
+                  // Risk runs neutral → caution → alarm; low risk is unremarkable,
+                  // not a positive value signal.
+                  v >= 65 ? 'bg-negative' : v >= 40 ? 'bg-warning' : 'bg-text-faint',
+                )}
                 style={{ width: `${v}%` }}
               />
             </span>
-            <span className="w-7 text-right font-mono text-xs tabnum text-text-secondary">{v}</span>
+            <span className="data w-7 text-right text-xs text-text-secondary">{v}</span>
           </div>
         ))}
       </div>
@@ -297,15 +344,25 @@ export function RiskBreakdown({
 }
 
 // ---------- Sparkline (dependency-free SVG, §21.5) ----------
+/**
+ * Trend shape only.
+ *
+ * Neutral by default and unfilled: a wall of filled red/green areas is what makes a
+ * product read as a trading terminal, and on rows that already carry a coloured
+ * delta the colour is redundant anyway. Pass `tone="direction"` only where the
+ * sparkline itself is the thing carrying the up/down meaning.
+ */
 export function Sparkline({
   data,
   width = 96,
   height = 28,
+  tone = 'neutral',
   ariaLabel,
 }: {
   data: number[];
   width?: number;
   height?: number;
+  tone?: 'neutral' | 'direction';
   ariaLabel?: string;
 }) {
   if (data.length < 2) return <span className="inline-block" style={{ width, height }} />;
@@ -320,8 +377,12 @@ export function Sparkline({
   });
   const path = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
   const up = data[data.length - 1] >= data[0];
-  const color = up ? '#2DD4A7' : '#F0526A';
-  const areaPath = `${path} L${width},${height} L0,${height} Z`;
+  const color =
+    tone === 'direction'
+      ? up
+        ? 'var(--pt-positive)'
+        : 'var(--pt-negative)'
+      : 'var(--pt-text-muted)';
   return (
     <svg
       width={width}
@@ -331,9 +392,15 @@ export function Sparkline({
       aria-label={ariaLabel ?? `Trend ${up ? 'up' : 'down'}`}
       className="overflow-visible"
     >
-      <path d={areaPath} fill={color} fillOpacity={0.08} />
-      <path d={path} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx={pts[pts.length - 1][0]} cy={pts[pts.length - 1][1]} r={2} fill={color} />
+      <path
+        d={path}
+        fill="none"
+        stroke={color}
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx={pts[pts.length - 1][0]} cy={pts[pts.length - 1][1]} r={1.75} fill={color} />
     </svg>
   );
 }

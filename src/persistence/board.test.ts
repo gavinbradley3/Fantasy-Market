@@ -12,7 +12,8 @@ import { computeBoardIdentity, type BoardEntryInput } from './canonical';
 import { PersistenceError } from './errors';
 import { SCHEMA_VERSIONS, type RefreshRunRecord } from './types';
 import type { Database } from './sqlite/db';
-import { mockedFailedRefresh, mockedPartialRefresh, mockedSuccessfulRefresh, tempDbPath } from './__fixtures';
+import { mockedFailedRefresh, mockedPartialRefresh,
+  mockedRequiredFailureRefresh, mockedSuccessfulRefresh, tempDbPath } from './__fixtures';
 
 const META = { startedAt: '2026-01-01T00:00:00.000Z', completedAt: '2026-01-01T00:00:05.000Z' };
 const paths: string[] = [];
@@ -91,10 +92,25 @@ describe('F. board publication eligibility', () => {
     expect(() => s.publishBoard({ runId: o.runId })).toThrowError(/not publishable/);
     s.close();
   });
-  it('a partial run cannot publish', async () => {
+  it('a partial run that lost only an OPTIONAL provider still publishes its complete board', async () => {
+    // The board is built from nflverse; Sleeper is enrichment and is not a required provider.
+    // Gating on `status === 'success'` let Sleeper's failure delete an entire 867-player board
+    // even though every required source succeeded and every player was valued.
     const s = store();
     const m = await mockedPartialRefresh();
     const o = persistRefreshResult(s, { result: m.result, inferenceBuilds: m.builds, ...META });
+    expect(o.status).toBe('partial');
+    expect(o.publishable).toBe(true);
+    const published = s.publishBoard({ runId: o.runId });
+    expect(published.entryCount).toBeGreaterThan(0);
+    s.close();
+  });
+
+  it('a partial run that lost a REQUIRED provider cannot publish', async () => {
+    const s = store();
+    const m = await mockedRequiredFailureRefresh();
+    const o = persistRefreshResult(s, { result: m.result, inferenceBuilds: m.builds, ...META, requiredProviders: ['nflverse'] });
+    expect(o.publishable).toBe(false);
     try {
       s.publishBoard({ runId: o.runId });
       throw new Error('expected throw');

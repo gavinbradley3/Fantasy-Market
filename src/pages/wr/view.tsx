@@ -98,7 +98,7 @@ export function buildWrView(
         This WR MVP uses deterministic formulas and fictional fixture data. Weekly and ROS outputs are
         expected values, not guarantees. Market price, trade value, and long-term fantasy-point
         distributions are outside the current model.{' '}
-        <Link to="/methodology" className="text-secondary hover:underline">
+        <Link to="/methodology" className="text-brand-blue hover:underline">
           Methodology
         </Link>
         .

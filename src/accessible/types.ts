@@ -15,7 +15,7 @@ import type { ObservedProduction } from './production';
  */
 export type ModelTier = 'FULL' | 'ACCESSIBLE' | 'INSUFFICIENT';
 
-export type AccessiblePosition = 'RB' | 'TE';
+export type AccessiblePosition = 'RB' | 'TE' | 'WR';
 
 /** Availability state, mapped from the same canonical status the frozen path uses. */
 export type AccessibleAvailability =

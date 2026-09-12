@@ -89,19 +89,33 @@ function adaptComposites(composites: ApiBoardEntry['composites']): PublishedComp
  * Unvalued players are ranked `null` — they sit at the end of the list without a number.
  */
 function ranked(players: readonly Omit<PublishedPlayer, 'overallRank' | 'positionRank'>[]): PublishedPlayer[] {
+  // The board ranks on the SHARED cross-position value. Sorting the position engines' internal
+  // composites together — which is what this did — compared four numbers anchored in four
+  // different distributions, and put whichever position had the widest internal scale on top.
+  //
+  // A board published before the utility layer existed carries no shared value; those fall back
+  // to the composite, which keeps an older backend readable rather than blank.
+  const anyShared = players.some((p) => p.dynastyValue !== null);
+  const rankOn = (p: Omit<PublishedPlayer, 'overallRank' | 'positionRank'>) =>
+    anyShared ? p.dynastyValue : p.value;
+
   const ordered = [...players].sort((a, b) => {
-    const av = a.value;
-    const bv = b.value;
+    const av = rankOn(a);
+    const bv = rankOn(b);
     if (av !== null && bv !== null && av !== bv) return bv - av;
     if (av !== null && bv === null) return -1;
     if (av === null && bv !== null) return 1;
+    // The board no longer ties at zero in bulk — the depth term separates below-replacement
+    // players — but exact ties still occur where the measured curve has flattened to its floor.
+    // The position composite stands in there, so a tie breaks on something real, not a player id.
+    if (anyShared && a.value !== null && b.value !== null && a.value !== b.value) return b.value - a.value;
     return a.playerId.localeCompare(b.playerId);
   });
 
   let overall = 0;
   const positionCounters = new Map<Position, number>();
   return ordered.map((p) => {
-    if (p.value === null) return { ...p, overallRank: null, positionRank: null };
+    if (rankOn(p) === null) return { ...p, overallRank: null, positionRank: null };
     overall += 1;
     const positionRank = (positionCounters.get(p.position) ?? 0) + 1;
     positionCounters.set(p.position, positionRank);
@@ -171,6 +185,13 @@ export function adaptPublication(
       age: finiteOrNull(entry.age),
       value: composites ? composites[horizon] : null,
       composites,
+      // The board's cross-position value, carried through verbatim.
+      dynastyValue: finiteOrNull(entry.dynastyValue),
+      dynastySurplus: finiteOrNull(entry.dynastySurplus),
+      dynastyDepth: finiteOrNull(entry.dynastyDepth),
+      dynastyValueSource: entry.dynastyValueSource ?? null,
+      leagueSchemaId: entry.leagueSchemaId ?? null,
+      productionCurveVersion: entry.productionCurveVersion ?? null,
       confidenceScore: finiteOrNull(entry.confidenceScore),
       confidenceLabel: entry.confidenceLabel,
       publicConfidenceLabel: entry.publicConfidenceLabel,

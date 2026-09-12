@@ -63,6 +63,9 @@ function main(): number {
     asOf: args.now.slice(0, 10),
     staleMaxAgeMs: 48 * 60 * 60 * 1000,
   };
+  // Pinned on purpose, and NOT derived from the clock: this audit runs in fixture mode over
+  // the committed 2024–2025 fixture snapshots, so the season must match those fixtures. The
+  // clock-derived season in src/ingestion/season.ts is for LIVE acquisition only.
   const statsOptions = { currentSeason: 2025, includePostseason: false };
 
   const { readiness } = runPipeline({

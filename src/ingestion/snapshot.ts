@@ -70,6 +70,66 @@ function withCanonical<T extends NormalizedRecordBase>(rec: T, canonicalId: stri
  * enabling cross-provider joins); every other record is linked by its `providerRef`.
  * Unresolvable records are dropped with an `UNRESOLVED_IDENTITY` warning.
  */
+/**
+ * Collapse duplicate per-game stat rows for the same player and game.
+ *
+ * WHY THIS IS NEEDED
+ * A provider export can carry the same (player, game) twice — typically one complete row and
+ * one that omits an auxiliary column. Left alone, both rows survive into the snapshot, which
+ * double-counts every stat that game AND makes the snapshot's bytes depend on the order the
+ * rows arrived in: a stable sort keeps colliding records in input order, so re-running the
+ * same ingest on a reordered export produced a different snapshot id. The duplicate was
+ * previously invisible only because the two rows normalized to identical records; the moment
+ * any carried column differed between them, the order-dependence became observable.
+ *
+ * THE RULE. Group by (canonical id, game id). Within a group, take each field's OBSERVED
+ * value when exactly one row supplies it — one row omitting a column is not evidence against
+ * the row that has it. When two rows disagree on a value both actually supplied, that is a
+ * real contradiction in the source: the rows are ordered by their own canonical serialization
+ * and the first wins, which is arbitrary but DETERMINISTIC, and a warning is raised so the
+ * conflict is visible rather than absorbed.
+ */
+function collapseGameStats(
+  games: readonly GameStatRecord[],
+  warnings: IngestionWarning[],
+): GameStatRecord[] {
+  const groups = new Map<string, GameStatRecord[]>();
+  for (const g of games) {
+    const key = `${g.canonicalId ?? ''}|${g.gameId}`;
+    const bucket = groups.get(key);
+    if (bucket) bucket.push(g);
+    else groups.set(key, [g]);
+  }
+
+  const out: GameStatRecord[] = [];
+  for (const [key, bucket] of groups) {
+    if (bucket.length === 1) {
+      out.push(bucket[0]);
+      continue;
+    }
+    // Order-independent: the winner of a genuine conflict is decided by content, never by
+    // arrival. `stableStringify` is the same canonical serialization the snapshot id uses.
+    const ordered = sortByKey(bucket, (g) => stableStringify(g));
+    const merged: Record<string, unknown> = { ...ordered[0] };
+    for (const candidate of ordered.slice(1)) {
+      for (const [field, value] of Object.entries(candidate)) {
+        const current = merged[field];
+        if (current === null || current === undefined) {
+          merged[field] = value;
+        } else if (value !== null && value !== undefined && !Object.is(current, value)) {
+          warnings.push({
+            code: 'DISCARDED_MALFORMED',
+            provider: candidate.freshness.provider,
+            detail: `conflicting duplicate game stat for ${key}: ${field} ${String(current)} vs ${String(value)} — kept ${String(current)}`,
+          });
+        }
+      }
+    }
+    out.push(merged as unknown as GameStatRecord);
+  }
+  return out;
+}
+
 export function buildSnapshot(
   collections: NormalizedCollections,
   resolver: IdentityResolver = new IdentityResolver(),
@@ -113,7 +173,9 @@ export function buildSnapshot(
     rosters: link(collections.rosters, prov),
     // schedule is team/game-level (providerRef key = "game"); keep all, canonicalId stays null-linked via game id.
     schedule: sortByKey(collections.schedule, (s) => s.gameId).map((s) => ({ ...s, canonicalId: s.gameId })),
-    games: link(collections.games, prov),
+    // Collapsed BEFORE ordering so a duplicated row can neither double-count a game nor
+    // make the snapshot's bytes depend on the order the export happened to arrive in.
+    games: collapseGameStats(link(collections.games, prov), warnings),
     participation: link(collections.participation, prov),
     injuries: link(collections.injuries, prov),
     transactions: link(collections.transactions, prov),

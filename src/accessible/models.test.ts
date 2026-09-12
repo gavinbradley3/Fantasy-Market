@@ -22,6 +22,7 @@ function window(over: Partial<CountingWindow> & { games: number }): CountingWind
     receptions: null,
     receivingYards: null,
     receivingTds: null,
+    receivingAirYards: null,
     ...over,
   };
 }
@@ -44,6 +45,7 @@ function production(over: Partial<ObservedProduction> & { career: CountingWindow
     latestSeason: null,
     priorSeason: null,
     teamShares: null,
+    providerTargetShare: null,
     seasonsPlayed: 1,
     // Recent enough not to be stale relative to AS_OF, and rostered for every game played, so
     // a fixture only has to state what it is actually varying.
@@ -426,5 +428,40 @@ describe('durability is measured against games the player could actually have pl
       }),
     })));
     expect(v.components.DUR).toBe(100);
+  });
+});
+
+describe('availability cannot move a dynasty value', () => {
+  // The structural guarantee behind "enabling Sleeper leaves dynasty alone". Availability is a
+  // statement about THIS WEEK; a dynasty value is a statement about years. All three accessible
+  // models therefore weight AV at exactly zero on the dynasty horizon, so no injury designation
+  // — however severe, however it arrives — can move a dynasty composite. This is a property of
+  // the weights, not an empirical observation about one board, so it holds for every player.
+  const states = ['HEALTHY', 'QUESTIONABLE', 'DOUBTFUL', 'OUT', 'IR', 'PUP', 'SUSPENDED', 'NOT_ROSTERED', 'UNKNOWN'] as const;
+
+  const eliteWR = () =>
+    input('WR', {
+      age: 26,
+      production: production({
+        career: career(60, { targets: 9, receptions: 6, receivingYards: 80, receivingTds: 0.5, receivingAirYards: 108 }),
+        seasonsPlayed: 4,
+        providerTargetShare: 0.28,
+      }),
+    });
+
+  it('holds for RB, TE and WR across every availability state', () => {
+    for (const build of [eliteRB, eliteTE, eliteWR]) {
+      const dynasties = new Set<number>();
+      const weeklies = new Set<number>();
+      for (const availability of states) {
+        const out = valued(evaluateAccessible({ ...build(), availability }));
+        dynasties.add(out.composites.dynasty);
+        weeklies.add(out.composites.weekly);
+      }
+      // One dynasty value across all nine states.
+      expect(dynasties.size).toBe(1);
+      // And weekly genuinely does move, so the test is not passing because nothing is wired.
+      expect(weeklies.size).toBeGreaterThan(1);
+    }
   });
 });

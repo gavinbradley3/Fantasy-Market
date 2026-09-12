@@ -1,0 +1,29 @@
+name: CI
+
+# The deterministic suite. It must never reach the network: a test that needs the internet fails
+# for reasons unrelated to the code under test. Live provider checks are separate, manual
+# commands (npm run verify:sleeper) run from a host with open egress.
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build

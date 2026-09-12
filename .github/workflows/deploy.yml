@@ -1,0 +1,111 @@
+name: Deploy site
+
+# CODE DEPLOY + DATA DEPLOY, in one job, because they produce one artifact.
+#
+# The deployed site is the built SPA with the published data copied in beside it, so the browser
+# fetches `board.json` from the same origin and CDN as the app. That means:
+#
+#   * a merged code change deploys automatically (push to the default branch);
+#   * a completed data refresh deploys automatically (the refresh workflows call this one).
+#
+# ONE SOURCE OF TRUTH. The data is copied FROM the `site-data` branch at deploy time and is
+# never edited here, so the deployed JSON cannot drift from what the refresh published — it is
+# what the refresh published. Nothing is uploaded by hand.
+#
+# WHY NOT SERVE THE DATA STRAIGHT FROM THE BRANCH: raw.githubusercontent.com is rate-limited,
+# is not a CDN, and sends caching headers we do not control. Copying four files into the deploy
+# costs about ninety seconds of automation and removes a third-party dependency from the
+# critical path of every page load.
+
+on:
+  push:
+    branches: [main, master]
+    # Documentation-only changes do not need a deploy.
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+  # Called by the refresh workflows when they publish new data.
+  workflow_call:
+  workflow_dispatch:
+
+# Pages requires these. `id-token` is for the deployment's OIDC attestation; neither grants
+# write access to repository contents.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time, and a newer one supersedes a queued older one — unlike the refresh
+# workflows, where cancelling could interrupt a publish. Here the newest build is simply the
+# one worth shipping.
+concurrency:
+  group: playerticker-pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      # The published data. `continue-on-error` is deliberate: a FIRST deploy happens before any
+      # refresh has run, and the app must still build and serve — it renders an honest "no
+      # board" state rather than failing the deploy.
+      - name: Fetch published site data
+        id: sitedata
+        continue-on-error: true
+        run: |
+          git fetch origin site-data --depth=1
+          git worktree add ../site-data origin/site-data
+
+      - name: Build
+        env:
+          # A project page is served from /<repo>/; a user page or custom domain from /. Derived
+          # from the repository name so this is correct without configuration.
+          PLAYERTICKER_BASE_PATH: /${{ github.event.repository.name }}/
+        run: npm run build
+
+      - name: Copy published data into the build
+        run: |
+          mkdir -p dist/data
+          if [ -f ../site-data/board.json ]; then
+            cp ../site-data/board.json          dist/data/
+            echo "board.json copied ($(du -h ../site-data/board.json | cut -f1))"
+          else
+            echo "::warning::no board.json on site-data — the site will render its no-board state"
+          fi
+          for f in status.json market-latest.json; do
+            if [ -f "../site-data/$f" ]; then cp "../site-data/$f" dist/data/; else echo "::warning::no $f yet"; fi
+          done
+          # market-history.jsonl is deliberately NOT copied. Nothing in the UI reads it, it is
+          # the archive rather than a serving document, and it grows without bound.
+          ls -la dist/data/
+
+      # GitHub Pages serves files, not routes: a deep link to /board would 404 because no such
+      # file exists. Serving index.html as the 404 body hands the request to the SPA router,
+      # which is the standard single-page fallback for this host.
+      - name: SPA fallback for deep links
+        run: cp dist/index.html dist/404.html
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

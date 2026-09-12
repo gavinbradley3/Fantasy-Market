@@ -25,7 +25,10 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <AppErrorBoundary>
       <PublicationProvider>
         <MarketDataProvider service={marketDataService}>
-          <BrowserRouter>
+          {/* The router must agree with Vite's deployed base, or every in-app link would point
+              above the site root on a GitHub Pages project site. `BASE_URL` is '/' everywhere
+              else, so this is a no-op at a domain root and in development. */}
+          <BrowserRouter basename={import.meta.env.BASE_URL}>
             <App />
           </BrowserRouter>
         </MarketDataProvider>

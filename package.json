@@ -22,8 +22,14 @@
     "pipeline:snaps": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/run-pipeline.ts --mode fixture --stats --snaps --season 2025 --now 2026-07-01T00:00:00.000Z",
     "pipeline:participation": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/run-pipeline.ts --mode fixture --stats --snaps --participation --season 2025 --now 2026-07-01T00:00:00.000Z",
     "pipeline:readiness-audit": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/readiness-audit.ts --now 2026-07-01T00:00:00.000Z",
+    "generate:production-curves": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/generate-production-curves.ts",
     "ingest": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/ingest-nflverse.ts",
-    "ingest:verify": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/ingest-nflverse.ts --verify-replay"
+    "ingest:verify": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/ingest-nflverse.ts --verify-replay",
+    "ingest:market": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/ingest-market.ts",
+    "seed:market-history": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/seed-market-history.ts",
+    "export:site-data": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/export-site-data.ts",
+    "report:sleeper-enrichment": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/sleeper-enrichment-report.ts",
+    "verify:sleeper": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/verify-sleeper.ts"
   },
   "dependencies": {
     "react": "^18.3.1",

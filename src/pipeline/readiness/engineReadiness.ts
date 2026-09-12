@@ -27,6 +27,11 @@ import {
   type WRMetricsSupplement,
 } from '@/pipeline/readiness/metrics';
 import type { DraftRound, InjuryStatus, WRMVPInput } from '@/wr-model/types';
+// The CANONICAL availability enum, which carries `NOT_ROSTERED`. It is a superset of the
+// WR/RB/TE engines' own, so `toInjuryStatus` resolves into it and the engine boundary below
+// narrows it. Resolving into the narrower type is what forced a roster state to be reported as
+// an injury in the first place.
+import type { InjuryStatus as CanonicalInjuryStatus } from '@/inference/availability';
 import type { RBMVPInput } from '@/rb-model/types';
 import type { TEMVPInput } from '@/te-model/types';
 import type { QBInjuryStatus, QBMVPInput } from '@/qb-model/types';
@@ -80,15 +85,19 @@ function toDraftRound(field: FieldState<number>): DraftRound {
 export function toInjuryStatus(
   status: CanonicalPlayer['status'],
   injuryDesignation: CanonicalPlayer['injury_designation'],
-): InjuryStatus {
+): CanonicalInjuryStatus {
   if (!status.present) return 'UNKNOWN';
   switch (status.value) {
     case 'active':
       return 'HEALTHY';
     case 'suspended':
       return 'SUSPENDED';
+    // A source positively said this player is not on an active roster and supplied no injury
+    // designation. That is a ROSTER fact, and `OUT` — which this returned — was an injury
+    // diagnosis PlayerTicker had no evidence for. "Inactive" covers a practice-squad arm, a
+    // reserve, a free agent between contracts and a retired player as well as a hurt one.
     case 'inactive':
-      return 'OUT';
+      return 'NOT_ROSTERED';
     case 'injured': {
       const d = (valueOf(injuryDesignation) ?? '').toLowerCase();
       if (d.includes('out')) return 'OUT';
@@ -101,11 +110,24 @@ export function toInjuryStatus(
   }
 }
 
-// QB's injury enum has no UNKNOWN/SUSPENDED. Map the four canonical states to
-// the nearest defined QB status; a suspended/inactive QB is unavailable (OUT).
-// Returns null when status is absent — QB has no "unknown" to fall back to, so
-// the caller treats a missing status as a missing required metadata field
-// rather than inventing HEALTHY.
+/**
+ * Collapse the canonical enum onto the WR/RB/TE engines' own, which have no `NOT_ROSTERED`.
+ *
+ * A DELIBERATE SCOPE BOUNDARY. Adding the state to those three frozen engines would mean
+ * extending three specifications and their score, fallback and volatility tables — a
+ * methodology change for all three positions. It would also change nothing observable: WR, RB
+ * and TE all publish through the ACCESSIBLE tier, whose `toAccessibleAvailability` already
+ * models this correctly as `NOT_ROSTERED`, so their FULL path is unreachable today. Collapsing
+ * to `OUT` here preserves their existing behaviour EXACTLY rather than altering a dormant path.
+ */
+function toSharedEngineInjuryStatus(status: CanonicalInjuryStatus): InjuryStatus {
+  return status === 'NOT_ROSTERED' ? 'OUT' : status;
+}
+
+// QB's injury enum has no UNKNOWN/SUSPENDED. Map the canonical states to the nearest defined
+// QB status. Returns null when status is absent — QB has no "unknown" to fall back to, so the
+// caller treats a missing status as a missing required metadata field rather than inventing
+// HEALTHY.
 function toQBInjuryStatus(
   status: CanonicalPlayer['status'],
   injuryDesignation: CanonicalPlayer['injury_designation'],
@@ -114,9 +136,12 @@ function toQBInjuryStatus(
   switch (status.value) {
     case 'active':
       return 'HEALTHY';
+    // A suspended quarterback is genuinely barred from playing, so `OUT` is the right reading.
     case 'suspended':
-    case 'inactive':
       return 'OUT';
+    // Not rostered is not an injury. See `QBInjuryStatus`.
+    case 'inactive':
+      return 'NOT_ROSTERED';
     case 'injured': {
       const d = (valueOf(injuryDesignation) ?? '').toLowerCase();
       if (d.includes('out')) return 'OUT';
@@ -198,7 +223,7 @@ function extractMetadata(
       age: values.age!,
       nfl_seasons_completed: values.seasons!,
       draft_round: toDraftRound(player.draft_round),
-      injury_status: toInjuryStatus(player.status, player.injury_designation),
+      injury_status: toSharedEngineInjuryStatus(toInjuryStatus(player.status, player.injury_designation)),
       as_of_timestamp: asOf,
     },
   };

@@ -78,6 +78,30 @@ export async function mockedPartialRefresh(): Promise<MockedRefresh> {
   return { result, builds };
 }
 
+/**
+ * A refresh where a REQUIRED provider fails while other sources succeed.
+ *
+ * The distinction this fixture exists to protect: 'partial' alone says nothing about whether a
+ * board is trustworthy. A partial run that lost only an OPTIONAL enrichment provider has a
+ * complete board and publishes; a partial run that lost a REQUIRED one does not. Without this
+ * case, relaxing the publication gate to allow partial runs would have silently allowed the
+ * second kind too.
+ */
+export async function mockedRequiredFailureRefresh(): Promise<MockedRefresh> {
+  const routes = { ...defaultRoutes() };
+  // Break an nflverse endpoint — the roster resource — leaving its other sources working.
+  const rosterUrl = Object.keys(routes).find((u) => u.includes('roster'))!;
+  routes[rosterUrl] = { status: 500, body: 'boom' } as RouteResponse;
+  const first = await refreshSources({ sources: ALL_LIVE }, transportDeps());
+  const wr = first.snapshot!.players.find((p) => p.providerIds.gsis === '00-WR')!.canonicalId!;
+  const builds: BuildInputOptions[] = [{ canonicalId: wr, position: 'WR', asOf: AS_OF, engineVersion: 'wr-mvp-1.0' }];
+  const result = await refreshSources(
+    { sources: ALL_LIVE, inference: builds, policy: { requiredProviders: ['nflverse'] } },
+    transportDeps(routes),
+  );
+  return { result, builds };
+}
+
 /** A fully-failed refresh (every source 500s). */
 export async function mockedFailedRefresh(): Promise<MockedRefresh> {
   const routes: Record<string, RouteResponse> = {};

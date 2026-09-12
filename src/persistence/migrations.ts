@@ -1,11 +1,10 @@
 // Explicit, versioned schema migrations (Phase 6). Fresh-DB creation and repeated runs are
 // both safe (idempotent); the applied version is recorded in `schema_migrations`; a DB
-// migrated by a NEWER build of the code (version > MIGRATION_VERSION) is rejected on open.
+// migrated by a NEWER build of the code (version > LATEST_MIGRATION_VERSION) is rejected on open.
 // Every migration runs inside a single transaction so a failure cannot falsely advance the
 // recorded version.
 
 import { PersistenceError } from './errors';
-import { MIGRATION_VERSION } from './types';
 import { transaction, type Database } from './sqlite/db';
 
 interface Migration {
@@ -179,6 +178,54 @@ const MIGRATIONS: readonly Migration[] = [
       ALTER TABLE raw_payload_artifact ADD COLUMN source_last_updated TEXT;
     `,
   },
+  {
+    // Migration 4 — EXTERNAL DYNASTY MARKET SNAPSHOTS.
+    //
+    // This table holds what an EXTERNAL market says a player is worth. It is deliberately
+    // not part of the publication chain: a market value is not a PlayerTicker valuation, is
+    // not content-addressed by us, and never participates in board identity. Keeping it in
+    // its own table (rather than a column on a board entry) is what makes that distinction
+    // structural rather than a naming convention.
+    //
+    // APPEND-ONLY BY KEY. `ingested_at` is part of the primary key, so re-running an ingest
+    // writes a NEW row and yesterday's value survives. Every movement window (7d, 30d,
+    // season) and every model-vs-market-over-time view is reconstructed by reading
+    // successive rows, so an in-place update would silently destroy history. Writers target
+    // this key with ON CONFLICT DO NOTHING: replaying the identical capture is a no-op, while
+    // a genuinely malformed row still raises rather than vanishing.
+    //
+    // PROVENANCE IS A COLUMN, NOT A COMMENT. `source`, `source_player_id`, `source_timestamp`
+    // and `source_version` travel with every row so a value can always be attributed back to
+    // the party that published it. `format` is stored explicitly because a 1QB value and a
+    // Superflex value are different numbers for the same player.
+    version: 4,
+    up: `
+      CREATE TABLE market_snapshot (
+        canonical_player_id   TEXT NOT NULL,
+        source                TEXT NOT NULL,   -- e.g. 'dynastyprocess' (attribution, never dropped)
+        format                TEXT NOT NULL,   -- 'dynasty_superflex' | 'dynasty_1qb', never inferred
+        ingested_at           TEXT NOT NULL,   -- capture instant; part of the key (append-only)
+        value                 REAL,            -- source's own scale; NULL means "no value", not 0
+        overall_rank          INTEGER,
+        position_rank         INTEGER,
+        source_consensus_rank REAL,            -- often fractional (an average of ballots)
+        source_player_id      TEXT,
+        source_position       TEXT,
+        source_team           TEXT,
+        source_timestamp      TEXT NOT NULL,   -- the instant the SOURCE says its data is for
+        source_version        TEXT,            -- the source's own dataset version/date, when it has one
+        freshness             TEXT NOT NULL,
+        provenance            TEXT NOT NULL,
+        PRIMARY KEY (canonical_player_id, source, format, ingested_at)
+      );
+
+      CREATE INDEX idx_market_snapshot_player_time
+        ON market_snapshot (canonical_player_id, source, format, ingested_at DESC);
+
+      CREATE INDEX idx_market_snapshot_capture
+        ON market_snapshot (source, format, ingested_at DESC);
+    `,
+  },
 ];
 
 /** The highest migration version this code knows how to apply. */
@@ -228,7 +275,9 @@ export function migrate(db: Database, nowIso: string, target: number = LATEST_MI
 export function assertSupportedDatabaseVersion(db: Database): void {
   const row = db.prepare('SELECT MAX(version) AS v FROM schema_migrations').get() as { v: number | null };
   const v = row.v ?? 0;
-  if (v > MIGRATION_VERSION) {
-    throw new PersistenceError('UNSUPPORTED_DATABASE_VERSION', `database schema version ${v} exceeds supported ${MIGRATION_VERSION}`, { stage: 'read' });
+  // Compared against the migration list itself, never a separately-maintained copy of the
+  // number: a stale copy would reject a database this very build had just migrated.
+  if (v > LATEST_MIGRATION_VERSION) {
+    throw new PersistenceError('UNSUPPORTED_DATABASE_VERSION', `database schema version ${v} exceeds supported ${LATEST_MIGRATION_VERSION}`, { stage: 'read' });
   }
 }

@@ -63,8 +63,9 @@ satisfy readiness. `PARTIAL`/`UNAVAILABLE` write nothing.
 ## Licensing
 
 The underlying participation data originates from NFL Next Gen Stats; its
-redistribution terms are **materially unclear** (feed discontinued after 2023;
-NGS provenance). *This is not a legal conclusion — the uncertainty is flagged.*
+redistribution terms are **materially unclear** (NGS provenance). Note the feed is
+*not* discontinued — nflverse publishes `pbp_participation` for 2024 and 2025, verified
+against those exports; the unclear item is redistribution rights, not availability. *This is not a legal conclusion — the uncertainty is flagged.*
 Per the audit, **real provider files are not committed**; the stage ships
 **synthetic fixtures** with the real schema shape. Snapshots record provider,
 owner, and a `pbp_participation` dataset id so a future license-cleared swap is a

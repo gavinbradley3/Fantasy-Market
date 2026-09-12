@@ -4,10 +4,10 @@ import { Tooltip } from '@/components/ui/Tooltip';
 import type { Tone } from '@/pages/player-model/types';
 
 const TONE_CLASS: Record<Tone, string> = {
-  up: 'text-up border-up/40 bg-up/10',
+  up: 'text-positive border-positive/40 bg-positive/10',
   warning: 'text-warning border-warning/40 bg-warning/10',
-  down: 'text-down border-down/40 bg-down/10',
-  neutral: 'text-text-secondary border-border-subtle bg-elevated',
+  down: 'text-negative border-negative/40 bg-negative/10',
+  neutral: 'text-text-secondary border-border-default bg-elevated',
 };
 
 // A labeled pill. Confidence and volatility each get their own — never merged.
@@ -25,7 +25,7 @@ export function Badge({
   const pill = (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold',
+        'inline-flex items-center gap-1.5 rounded-control border px-2 py-0.5 text-[11px] font-semibold',
         TONE_CLASS[tone],
       )}
     >
@@ -49,7 +49,7 @@ export function SectionCard({
   id?: string;
 }) {
   return (
-    <section id={id} className="rounded-card border border-border-subtle bg-surface p-4">
+    <section id={id} className="rounded-card border border-border-default bg-surface p-4">
       {(title || aside) && (
         <div className="mb-3 flex items-center justify-between gap-2">
           {title && <h2 className="text-sm font-semibold text-text-primary">{title}</h2>}
@@ -83,12 +83,19 @@ export function StatCell({
     label
   );
   return (
-    <div className={cn('rounded-control border border-border-subtle bg-base px-3 py-2', emphasis && 'border-up/30 bg-up/5')}>
-      <div className="text-[10px] uppercase tracking-wide text-text-muted">{labelNode}</div>
+    // An emphasised tile is the headline number for the section, not a rising
+    // value, so it takes the brand accent rather than the market's green.
+    <div
+      className={cn(
+        'rounded-control border px-3 py-2.5',
+        emphasis ? 'border-brand-blue/30 bg-brand-blue/[0.06]' : 'border-border-default bg-canvas',
+      )}
+    >
+      <div className="eyebrow text-[10px]">{labelNode}</div>
       <div
         className={cn(
-          'font-mono tabnum text-text-primary',
-          emphasis ? 'text-2xl font-semibold' : 'text-base',
+          'data text-text-primary',
+          emphasis ? 'mt-0.5 text-[26px] font-semibold leading-none' : 'mt-0.5 text-[15px]',
         )}
       >
         {value}
@@ -106,10 +113,10 @@ function scoreTone(score: number): Tone {
 }
 
 const BAR_TONE: Record<Tone, string> = {
-  up: 'bg-up',
-  neutral: 'bg-secondary',
+  up: 'bg-positive',
+  neutral: 'bg-text-muted',
   warning: 'bg-warning',
-  down: 'bg-down',
+  down: 'bg-negative',
 };
 
 // Horizontal 0–100 score bar with a neutral-50 reference marker. Meaning is
@@ -130,35 +137,35 @@ export function ScoreBar({
   emphasized?: boolean;
 }) {
   const tone = scoreTone(score);
-  const glyph = tone === 'up' ? '▲' : tone === 'down' || tone === 'warning' ? '▼' : '▬';
+  const glyph = tone === 'up' ? '▲' : tone === 'down' || tone === 'warning' ? '▼' : '–';
   return (
     <div
       className={cn(
         'rounded-control border p-2.5 transition',
-        emphasized ? 'border-secondary/40 bg-elevated/40' : 'border-border-subtle bg-base',
+        emphasized ? 'border-brand-blue/40 bg-brand-blue/[0.06]' : 'border-border-default bg-canvas',
       )}
     >
       <div className="mb-1.5 flex items-baseline justify-between gap-2">
         <div className="flex items-baseline gap-2">
-          <span className="font-mono text-xs font-semibold text-text-secondary">{code}</span>
+          <span className="data text-xs font-semibold text-text-secondary">{code}</span>
           <span className={cn('text-sm', emphasized ? 'font-semibold text-text-primary' : 'text-text-primary')}>
             {name}
           </span>
           {emphasized && (
-            <span className="rounded bg-secondary/15 px-1.5 text-[10px] font-medium text-secondary">
+            <span className="rounded bg-brand-blue/15 px-1.5 text-[10px] font-medium text-brand-blue">
               key at this horizon
             </span>
           )}
         </div>
-        <span className="flex items-center gap-1 font-mono text-sm tabnum text-text-primary">
-          <span aria-hidden className={cn(tone === 'up' ? 'text-up' : tone === 'neutral' ? 'text-text-muted' : tone === 'warning' ? 'text-warning' : 'text-down')}>
+        <span className="flex items-center gap-1 data text-sm tabnum text-text-primary">
+          <span aria-hidden className={cn(tone === 'up' ? 'text-positive' : tone === 'neutral' ? 'text-text-muted' : tone === 'warning' ? 'text-warning' : 'text-negative')}>
             {glyph}
           </span>
           {score.toFixed(1)}
         </span>
       </div>
       <div
-        className="relative h-2 w-full rounded-full bg-border-subtle"
+        className="relative h-2 w-full rounded-full bg-border-default"
         role="img"
         aria-label={`${name} score: ${score.toFixed(1)} out of 100. Weight at this horizon ${Math.round(weightPct * 100)} percent.`}
       >

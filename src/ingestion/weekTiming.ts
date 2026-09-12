@@ -28,7 +28,7 @@
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** First Monday of September for a season year, at 00:00:00 UTC. */
-function laborDay(season: number): Date {
+export function laborDay(season: number): Date {
   const d = new Date(Date.UTC(season, 8, 1)); // month 8 = September
   const dow = d.getUTCDay(); // 0 = Sunday, 1 = Monday
   const offset = dow === 1 ? 0 : (8 - dow) % 7;

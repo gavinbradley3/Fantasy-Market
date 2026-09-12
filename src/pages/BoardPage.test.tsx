@@ -113,6 +113,51 @@ function renderBoard(fetchFn: typeof fetch, route = '/board') {
 const respondWith = (body: unknown, status = 200) =>
   (async () => jsonResponse(body, status)) as unknown as typeof fetch;
 
+/** An external market response, in the shape `GET /market` actually serves. */
+function marketResponse(
+  quotes: { canonicalPlayerId: string; value: number | null; overallRank: number | null; positionRank?: number | null }[],
+  over: Record<string, unknown> = {},
+) {
+  return {
+    source: 'dynastyprocess',
+    format: 'dynasty_superflex',
+    attribution: {
+      publisher: 'DynastyProcess',
+      url: 'https://github.com/dynastyprocess/data',
+      licence: 'GPL-3.0',
+      derivedFrom: 'FantasyPros expert consensus',
+      refreshCadence: 'weekly',
+      usage: 'External comparison source, not PlayerTicker-owned market data.',
+    },
+    sourceTimestamp: '2026-09-11T00:00:00.000Z',
+    sourceVersion: '2026-09-11',
+    capturedAt: '2026-09-11T18:00:00.000Z',
+    captureCount: 1,
+    quoteCount: quotes.length,
+    quotes: quotes.map((q) => ({
+      canonicalPlayerId: q.canonicalPlayerId,
+      source: 'dynastyprocess',
+      format: 'dynasty_superflex',
+      value: q.value,
+      overallRank: q.overallRank,
+      positionRank: q.positionRank ?? q.overallRank,
+      sourceTimestamp: '2026-09-11T00:00:00.000Z',
+      ingestedAt: '2026-09-11T18:00:00.000Z',
+      freshness: 'fresh',
+      provenance: 'external',
+    })),
+    ...over,
+  };
+}
+
+/** Route by path so the board's two independent reads can be answered differently. */
+function routed(publicationBody: unknown, marketBody: unknown, marketStatus = 200): typeof fetch {
+  return (async (input: RequestInfo | URL) =>
+    String(input).includes('/market')
+      ? jsonResponse(marketBody, marketStatus)
+      : jsonResponse(publicationBody)) as unknown as typeof fetch;
+}
+
 /** The provenance line's text, e.g. "4 of 4 published players · published ...". */
 function boardCount(): string {
   return screen.getByRole('status').textContent ?? '';
@@ -321,7 +366,10 @@ describe('The Board — empty, error and retry states', () => {
     await screen.findAllByText('Test Passer');
 
     await userEvent.click(screen.getByRole('button', { name: 'Refresh Market' }));
-    await waitFor(() => expect(spy).toHaveBeenCalledTimes(2));
+    // Counted per endpoint: the page also reads the external market on mount, and this test
+    // is about the publication read the button re-runs.
+    const publicationCalls = () => spy.mock.calls.filter((c) => String(c[0]).includes('/publication')).length;
+    await waitFor(() => expect(publicationCalls()).toBe(2));
     // Refreshing the browser's data is a READ. Triggering a backend rebuild is a different
     // action and this page must never conflate the two.
     for (const call of spy.mock.calls) {
@@ -377,5 +425,107 @@ describe('The Board — model tier is visible to the user', () => {
     await waitFor(() =>
       expect(provenanceText()).toMatch(/1 of these players is valued by the accessible-data model/i),
     );
+  });
+});
+
+describe('external market context on the board', () => {
+  // The market's numbers belong to somebody else and cover fewer players than the board. Both
+  // facts have to survive all the way to the DOM: an uncovered player must read as uncovered,
+  // and the source must be named. These tests fail if either quietly stops being true.
+
+  const boardWithMarket = (
+    quotes: Parameters<typeof marketResponse>[0],
+    over: Record<string, unknown> = {},
+  ) => routed(publication(FOUR_POSITIONS), marketResponse(quotes, over));
+
+  it('shows the market rank beside the model rank', async () => {
+    renderBoard(
+      boardWithMarket([
+        { canonicalPlayerId: 'pt-qb', value: 10256, overallRank: 3 },
+        { canonicalPlayerId: 'pt-rb', value: 7000, overallRank: 1 },
+      ]),
+    );
+    await screen.findAllByText('Test Passer');
+    await waitFor(() => expect(screen.getAllByTitle(/Dynasty Superflex market value 10,256/).length).toBeGreaterThan(0));
+  });
+
+  it('states the disagreement in places, with PlayerTicker-higher as a positive number', async () => {
+    // The board ranks the QB 1st (weekly 90 is the best value); the market has them 3rd.
+    renderBoard(
+      boardWithMarket([
+        { canonicalPlayerId: 'pt-qb', value: 10256, overallRank: 3 },
+        { canonicalPlayerId: 'pt-rb', value: 9000, overallRank: 1 },
+        { canonicalPlayerId: 'pt-wr', value: 8000, overallRank: 2 },
+      ]),
+    );
+    await screen.findAllByText('Test Passer');
+    // The tooltip names BOTH ranks, because the visible Rank column follows the board's
+    // displayed horizon (weekly) while the delta is measured on dynasty.
+    await waitFor(() =>
+      expect(
+        screen.getAllByTitle(/On dynasty value: PlayerTicker #1, market #3 — 2 places higher/).length,
+      ).toBeGreaterThan(0),
+    );
+  });
+
+  it('renders an UNCOVERED player as absent — never as zero or last place', async () => {
+    renderBoard(boardWithMarket([{ canonicalPlayerId: 'pt-qb', value: 10256, overallRank: 1 }]));
+    await screen.findAllByText('Test Passer');
+    await waitFor(() =>
+      expect(screen.getAllByLabelText('not covered by this market source').length).toBeGreaterThan(0),
+    );
+    // Nothing on the page claims a zero-valued market quote for the uncovered players.
+    expect(provenanceText()).toContain('rather than a zero');
+  });
+
+  it('names the publisher and says these are not PlayerTicker valuations', async () => {
+    renderBoard(boardWithMarket([{ canonicalPlayerId: 'pt-qb', value: 10256, overallRank: 1 }]));
+    await screen.findAllByText('Test Passer');
+    await waitFor(() => expect(provenanceText()).toContain('DynastyProcess'));
+    expect(provenanceText()).toContain('not a PlayerTicker');
+    expect(provenanceText()).toContain('Superflex');
+  });
+
+  it('describes weekly data in weekly language — never "live" or "real-time"', async () => {
+    renderBoard(boardWithMarket([{ canonicalPlayerId: 'pt-qb', value: 10256, overallRank: 1 }]));
+    await screen.findAllByText('Test Passer');
+    await waitFor(() => expect(provenanceText()).toContain('market updated Sep 11'));
+    expect(provenanceText()).toContain('weekly');
+    expect(provenanceText()).not.toMatch(/live|real[- ]?time|24H|1H/i);
+  });
+
+  it('says no movement is shown while only one capture is stored', async () => {
+    renderBoard(boardWithMarket([{ canonicalPlayerId: 'pt-qb', value: 10256, overallRank: 1 }]));
+    await screen.findAllByText('Test Passer');
+    await waitFor(() => expect(provenanceText()).toContain('no market movement is shown'));
+  });
+
+  it('an unavailable market degrades to "—" and leaves the board standing', async () => {
+    renderBoard(routed(publication(FOUR_POSITIONS), { error: { code: 'X', message: 'down' } }, 503));
+    // The valuations are all still there — a third party's outage is not a board outage.
+    for (const name of ['Test Passer', 'Test Runner', 'Test Receiver', 'Test End']) {
+      expect((await rowsFor(name)).length).toBeGreaterThan(0);
+    }
+    await waitFor(() => expect(provenanceText()).toContain('External market context is unavailable'));
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('an empty market says so instead of showing zeroes', async () => {
+    renderBoard(boardWithMarket([], { quoteCount: 0, captureCount: 0, sourceTimestamp: null }));
+    await screen.findAllByText('Test Passer');
+    await waitFor(() =>
+      expect(provenanceText()).toContain('No external market data has been ingested yet'),
+    );
+  });
+
+  it('never lets a market value into the model Value column', async () => {
+    renderBoard(boardWithMarket([{ canonicalPlayerId: 'pt-qb', value: 10256, overallRank: 1 }]));
+    await screen.findAllByText('Test Passer');
+    await waitFor(() => expect(screen.getAllByTitle(/Dynasty Superflex market value 10,256/).length).toBeGreaterThan(0));
+    // The model value for the QB is 90.0. The market's 10,256 appears only as a tooltip on the
+    // market column — never rendered as the player's value.
+    expect(screen.getAllByText('90.0').length).toBeGreaterThan(0);
+    expect(screen.queryByText('10256')).not.toBeInTheDocument();
+    expect(screen.queryByText('10,256')).not.toBeInTheDocument();
   });
 });

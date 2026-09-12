@@ -32,7 +32,7 @@ export interface ApiComposites {
 export type ApiModelTier = 'FULL' | 'ACCESSIBLE' | 'INSUFFICIENT';
 
 /** One player on a published board, exactly as `GET /publication` projects it. */
-export interface ApiBoardEntry {
+export interface ApiBoardEntry extends ApiDynastyUtility {
   readonly canonicalId: string;
   readonly position: ApiPositionCode;
   readonly normalizedInputChecksum: string;
@@ -78,6 +78,18 @@ export interface ApiProvenance {
   readonly unavailableFields: readonly string[];
 }
 
+/** Cross-position dynasty utility, as the board publishes it. */
+export interface ApiDynastyUtility {
+  readonly dynastyValue: number | null;
+  readonly dynastySurplus: number | null;
+  readonly dynastyDepth: number | null;
+  readonly dynastyValueSource: string | null;
+  readonly dynastyPositionRank: number | null;
+  readonly dynastyOverallRank: number | null;
+  readonly leagueSchemaId: string | null;
+  readonly productionCurveVersion: string | null;
+}
+
 export interface ApiPublicationMetadata {
   readonly publicationId: string;
   readonly runId: string;
@@ -92,6 +104,44 @@ export interface ApiPublicationMetadata {
 export interface ApiPublicationResponse {
   readonly publication: ApiPublicationMetadata;
   readonly entries: readonly ApiBoardEntry[];
+}
+
+/** Who published a set of market values, under what terms. Never optional. */
+export interface ApiMarketAttribution {
+  readonly publisher: string;
+  readonly url: string;
+  readonly licence: string;
+  readonly derivedFrom: string | null;
+  readonly refreshCadence: string;
+  readonly usage: string;
+}
+
+/** One external market quote, as the API serves it. */
+export interface ApiMarketQuote {
+  readonly canonicalPlayerId: string;
+  readonly source: string;
+  readonly format: 'dynasty_superflex' | 'dynasty_1qb';
+  /** `null` means the source published no value for this player — never 0. */
+  readonly value: number | null;
+  readonly overallRank: number | null;
+  readonly positionRank: number | null;
+  readonly sourceTimestamp: string;
+  readonly ingestedAt: string;
+  readonly freshness: string;
+  readonly provenance: string;
+}
+
+/** `GET /market` — the latest external market quotes, with their attribution. */
+export interface ApiMarketResponse {
+  readonly source: string;
+  readonly format: 'dynasty_superflex' | 'dynasty_1qb';
+  readonly attribution: ApiMarketAttribution;
+  readonly sourceTimestamp: string | null;
+  readonly sourceVersion: string | null;
+  readonly capturedAt: string | null;
+  readonly captureCount: number;
+  readonly quoteCount: number;
+  readonly quotes: readonly ApiMarketQuote[];
 }
 
 /** `GET /health` — the backend's deterministic self-report. */

@@ -8,7 +8,10 @@ fields for WR, RB, TE, and QB?
 `career_routes` (a blocking field) via the authorized `× 0.97` route proxy — **but
 only for players whose entire career falls within the source's 2016–2023 coverage,
 evaluated as of ≤ 2023**. For the live 2025 market it removes **zero** blockers,
-because the source ended after 2023 (binding WR spec §175). The limited stage is
+because the *approved* `× 0.97` proxy is only authorized over the 2016–2023 charted
+window (binding WR spec §175) — **not** because the feed stopped: nflverse still
+publishes `pbp_participation` for 2024 and 2025, verified directly against those
+exports. Extending the authorized window is a spec decision, not an ingestion one. The limited stage is
 built coverage-aware so partial coverage can never masquerade as a full career,
 and it directly serves the spec's own §1153 proxy-validation requirement.
 

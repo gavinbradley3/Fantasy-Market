@@ -53,6 +53,14 @@ export interface LivePipelineConfig {
    */
   readonly seasons: readonly number[];
   /**
+   * Extra seasons acquired for GAME STATS ONLY, so QB career fields describe a career.
+   *
+   * Only QB reads them: every other position stays scoped to `seasons`, because giving the
+   * quarterback a real career and re-basing the RB/TE/WR models on a wider window are two
+   * different decisions and only the first is being taken here.
+   */
+  readonly careerSeasons?: readonly number[];
+  /**
    * The as-of instant for valuation and the effective date for the payloads, as an ISO
    * string. Supplied by the caller rather than read from a clock in here, so a run is
    * reproducible: the same as-of over the same captures yields the same board.
@@ -92,6 +100,7 @@ export function createLivePipeline(config: LivePipelineConfig): RefreshPipeline<
         seasons: config.seasons,
         effectiveDate: asOf,
         mode: config.replayOnly ? 'replay' : 'live',
+        ...(config.careerSeasons ? { careerSeasons: config.careerSeasons } : {}),
         ...(config.includeSleeper !== undefined ? { includeSleeper: config.includeSleeper } : {}),
       });
 
@@ -107,6 +116,7 @@ export function createLivePipeline(config: LivePipelineConfig): RefreshPipeline<
           inference: (snapshot: NormalizedSnapshot) => {
             builds = selectInferenceBuilds(snapshot, {
               asOf,
+              valuationSeasons: config.seasons,
               ...(config.engineVersions ? { engineVersions: config.engineVersions } : {}),
             });
             return builds;

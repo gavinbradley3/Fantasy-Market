@@ -56,6 +56,11 @@ describe('application layer holds no business logic and no heavy dependencies', 
     const offenders = allFiles
       .filter((f) => !f.includes(appDir))
       .filter((f) => !f.includes(`${join('src', 'api')}`))
+      // src/ops is the operations layer. It reads the application façade's health report to
+      // build the freshness/status document the scheduled refresh publishes, which is exactly
+      // the façade's purpose. Node-only, and src/ops/boundary.test.ts proves no browser/app
+      // file imports it.
+      .filter((f) => !f.includes(`${join('src', 'ops')}`))
       .filter((f) => /from '@\/application|from '\.\.?\/application/.test(readFileSync(f, 'utf8')));
     expect(offenders).toEqual([]);
   });
