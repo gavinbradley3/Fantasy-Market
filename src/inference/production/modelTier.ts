@@ -45,10 +45,71 @@ import type { SupportedPosition } from '@/inference/types';
 export const PREMIUM_ONLY_FIELDS: readonly string[] = ['career_routes'];
 
 /** Positions the accessible tier serves. */
-export const ACCESSIBLE_POSITIONS: readonly SupportedPosition[] = ['RB', 'TE'];
+export const ACCESSIBLE_POSITIONS: readonly SupportedPosition[] = ['RB', 'TE', 'WR'];
 
-export function isAccessiblePosition(position: SupportedPosition): position is 'RB' | 'TE' {
-  return position === 'RB' || position === 'TE';
+export function isAccessiblePosition(position: SupportedPosition): position is 'RB' | 'TE' | 'WR' {
+  return position === 'RB' || position === 'TE' || position === 'WR';
+}
+
+/**
+ * The premium evidence the WR FULL engine needs before it is running as the model it IS.
+ *
+ * WR is the one position where readiness passing is not the same question as the full model
+ * being genuinely satisfied, because WR alone has an approved PROXY LADDER for career routes
+ * (REGISTRY §8.1 rungs 2/3). The ladder lets readiness pass on an estimate, so the engine runs
+ * — but it runs with a route participation of 0.5, a targets-per-route-run of 0.18, a
+ * reference-median expectation and a catch rate over expected of exactly 0.0 for every receiver
+ * in the league, because nothing else supplies those four inputs. Components built on identical
+ * constants cannot order players, and the engine's own confidence says so: every WR it valued
+ * came out at or below 10.
+ *
+ * So the gate is not "did the engine run" but "was the engine given the evidence that
+ * distinguishes it from the accessible model". These four fields are that evidence:
+ *
+ *   career_routes                       the exposure denominator for every per-route rate
+ *   targets_per_route_run               target earning per opportunity — the engine's core signal
+ *   expected_fantasy_points_per_target  target quality
+ *   catch_rate_over_expected            hands against expectation
+ *
+ * PROVIDER-NEUTRAL BY CONSTRUCTION. These are the engine's own declared input names. Any source
+ * that fills them — a charting vendor, a future licensed feed, a manual load — satisfies the
+ * gate, and no vendor's field names appear here or anywhere in the model contract. Nothing about
+ * this gate needs to change to adopt one.
+ */
+export const WR_FULL_REQUIRED_EVIDENCE: readonly string[] = [
+  'career_routes',
+  'targets_per_route_run',
+  'expected_fantasy_points_per_target',
+  'catch_rate_over_expected',
+];
+
+/** Provenances that count as REAL evidence rather than an estimate standing in for it. */
+const DIRECT_PROVENANCES: readonly string[] = ['DIRECT', 'DERIVED'];
+
+/**
+ * True when every field in `WR_FULL_REQUIRED_EVIDENCE` was genuinely supplied.
+ *
+ * A field counts when it is an observed FACT (facts are measurements by definition) or when the
+ * inference layer emitted it with DIRECT or DERIVED provenance. A PROXY or MODEL_ESTIMATE does
+ * NOT count — that is precisely the case this gate exists to catch, and admitting it would let a
+ * capped estimate keep the FULL badge on a valuation built from constants.
+ *
+ * The rule reads only provenance and presence. It cannot consult a player's name, his market
+ * rank, or any hand-picked list, because it is not given any of those.
+ */
+export function wrPremiumEvidenceSatisfied(args: {
+  readonly supplement: Readonly<Record<string, unknown>>;
+  readonly factKeys: readonly string[];
+  readonly provenanceByField: Readonly<Record<string, string | null>>;
+}): boolean {
+  const facts = new Set(args.factKeys);
+  return WR_FULL_REQUIRED_EVIDENCE.every((field) => {
+    if (facts.has(field)) return args.supplement[field] !== null && args.supplement[field] !== undefined;
+    const value = args.supplement[field];
+    if (value === null || value === undefined) return false;
+    const provenance = args.provenanceByField[field] ?? null;
+    return provenance !== null && DIRECT_PROVENANCES.includes(provenance);
+  });
 }
 
 /**
@@ -113,8 +174,19 @@ export function decideTier(args: {
   readonly readinessMissing: readonly string[];
   readonly production: ObservedProduction | undefined;
   readonly expectedGamesRemaining: number | null;
+  /**
+   * WR only — whether the premium evidence that makes the FULL engine itself was supplied.
+   * `true` for every other position, which have no proxy ladder and so cannot run on estimates.
+   */
+  readonly premiumEvidenceSatisfied?: boolean;
 }): TierDecision {
-  if (args.fullModelRan) {
+  // A full model that ran on genuinely supplied evidence is the answer, and it is never
+  // weakened. A WR full model that ran only because a capped route ESTIMATE let readiness pass
+  // is a different matter: it is the premium engine without the premium inputs, so it is
+  // deliberately stood down in favour of a model whose every input was observed. The badge the
+  // user sees then reports the model that actually produced the number.
+  const evidenceSatisfied = args.premiumEvidenceSatisfied ?? true;
+  if (args.fullModelRan && evidenceSatisfied) {
     return { tier: 'FULL', accessible: null, notAttemptedReason: null };
   }
   if (!isAccessiblePosition(args.position)) {
@@ -124,7 +196,10 @@ export function decideTier(args: {
       notAttemptedReason: `no accessible-data model exists for ${args.position}`,
     };
   }
-  if (!blockedOnlyByPremiumInputs(args.readinessMissing)) {
+  // The premium-input check applies to a full model that was BLOCKED. A WR full model that ran
+  // but was stood down for want of real route evidence has an empty blocker set by definition,
+  // and must not be failed by a test about blockers.
+  if (!args.fullModelRan && !blockedOnlyByPremiumInputs(args.readinessMissing)) {
     // Deliberately NOT downgraded: something the pipeline should supply is missing.
     return {
       tier: 'INSUFFICIENT',

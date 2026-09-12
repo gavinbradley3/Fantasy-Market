@@ -222,6 +222,31 @@ export function projectPublishedPlayer(
   const fullComposites = readComposites(engineOutput);
   const accessibleComposites = readAccessibleComposites(accessible);
 
+  // WHICH MODEL'S NUMBERS GET PUBLISHED IS DECIDED BY THE TIER, not by which output happens to
+  // be present. For QB, RB and TE the two readings agree — a frozen engine output exists exactly
+  // when the tier is FULL. WR is the exception: its engine can pass readiness on a capped route
+  // ESTIMATE, so a WR stood down to ACCESSIBLE carries BOTH a frozen engine output (retained for
+  // diagnostics and for the day premium evidence arrives) and an accessible one. Reading by
+  // presence there would publish the premium engine's numbers under an ACCESSIBLE badge, which
+  // is the exact mislabelling the tier exists to prevent.
+  const useAccessible = tier === 'ACCESSIBLE' && accessible !== null;
+
+  // AN INSUFFICIENT PLAYER PUBLISHES NO VALUE. The tier says no model could value him honestly,
+  // so there is no model to read numbers from. This became reachable when WR gained an
+  // accessible path: three receivers who played but were never targeted are INSUFFICIENT to the
+  // receiving model, while the frozen engine still produced a number for them from its league
+  // constants — and one of those numbers was a dynasty composite of 56.6, which would have
+  // ranked a never-targeted receiver above real starters under an INSUFFICIENT badge.
+  // Keyed on the EXPLICIT tier string, not on `tier`: `readTier` defaults an absent tier to
+  // INSUFFICIENT (the safe direction for a badge), and an envelope written before the tier field
+  // existed carries none. Nulling those would blank an older board rather than close a leak.
+  const publishedComposites =
+    str(envelope?.model_tier) === 'INSUFFICIENT'
+      ? null
+      : useAccessible
+        ? accessibleComposites ?? fullComposites
+        : fullComposites ?? accessibleComposites;
+
   return {
     // Identity prefers the engine's own published spelling and falls back to the canonical
     // ingestion record, which every published entry carries.
@@ -243,11 +268,17 @@ export function projectPublishedPlayer(
     // `published_confidence_score` first would silently re-point every FULL-tier player at the
     // AIL's public confidence, which is a different quantity from the engine's confidence and
     // would leave the label describing one number while the score showed another.
-    confidenceScore: num(confidence?.score) ?? num(envelope?.published_confidence_score) ?? num(accessibleConfidence?.score),
-    confidenceLabel: str(confidence?.label) ?? str(accessibleConfidence?.label) ?? str(envelope?.public_confidence_label),
-    volatilityScore: num(volatility?.score),
-    volatilityLabel: str(volatility?.label),
-    composites: fullComposites ?? accessibleComposites,
+    confidenceScore: useAccessible
+      ? num(accessibleConfidence?.score) ?? num(envelope?.published_confidence_score)
+      : num(confidence?.score) ?? num(envelope?.published_confidence_score) ?? num(accessibleConfidence?.score),
+    confidenceLabel: useAccessible
+      ? str(accessibleConfidence?.label) ?? str(envelope?.public_confidence_label)
+      : str(confidence?.label) ?? str(accessibleConfidence?.label) ?? str(envelope?.public_confidence_label),
+    // Volatility is a frozen-engine output and describes the FULL model's input set, so it is
+    // withheld on the accessible tier rather than borrowed from a model that did not value him.
+    volatilityScore: useAccessible ? null : num(volatility?.score),
+    volatilityLabel: useAccessible ? null : str(volatility?.label),
+    composites: publishedComposites,
     limitations: strings(envelope?.limitations),
     modelTier: tier,
     modelVersion: str(accessible?.modelVersion) ?? str(envelope?.model_version),

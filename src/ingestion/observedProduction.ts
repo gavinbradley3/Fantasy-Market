@@ -47,7 +47,14 @@ export const ROLE_WINDOW_MIN_GAMES = 8;
 
 type CountingKey = keyof Pick<
   GameStatRecord,
-  'carries' | 'rushingYards' | 'rushingTds' | 'targets' | 'receptions' | 'receivingYards' | 'receivingTds'
+  | 'carries'
+  | 'rushingYards'
+  | 'rushingTds'
+  | 'targets'
+  | 'receptions'
+  | 'receivingYards'
+  | 'receivingTds'
+  | 'receivingAirYards'
 >;
 
 const COUNTING_KEYS: readonly CountingKey[] = [
@@ -58,6 +65,7 @@ const COUNTING_KEYS: readonly CountingKey[] = [
   'receptions',
   'receivingYards',
   'receivingTds',
+  'receivingAirYards',
 ];
 
 /**
@@ -192,10 +200,36 @@ export function observedProduction(
     latestSeason: split.latest ? windowOf(split.latest) : null,
     priorSeason: split.prior ? windowOf(split.prior) : null,
     teamShares: sharesOver(roleGames, teamTotals),
+    providerTargetShare: providerShareOver(roleGames),
     seasonsPlayed: split.seasons,
     newestGameKickoff: career.length > 0 ? career[0].kickoff : null,
     rosteredTeamWeeks,
   };
+}
+
+/**
+ * The provider's own target share over a window, recovered week by week.
+ *
+ * nflverse publishes a weekly `target_share` alongside the player's targets, so each week's
+ * true team-target denominator is `targets ÷ target_share`. Summing both sides across the
+ * window yields the provider's measurement rather than PlayerTicker's reconstructed floor.
+ *
+ * A week that cannot supply a denominator — no targets, or no share — contributes to NEITHER
+ * side, so a blank week can never dilute the ratio.
+ */
+function providerShareOver(games: readonly GameStatRecord[]): number | null {
+  let playerTargets = 0;
+  let teamTargets = 0;
+  for (const g of games) {
+    const targets = g.targets;
+    const share = g.targetShare;
+    if (typeof targets !== 'number' || !Number.isFinite(targets) || targets <= 0) continue;
+    if (typeof share !== 'number' || !Number.isFinite(share) || share <= 0) continue;
+    playerTargets += targets;
+    teamTargets += targets / share;
+  }
+  if (teamTargets <= 0) return null;
+  return Math.min(1, playerTargets / teamTargets);
 }
 
 /**

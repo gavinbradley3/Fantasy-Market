@@ -21,6 +21,15 @@ export interface CountingWindow {
   readonly receptions: number | null;
   readonly receivingYards: number | null;
   readonly receivingTds: number | null;
+  /**
+   * Receiving air yards — the sum of the intended depth of every target.
+   *
+   * Divided by targets this gives average depth of target, the one target-QUALITY signal the
+   * free stack genuinely publishes. It matters most at receiver, where the same target volume
+   * can describe a screen-game slot or a downfield X, and the two are worth different amounts.
+   * nflverse carries it in the same weekly export as the columns above.
+   */
+  readonly receivingAirYards: number | null;
 }
 
 /**
@@ -73,6 +82,16 @@ export interface ObservedProduction {
    * appearance was two seasons ago.
    */
   readonly newestGameKickoff: string | null;
+  /**
+   * The PROVIDER'S OWN target share over the role window, not a reconstructed one.
+   *
+   * `teamShares.targetShare` sums only the players the snapshot holds rows for, making its
+   * denominator a floor and the share an upper bound. This one recovers the provider's real
+   * denominator week by week (`targets ÷ target_share`) and sums both sides, so it is a
+   * measurement. Where both exist the measured one is preferred; `null` when no week supplied
+   * a usable share.
+   */
+  readonly providerTargetShare: number | null;
   /**
    * Team weeks the player was on a roster at or before the as-of, from the weekly-roster
    * export. This is the honest denominator for durability: `seasonsPlayed × 17` charges a

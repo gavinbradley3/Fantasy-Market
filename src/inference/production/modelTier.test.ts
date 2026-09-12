@@ -19,6 +19,7 @@ function idOf(snapshot: NormalizedSnapshot, gsis: string): string {
 function run(
   position: 'QB' | 'RB' | 'WR' | 'TE',
   gsis: string,
+  extraFacts: Readonly<Record<string, unknown>> = {},
   opts: { asOf?: string } = {},
 ): { result: ProductionResult; snapshot: NormalizedSnapshot } {
   const { snapshot } = ingest([fourPositionNflverseSource()]);
@@ -30,7 +31,21 @@ function run(
     engineVersion: `${position.toLowerCase()}-mvp-1.0`,
   });
   expect(input).not.toBeNull();
-  return { result: runInference(input!), snapshot };
+  // `extraFacts` stands in for a premium source filling the engine's own declared inputs. They
+  // are supplied as observed FACTS — the same channel any licensed feed would arrive through —
+  // with as-of timestamps, since facts past the as-of are excluded by contract.
+  const withFacts =
+    Object.keys(extraFacts).length === 0
+      ? input!
+      : {
+          ...input!,
+          facts: { ...input!.facts, ...extraFacts },
+          factTimestamps: {
+            ...input!.factTimestamps,
+            ...Object.fromEntries(Object.keys(extraFacts).map((k) => [k, asOf])),
+          },
+        };
+  return { result: runInference(withFacts), snapshot };
 }
 
 describe('premium-only blocker classification', () => {
@@ -87,7 +102,7 @@ describe('RB / TE reach the accessible tier when route data is absent', () => {
   });
 
   it('names career_routes as unavailable and never as an input it used', () => {
-    for (const [pos, gsis] of [['RB', '00-RB4'], ['TE', '00-TE4']] as const) {
+    for (const [pos, gsis] of [['RB', '00-RB4'], ['TE', '00-TE4'], ['WR', '00-WR4']] as const) {
       const { result } = run(pos, gsis);
       const prov = result.accessibleOutput!.provenance;
       expect(prov.unavailableFields).toContain('career_routes');
@@ -97,12 +112,31 @@ describe('RB / TE reach the accessible tier when route data is absent', () => {
 });
 
 describe('the full model keeps precedence when its inputs exist', () => {
-  it('WR still runs the frozen engine and is tier FULL', () => {
+  it('WR stands the frozen engine down when its premium evidence is only estimated', () => {
     const { result } = run('WR', '00-WR4');
+    // The engine is still TRIED, still runs, and its output is still retained on the envelope
+    // for diagnostics and for the day real route evidence arrives.
     expect(result.readinessStatus).toBe('READY');
     expect(result.engineInvoked).toBe(true);
+    expect(result.engineOutput).not.toBeNull();
+    // But the four inputs that make it the premium engine were never supplied — career routes
+    // arrive as a capped PROXY and the other three have no producer at all — so what it produced
+    // is a valuation built from league constants. The published tier says so.
+    expect(result.modelTier).toBe('ACCESSIBLE');
+    expect(result.accessibleOutput).not.toBeNull();
+    expect(result.accessibleOutput?.modelVersion).toBe('wr-accessible-1.0');
+  });
+
+  it('routes WR back to FULL the moment the premium evidence is genuinely supplied', () => {
+    // The promotion path, exercised without naming or needing any particular provider: supply
+    // the engine's own four declared inputs as observed FACTS and the gate opens.
+    const { result } = run('WR', '00-WR4', {
+      career_routes: 1400,
+      targets_per_route_run: 0.24,
+      expected_fantasy_points_per_target: 1.9,
+      catch_rate_over_expected: 0.03,
+    });
     expect(result.modelTier).toBe('FULL');
-    // No accessible-tier output is computed for a player the full model valued.
     expect(result.accessibleOutput).toBeNull();
   });
 
@@ -148,7 +182,7 @@ describe('honesty of the published tier', () => {
   });
 
   it('caps accessible-tier confidence below HIGH and records why', () => {
-    for (const [pos, gsis] of [['RB', '00-RB4'], ['TE', '00-TE4']] as const) {
+    for (const [pos, gsis] of [['RB', '00-RB4'], ['TE', '00-TE4'], ['WR', '00-WR4']] as const) {
       const { result } = run(pos, gsis);
       const c = result.accessibleOutput!.confidence;
       expect(c.label).not.toBe('HIGH');
@@ -210,7 +244,7 @@ describe('point-in-time correctness and determinism', () => {
     // At an early as-of the provider has not yet attested the counting facts or the team, so
     // the blocker set is wider than career_routes. That is an evidence gap, not a licensing
     // one, and it must surface as INSUFFICIENT rather than as a quietly reduced valuation.
-    const { result } = run('RB', '00-RB4', { asOf: '2025-09-16T00:00:00.000Z' });
+    const { result } = run('RB', '00-RB4', {}, { asOf: '2025-09-16T00:00:00.000Z' });
     expect(result.readinessMissing.length).toBeGreaterThan(1);
     expect(result.modelTier).toBe('INSUFFICIENT');
     expect(result.accessibleOutput).toBeNull();
@@ -230,16 +264,17 @@ describe('point-in-time correctness and determinism', () => {
   });
 
   it('changes the output checksum when the as-of changes', () => {
-    const early = run('RB', '00-RB4', { asOf: '2025-09-11T00:00:00.000Z' }).result;
+    const early = run('RB', '00-RB4', {}, { asOf: '2025-09-11T00:00:00.000Z' }).result;
     const late = run('RB', '00-RB4').result;
     expect(early.outputChecksum).not.toBe(late.outputChecksum);
   });
 
-  it('keeps QB and WR normalized-input checksums free of the accessible-tier evidence', () => {
-    // Production evidence is built for RB/TE only, so QB/WR normalized input must not carry
-    // it. This is what keeps their inputs — and therefore their valuations — unchanged.
+  it('keeps the QB normalized input free of the accessible-tier evidence', () => {
+    // Production evidence is built for the positions the accessible tier serves — RB, TE and
+    // WR. QB has no accessible model, so its normalized input must not carry the channel at
+    // all, which is what keeps QB inputs and valuations byte-identical.
     const { snapshot } = ingest([fourPositionNflverseSource()]);
-    for (const [pos, gsis] of [['QB', '00-QB4'], ['WR', '00-WR4']] as const) {
+    for (const [pos, gsis] of [['QB', '00-QB4']] as const) {
       const input = buildNormalizedInferenceInput(snapshot, {
         canonicalId: idOf(snapshot, gsis),
         position: pos,
@@ -248,7 +283,7 @@ describe('point-in-time correctness and determinism', () => {
       });
       expect(input!.evidence.production).toBeUndefined();
     }
-    for (const [pos, gsis] of [['RB', '00-RB4'], ['TE', '00-TE4']] as const) {
+    for (const [pos, gsis] of [['RB', '00-RB4'], ['TE', '00-TE4'], ['WR', '00-WR4']] as const) {
       const input = buildNormalizedInferenceInput(snapshot, {
         canonicalId: idOf(snapshot, gsis),
         position: pos,

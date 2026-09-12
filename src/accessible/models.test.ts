@@ -22,6 +22,7 @@ function window(over: Partial<CountingWindow> & { games: number }): CountingWind
     receptions: null,
     receivingYards: null,
     receivingTds: null,
+    receivingAirYards: null,
     ...over,
   };
 }
@@ -44,6 +45,7 @@ function production(over: Partial<ObservedProduction> & { career: CountingWindow
     latestSeason: null,
     priorSeason: null,
     teamShares: null,
+    providerTargetShare: null,
     seasonsPlayed: 1,
     // Recent enough not to be stale relative to AS_OF, and rostered for every game played, so
     // a fixture only has to state what it is actually varying.

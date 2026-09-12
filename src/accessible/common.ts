@@ -55,9 +55,42 @@ export const TE_AGE_ANCHORS: readonly Anchor[] = [
   { at: 36, score: 24 },
 ];
 
+/**
+ * WR age curve.
+ *
+ * Receiver is the position where the fantasy-relevant skill is most technical and least
+ * collision-dependent, so the prime is broad and the decline sits between the running back's
+ * and the tight end's. The curve plateaus across 24–26, holds through 28, and falls from 30.
+ *
+ * Declared here alongside the other two so all three curves can be compared in one place; the
+ * WR model re-exports it.
+ */
+export const WR_AGE_ANCHORS: readonly Anchor[] = [
+  { at: 21, score: 88 },
+  { at: 23, score: 97 },
+  { at: 24, score: 100 },
+  { at: 26, score: 100 },
+  { at: 27, score: 96 },
+  { at: 28, score: 90 },
+  { at: 29, score: 80 },
+  { at: 30, score: 68 },
+  { at: 31, score: 55 },
+  { at: 32, score: 42 },
+  { at: 34, score: 22 },
+  { at: 36, score: 10 },
+];
+
+
+const AGE_ANCHORS_BY_POSITION: Readonly<Record<AccessiblePosition, readonly Anchor[]>> = {
+  RB: RB_AGE_ANCHORS,
+  TE: TE_AGE_ANCHORS,
+  WR: WR_AGE_ANCHORS,
+};
+
+
 export function ageScore(position: AccessiblePosition, age: number | null): number | null {
   if (age === null) return null;
-  return score100(scaleFrom(position === 'RB' ? RB_AGE_ANCHORS : TE_AGE_ANCHORS, age));
+  return score100(scaleFrom(AGE_ANCHORS_BY_POSITION[position], age));
 }
 
 /**
@@ -289,6 +322,10 @@ export const CONFIDENCE_PENALTY = {
   STATUS_UNATTESTED: 6,
   /** The player has not appeared in the most recent ingested season. */
   STALE_PRODUCTION: 8,
+  /** Air yards were never published for the role window, so target depth is unknown. */
+  NO_TARGET_DEPTH: 5,
+  /** No draft round is attested, and upstream does not distinguish undrafted from unknown. */
+  DRAFT_ROUND_UNKNOWN: 4,
 } as const;
 
 export type ConfidencePenaltyCode = keyof typeof CONFIDENCE_PENALTY;

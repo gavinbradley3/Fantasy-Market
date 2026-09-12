@@ -550,10 +550,10 @@ export function buildEvidenceFor(
 
   // --- observed production (accessible model tier) ---
   // A SECOND, separate channel from `facts`: it feeds the accessible-tier models only and is
-  // never merged into a frozen engine's supplement, so every frozen input and every QB/WR
-  // checksum is unaffected. Built for RB and TE only, which are the positions the accessible
-  // tier serves; leaving it undefined elsewhere keeps QB/WR normalized-input bytes identical.
-  if (position === 'RB' || position === 'TE') {
+  // never merged into a frozen engine's supplement, so every frozen input and every QB
+  // checksum is unaffected. Built for the positions the accessible tier serves — RB, TE and now
+  // WR; leaving it undefined for QB keeps QB normalized-input bytes identical.
+  if (position === 'RB' || position === 'TE' || position === 'WR') {
     // Distinct (season, week) roster rows at or before the as-of. Every roster status counts,
     // including IR/PUP: being under contract and unable to play IS an availability failure,
     // which is exactly what durability is meant to measure.
