@@ -26,6 +26,8 @@
     "ingest": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/ingest-nflverse.ts",
     "ingest:verify": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/ingest-nflverse.ts --verify-replay",
     "ingest:market": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/ingest-market.ts",
+    "seed:market-history": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/seed-market-history.ts",
+    "export:site-data": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/export-site-data.ts",
     "report:sleeper-enrichment": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/sleeper-enrichment-report.ts",
     "verify:sleeper": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/verify-sleeper.ts"
   },

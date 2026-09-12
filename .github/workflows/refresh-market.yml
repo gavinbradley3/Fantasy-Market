@@ -1,0 +1,92 @@
+name: Refresh market snapshot
+
+# DynastyProcess market capture. Separate from the board refresh because the two sources change
+# on completely different cadences and must fail independently: a market outage must not stop a
+# board refresh, and a provider failure in the board refresh must not skip a market capture.
+#
+# LICENSING IS UNCHANGED BY AUTOMATION. DynastyProcess / FantasyPros-derived values remain
+# legally provisional, attribution travels with every snapshot, and nothing here asserts that
+# commercial permission has been granted. See docs/MARKET_DATA_SOURCES.md.
+
+on:
+  schedule:
+    # Weekly. The published values move on a roughly weekly cadence, so a more frequent capture
+    # would record the same numbers repeatedly, inflate the append-only history and imply
+    # movement the source never published. Monday 06:20 UTC sits after the weekend's games have
+    # been priced in.
+    - cron: '20 6 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: playerticker-refresh-market
+  cancel-in-progress: false
+
+jobs:
+  market:
+    # The market capture is a single small CSV and a rank computation; it has none of the
+    # board refresh's memory profile and runs on a standard runner.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Fetch previous site data
+        run: |
+          git fetch origin site-data --depth=1 || echo "no site-data branch yet — first run"
+          if git rev-parse --verify origin/site-data >/dev/null 2>&1; then
+            git worktree add ../site-data origin/site-data
+          else
+            mkdir -p ../site-data
+          fi
+
+      # The market ingest writes into a DATABASE SEEDED FROM THE COMMITTED HISTORY, so
+      # append-only semantics survive an ephemeral runner. Without the seed each run would
+      # believe it was capturing the first-ever snapshot.
+      - name: Seed market history
+        run: |
+          npm run seed:market-history -- \
+            --db "$RUNNER_TEMP/market.db" \
+            --history ../site-data/market-history.jsonl
+
+      - name: Ingest DynastyProcess market snapshot
+        run: npm run ingest:market -- --db "$RUNNER_TEMP/market.db"
+
+      - name: Export static site data
+        run: |
+          npm run export:site-data -- \
+            --db "$RUNNER_TEMP/market.db" \
+            --out ../site-data
+
+      # Only the market files are committed here. The board belongs to the board workflow, and
+      # a market-only database has no publication — committing its (absent) board would delete a
+      # good one.
+      - name: Commit market data
+        run: |
+          cd ../site-data
+          if [ ! -f market-latest.json ]; then
+            echo "::error::no market-latest.json was exported — refusing to commit. Previous snapshot preserved."
+            exit 1
+          fi
+          git config user.name  "playerticker-bot"
+          git config user.email "playerticker-bot@users.noreply.github.com"
+          git add market-latest.json market-history.jsonl
+          if git diff --cached --quiet; then
+            echo "no change in market data"
+            exit 0
+          fi
+          git commit -m "chore(data): market snapshot $(date -u +%Y-%m-%dZ)"
+          for i in 1 2 3 4 5; do
+            git push origin HEAD:site-data && exit 0
+            git fetch origin site-data && git rebase origin/site-data || exit 1
+            sleep $((i * 3))
+          done
+          exit 1

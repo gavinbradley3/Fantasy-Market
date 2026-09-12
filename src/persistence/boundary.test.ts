@@ -46,6 +46,11 @@ describe('persistence is a Node-only backend module', () => {
       // sees both transport and persistence. It is Node-only and proven unreachable from the
       // browser bundle by src/runtime/boundary.test.ts.
       .filter((f) => !f.includes(`${join('src', 'runtime')}`))
+      // src/ops is the operations layer: the freshness/status document and the heap guard the
+      // scheduled refresh uses. It reads persisted run and publication state to answer "how
+      // fresh is this", so it is a sanctioned Node-only consumer for the same reason
+      // src/application is, and src/ops/boundary.test.ts proves no browser/app file imports it.
+      .filter((f) => !f.includes(`${join('src', 'ops')}`))
       .filter((f) => /from '@\/persistence|from '\.\.?\/persistence/.test(readFileSync(f, 'utf8')));
     expect(offenders).toEqual([]);
   });

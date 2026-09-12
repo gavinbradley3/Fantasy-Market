@@ -400,6 +400,25 @@ export class PersistenceStore {
     return { run: this.mapRun(row), sources: this.getSourceOutcomes(runId), inference: this.getRunInference(runId) };
   }
 
+  /**
+   * The most recent refresh runs, newest first, each with its per-source outcomes.
+   *
+   * Read-only operational history. It exists so a refresh can answer "when did nflverse last
+   * succeed" and "was Sleeper attempted" without a monitoring service: the run table already
+   * records both, and this is the query that reads them back.
+   */
+  recentRefreshRuns(limit = 20): RefreshRunView[] {
+    const capped = Math.max(1, Math.min(Math.trunc(limit), 500));
+    const rows = this.db
+      .prepare('SELECT * FROM refresh_run ORDER BY started_at DESC, run_id DESC LIMIT ?')
+      .all(capped) as Record<string, unknown>[];
+    return rows.map((row) => {
+      assertSchema(SUPPORTED_RUN_SCHEMAS, row.schema_version as string, 'refresh-run');
+      const runId = row.run_id as string;
+      return { run: this.mapRun(row), sources: this.getSourceOutcomes(runId), inference: this.getRunInference(runId) };
+    });
+  }
+
   private mapRun(row: Record<string, unknown>): RefreshRunRecord {
     return {
       runId: row.run_id as string,
