@@ -22,6 +22,12 @@ import type {
 } from "./types.js";
 
 /** All allowed top-level input property names (Section 26.3). */
+/** §26.6.3-CA inputs a caller may omit entirely; see `validateInput`. */
+const OPTIONAL_INPUT_KEYS: ReadonlySet<string> = new Set([
+  "career_adjusted_yards_per_attempt",
+  "career_rushing_yards_per_start",
+]);
+
 const INPUT_KEYS: readonly string[] = [
   "player_id",
   "player_name",
@@ -69,6 +75,8 @@ const INPUT_KEYS: readonly string[] = [
   "team_change",
   "major_system_change",
   "recent_role_change",
+  "career_adjusted_yards_per_attempt",
+  "career_rushing_yards_per_start",
   "prior_recent_pass_attempts",
   "prior_adjusted_yards_per_attempt",
   "prior_interception_rate",
@@ -148,8 +156,11 @@ export function validateInput(input: unknown): asserts input is QBMVPInput {
       throw new QBValidationError(`unknown input property: ${key}`);
     }
   }
-  // Required-field presence.
+  // Required-field presence. The §26.6.3-CA career anchors are OPTIONAL: a caller that does
+  // not supply them gets the pre-revision behaviour exactly (the anchor degrades to the
+  // draft-capital prior), so adding them could not invalidate an existing input.
   for (const key of INPUT_KEYS) {
+    if (OPTIONAL_INPUT_KEYS.has(key)) continue;
     if (!(key in rec)) {
       throw new QBValidationError(`missing required input field: ${key}`);
     }
@@ -349,6 +360,17 @@ export function validateInput(input: unknown): asserts input is QBMVPInput {
   requireBoolean("recent_role_change", rec.recent_role_change);
 
   // Prior-window fields (nullable).
+  // §26.6.3-CA career anchors. BOTH may legitimately be negative and only finiteness is
+  // required. AY/A goes negative when a career's interceptions outweigh its touchdowns against
+  // the 45-yard penalty; career rushing yards per start goes negative for a pocket passer
+  // whose kneel-downs and sack-adjusted carries exceed his rushing gains — Mike White and Matt
+  // Barkley both do, and rejecting them cost two real quarterbacks their valuation outright.
+  if (rec.career_adjusted_yards_per_attempt !== undefined) {
+    nullableNumber("career_adjusted_yards_per_attempt", rec.career_adjusted_yards_per_attempt, requireFiniteNumber);
+  }
+  if (rec.career_rushing_yards_per_start !== undefined) {
+    nullableNumber("career_rushing_yards_per_start", rec.career_rushing_yards_per_start, requireFiniteNumber);
+  }
   nullableNumber("prior_recent_pass_attempts", rec.prior_recent_pass_attempts, requireNonNegative);
   nullableNumber(
     "prior_adjusted_yards_per_attempt",

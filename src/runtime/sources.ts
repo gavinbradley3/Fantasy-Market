@@ -22,6 +22,21 @@ export interface SourcePlanOptions {
   readonly effectiveDate: string;
   /** Live fetch or deterministic replay from the capture store. */
   readonly mode: RefreshMode;
+  /**
+   * Additional seasons acquired for GAME STATS ONLY, to give career fields a real career.
+   *
+   * WHY THIS IS SEPARATE FROM `seasons`. A quarterback's career counting fields mean what the
+   * spec says only if "career" spans a career. Ingested over three seasons, a decade-long
+   * starter shows barely 46 career starts, which silently fails the spec's 48-start
+   * ESTABLISHED_STARTER threshold and leaves every career-sample term in the engine describing
+   * a three-year window rather than a career.
+   *
+   * Only the `games` capability is acquired for these seasons — no roster, no participation.
+   * Participation is the largest asset by an order of magnitude (~49 MB a season against ~8
+   * MB for weekly stats), and nothing that consumes it reaches back beyond the valuation
+   * window, so acquiring it here would be paying a very large cost for data no consumer reads.
+   */
+  readonly careerSeasons?: readonly number[];
   /** Include Sleeper's identity resource for a cross-provider identity join. Default false. */
   readonly includeSleeper?: boolean;
   /** Revalidate against the latest capture with conditional requests. Default true for live. */
@@ -49,6 +64,12 @@ export function buildSourcePlan(options: SourcePlanOptions): RefreshRequest[] {
   const seasons = [...new Set(options.seasons)].sort((a, b) => a - b);
   if (seasons.length === 0) throw new Error('a source plan needs at least one season');
 
+  // Career-only seasons are de-duplicated against the valuation seasons, so naming a season
+  // in both lists cannot produce two requests on one coordinate.
+  const careerOnly = [...new Set(options.careerSeasons ?? [])]
+    .filter((y) => !seasons.includes(y))
+    .sort((a, b) => a - b);
+
   const sources: RefreshRequest[] = [
     ...NFLVERSE_SEASONLESS.map((capability) => ({ provider: 'nflverse' as const, capability, ...base })),
     ...seasons.flatMap((year) =>
@@ -59,6 +80,13 @@ export function buildSourcePlan(options: SourcePlanOptions): RefreshRequest[] {
         params: { season: String(year) },
       })),
     ),
+    // Game stats only — see `careerSeasons`.
+    ...careerOnly.map((year) => ({
+      provider: 'nflverse' as const,
+      capability: 'games' as const,
+      ...base,
+      params: { season: String(year) },
+    })),
   ];
 
   if (options.includeSleeper) {

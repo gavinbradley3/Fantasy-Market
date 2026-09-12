@@ -131,6 +131,15 @@ export interface QBMVPInput {
   major_system_change: boolean;
   recent_role_change: boolean;
 
+  /**
+   * Career adjusted yards per attempt (§26.6.3-CA). Null when no career passing sample exists,
+   * in which case the career anchor degrades to the draft-capital prior — the pre-revision
+   * behaviour.
+   */
+  career_adjusted_yards_per_attempt?: number | null;
+  /** Career rushing yards per start (§26.6.3-CA). Null when no career start sample exists. */
+  career_rushing_yards_per_start?: number | null;
+
   prior_recent_pass_attempts: number | null;
   prior_adjusted_yards_per_attempt: number | null;
   prior_interception_rate: number | null;

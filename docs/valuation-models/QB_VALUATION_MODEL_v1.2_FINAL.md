@@ -4278,3 +4278,70 @@ No placeholders or TODOs are permitted in Version 1.
 - **Issues resolved:** executable literal fixtures; objective assertions; AY/A/YPA projection separation; deterministic canonical JSON; `as_of` normalization; injectable `generated_at`; runtime option/scoring validation; deterministic `CUSTOM` reference metadata; relational input validation; explicit rushing shrinkage variables.
 - **Fixture expectations minimally corrected:** subjective “materially” and exception-based language was replaced by exact inequalities or equality rules; paired injury, role, rushing, and age cases were frozen as complete literal inputs.
 - **Final version:** document `v1.2`; default model version `qb-mvp-1.2`; schema versions unchanged; reference version remains `QB_REFERENCE_V1`.
+
+---
+
+# 27. §26.6.3-CA — Career anchor (methodology revision)
+
+**Status:** revision to §26.6.3 and §26.6.9. Additive and backwards compatible: a caller that
+supplies neither career input reproduces the pre-revision output byte for byte, which is why
+every golden fixture in `tests/qb-model/` is unchanged.
+
+## 27.1 Why
+
+§26.6.3 regressed an eight-game window toward a prior built from draft round, and nothing else.
+A quarterback's career was therefore invisible to Passing Quality: 1,680 career attempts counted
+for exactly as much as 94. On the live board a career backup with one strong eight-game stretch
+(94 career attempts, 12.8 AY/A) out-scored an established starter having a poor season (1,680
+career attempts, 6.5 AY/A) and ranked QB1.
+
+The principle this restores is the ordinary dynasty one: **career performance establishes the
+baseline; recent performance adjusts it.**
+
+## 27.2 Inputs
+
+Two OPTIONAL nullable inputs. Omitted or null, the anchor degrades to the §26.6.2 draft prior.
+
+```text
+career_adjusted_yards_per_attempt   career AY/A on the §26.6.3 definition
+career_rushing_yards_per_start      career rushing yards ÷ career starts
+```
+
+## 27.3 Formula
+
+```text
+n_anchor = max(0, career_sample − recent_sample)        // independent career evidence only
+anchor   = shrink(career_rate, n_anchor, draft_prior, k_career)
+k        = k_recent · (1 + n_anchor / k_career)
+value    = shrink(recent_rate, recent_sample, anchor, k)
+```
+
+Applied to AY/A with `career_sample = career_pass_attempts`, `k_career = 500`, `k_recent = 250`;
+and to rushing yards per start with `career_sample = career_starts`, `k_career = 16`,
+`k_recent = 4`. When `career_rate` is null, `n_anchor = 0` and both stages collapse to §26.6.3.
+
+## 27.4 Why the anchor excludes the recent window
+
+The recent games are part of the career, so counting them on both sides would let a player whose
+career *is* his recent window have that window twice — 74 of 94 career attempts would "anchor" a
+quarterback to the same eight games then used to adjust him. Subtracting the recent sample leaves
+the anchor holding only independent career evidence: 20 attempts for that backup, ~3,700 for an
+established starter. The career *rate* still spans the whole career; only its weight is reduced,
+which is the conservative direction.
+
+## 27.5 Properties
+
+- **Sample-size-aware throughout.** No player-specific term, no reputation, no multiplier.
+- **Recent form is damped, never removed.** It keeps its own sample-size weight; an established
+  record raises the bar for overturning it rather than closing the door.
+- **Emerging quarterbacks stay responsive.** One full starting season (~550 attempts) produces an
+  anchor already mostly the player's own, so a young riser moves quickly.
+- Deterministic, and covered by `tests/qb-model/careerAnchor.test.ts`.
+
+## 27.6 Career fields mean a career
+
+`career_*` fields previously spanned only the ingested valuation window, so a decade-long starter
+showed barely 46 career starts and silently failed the §3.4 48-start `ESTABLISHED_STARTER`
+threshold. A refresh may now acquire extra seasons of **game stats only** (`careerSeasons` in the
+source plan). Those seasons deepen the career of players the valuation window already selects;
+they never add players, and no other position reads them.

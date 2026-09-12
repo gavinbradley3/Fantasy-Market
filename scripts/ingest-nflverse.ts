@@ -41,7 +41,7 @@ import { FilePayloadStore } from '@/transport/fileStore';
 import { createLivePipeline } from '@/runtime';
 import type { PersistenceStore } from '@/persistence';
 import type { TransportConfigDescriptor } from '@/application';
-import { describeSeasonSelection, resolveSeasons, type SeasonSource } from '@/ingestion/season';
+import { describeSeasonSelection, isPlausibleSeason, resolveSeasons, type SeasonSource } from '@/ingestion/season';
 
 const DEFAULT_DB = '.local/playerticker.db';
 const DEFAULT_CAPTURES = '.local/captures';
@@ -49,6 +49,7 @@ const DEFAULT_CAPTURES = '.local/captures';
 interface Args {
   /** null until resolved — an unsupplied list is derived, never a hard-coded year. */
   seasons: number[] | null;
+  careerSeasons: number[] | null;
   asOf: string;
   db: string;
   captures: string;
@@ -61,6 +62,7 @@ interface Args {
 function parseArgs(argv: string[]): Args {
   const args: Args = {
     seasons: null,
+    careerSeasons: null,
     asOf: new Date().toISOString(),
     db: DEFAULT_DB,
     captures: DEFAULT_CAPTURES,
@@ -73,6 +75,12 @@ function parseArgs(argv: string[]): Args {
     const next = () => argv[++i];
     switch (argv[i]) {
       case '--season':
+      case '--career-seasons': {
+        const parsed = next().split(',').map((x) => Number.parseInt(x.trim(), 10));
+        if (parsed.some((y) => !isPlausibleSeason(y))) throw new Error('invalid --career-seasons');
+        args.careerSeasons = parsed;
+        break;
+      }
       case '--seasons': {
         // Accepts one year or a comma-separated list: --seasons 2023,2024,2025
         const parsed = next().split(',').map((v) => Number(v.trim()));
@@ -138,6 +146,7 @@ async function runOnce(args: ResolvedArgs, mode: 'live' | 'replay'): Promise<Run
       store: () => store,
       payloadStore: new FilePayloadStore(resolve(args.captures)),
       seasons: args.seasons,
+      ...(args.careerSeasons ? { careerSeasons: args.careerSeasons } : {}),
       asOf: () => args.asOf,
       includeSleeper: args.sleeper,
       replayOnly: mode === 'replay',

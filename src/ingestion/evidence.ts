@@ -11,8 +11,10 @@ import { availabilityProbability, type AvailabilityState, type InjuryStatus } fr
 import type { NormalizedEvidence } from '@/inference/production/orchestrate';
 import type { CompetitionPosition, CompetitionTeammate } from '@/inference/competition';
 import type { RosterStatus } from '@/inference/features/types';
+import type { QBDepthChartStatus } from '@/inference/roles/roles';
 import { observedCountingFacts, D2_ROLE_WINDOW_GAMES, RECENT_GAME_WINDOW } from './observedFacts';
 import { observedReceivingRates } from './observedReceiving';
+import { observedCareerRates } from './observedCareerRates';
 import { buildTeamGameTotals, observedProduction, type TeamGameTotals } from './observedProduction';
 import { compareOrdinal, withinAsOf } from './ordering';
 import type { NormalizedSnapshot } from './snapshot';
@@ -98,6 +100,15 @@ function indexOf(snapshot: NormalizedSnapshot): SnapshotIndex {
 }
 
 const EMPTY: readonly never[] = [];
+
+/**
+ * Start rate over the role window at or above which a quarterback is his team's STARTER.
+ *
+ * A majority of the team's recent games is the plainest reading of "this is the starter", and
+ * it stands in for the snap-share signal the spec's depth-chart classifier wants and the free
+ * weekly export does not publish.
+ */
+const QB_STARTER_START_RATE = 0.5;
 
 export interface BuiltEvidence {
   readonly player: CanonicalPlayer;
@@ -255,11 +266,28 @@ function buildCanonicalPlayer(
 }
 
 /** Build the complete evidence bundle for one player. */
+export interface EvidenceOptions {
+  /**
+   * The seasons a NON-QB position is valued over.
+   *
+   * CAREER EVIDENCE vs VALUATION WINDOW. The refresh may acquire extra seasons of game stats
+   * so the QB engine's career terms describe a career rather than a three-year window (see
+   * `careerSeasons` in the source plan). Those extra seasons must not silently widen what RB,
+   * TE and WR are valued over — their models were validated on the declared window, and
+   * changing their inputs is not the same decision as giving QB a real career.
+   *
+   * So: QB reads every ingested game; every other position is scoped to these seasons. Absent,
+   * nothing is scoped and all positions read everything, which is the previous behaviour.
+   */
+  readonly valuationSeasons?: readonly number[];
+}
+
 export function buildEvidenceFor(
   snapshot: NormalizedSnapshot,
   canonicalId: string,
   position: SupportedPosition,
   asOf: string,
+  options: EvidenceOptions = {},
 ): BuiltEvidence | null {
   const index = indexOf(snapshot);
   const playerRec = index.playersById.get(canonicalId);
@@ -270,7 +298,14 @@ export function buildEvidenceFor(
   const pit = resolvePointInTime(playerRec, index, canonicalId, asOf);
   const team = pit.team;
 
-  const myGames = (index.gamesByPlayer.get(canonicalId) ?? EMPTY).filter((g) => g.seasonType === 'REG' && withinAsOf(asOf, g.kickoff));
+  const allGames = (index.gamesByPlayer.get(canonicalId) ?? EMPTY).filter((g) => g.seasonType === 'REG' && withinAsOf(asOf, g.kickoff));
+  // QB reads the full ingested history; every other position stays inside the valuation
+  // window. See `EvidenceOptions.valuationSeasons`.
+  const valuationSeasons = options.valuationSeasons;
+  const myGames =
+    position === 'QB' || !valuationSeasons || valuationSeasons.length === 0
+      ? allGames
+      : allGames.filter((g) => valuationSeasons.includes(g.season));
   const myParticipation = (index.participationByPlayer.get(canonicalId) ?? EMPTY).filter((p) => withinAsOf(asOf, p.kickoff));
   const myInjury = latest(index.injuriesByPlayer.get(canonicalId) ?? EMPTY, asOf);
   const myTxns = (index.transactionsByPlayer.get(canonicalId) ?? EMPTY).filter((t) => withinAsOf(asOf, t.date));
@@ -351,6 +386,67 @@ export function buildEvidenceFor(
     evidence.d1 = { position: 'TE', chartedCareerRoutes: null };
   }
 
+  // --- QB role ladder (§3.4) ---
+  //
+  // THE DEFECT THIS CLOSES. `classifyQBRoleStatus`, the `QBRoleSignals` contract and the
+  // orchestrator that consumes them all existed; nothing ever built the evidence. So
+  // `role_status` fell to its ENUM neutral — BACKUP — for every quarterback in the league,
+  // which made Role Security (21% of the dynasty composite) constant at ~21 for a starter and
+  // a third-stringer alike.
+  //
+  // Everything below comes from official start records already in the snapshot. Signals the
+  // pipeline genuinely cannot observe (a benching, a temporary injury replacement, a signed
+  // veteran bridge, a two-QB rotation) stay false, so only the rungs that real evidence
+  // supports can fire and every other quarterback still lands on BACKUP — by evidence now,
+  // not by default.
+  //
+  // DEPTH CHART FROM STARTS. The spec's `classifyQBDepthChartStatus` wants snap share, and the
+  // weekly stats export publishes no snap columns. Starts answer the same question from the
+  // same snapshot — a quarterback who starts his team's games is his team's starter — so the
+  // status is derived from the start rate and labelled as such, rather than left contradicting
+  // a role the start record has already established.
+  if (position === 'QB') {
+    const observedGameIds = new Set(myGames.map((g) => g.gameId));
+    const officials = (index.officialStartsByPlayer.get(canonicalId) ?? EMPTY).filter((o) =>
+      observedGameIds.has(o.gameId),
+    );
+    if (officials.length > 0) {
+      const rows = myGames.map((g) => gameRow(g));
+      const newestFirst = [...rows].sort((a, b) => (a.kickoff < b.kickoff ? 1 : -1));
+      const roleWindowIds = new Set(newestFirst.slice(0, D2_ROLE_WINDOW_GAMES).map((r) => r.gameId));
+      const startedIds = new Set(officials.filter((o) => o.started).map((o) => o.gameId));
+
+      const roleWindowGames = Math.min(rows.length, D2_ROLE_WINDOW_GAMES);
+      const roleWindowStarts = [...startedIds].filter((id) => roleWindowIds.has(id)).length;
+      const recentStartRate = roleWindowGames > 0 ? roleWindowStarts / roleWindowGames : null;
+
+      const rosterStatus = rosterStatusFor(index.rostersByPlayer.get(canonicalId) ?? EMPTY, asOf);
+      const depthChartStatus: QBDepthChartStatus =
+        team === null
+          ? 'FREE_AGENT'
+          : rosterStatus === 'PRACTICE_SQUAD'
+            ? 'PRACTICE_SQUAD'
+            : recentStartRate !== null && recentStartRate >= QB_STARTER_START_RATE
+              ? 'STARTER'
+              : 'BACKUP';
+
+      evidence.qbRole = {
+        // Not observable from the free stack; left false so no rung fires without evidence.
+        benchedWithin4Weeks: false,
+        temporaryInjuryReplacement: false,
+        veteranBridgeSigned: false,
+        twoQbStartSignal: false,
+        recentStartRate,
+        careerStarts: startedIds.size,
+        // Counted from the provider's own start records, which is the provenance §9.3 requires
+        // for the ESTABLISHED_STARTER rung.
+        startsProvenance: 'DERIVED',
+        nflSeasonsCompleted: playerRec.nflSeasonsCompleted ?? 0,
+        depthChartStatus,
+      };
+    }
+  }
+
   // --- D2 (QB starts) ---
   if (position === 'QB') {
     const rows = myGames.map((g) => gameRow(g));
@@ -427,6 +523,14 @@ export function buildEvidenceFor(
   if (newestGame !== undefined) {
     for (const key of Object.keys(facts)) factTimestamps[key] = newestGame;
   }
+  // --- observed CAREER rates (QB) ---
+  // The career baseline the engine's quality components had no way to see (§26.6.3-CA). Career
+  // starts come from the role evidence built just above, so the rushing rate's denominator is
+  // the same start count the rest of the engine uses. QB only: no other engine takes these.
+  if (position === 'QB') {
+    Object.assign(facts, observedCareerRates(myGames, evidence.qbRole?.careerStarts ?? null));
+  }
+
   // --- observed receiving rates (WR) ---
   // The WR engine declares `target_share` and `average_depth_of_target`; neither was ever
   // supplied, so every receiver fell back to the same constants and two of the engine's eight

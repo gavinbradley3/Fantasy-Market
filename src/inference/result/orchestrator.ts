@@ -175,6 +175,13 @@ export function runPhase2A(ctx: Phase2AContext): Phase2AResult {
     fields.push(
       makeField<string>({ field: 'role_status', value: klass, status: 'AVAILABLE', provenance: 'MODEL_CLASSIFICATION', confidence: c.score, modelId: 'role.qb_role', asOf, limitations: c.limitations }),
     );
+    // Depth-chart status is emitted from the SAME evidence that classified the role. It had no
+    // producer at all, so it fell to its ENUM neutral — BACKUP — for every quarterback, which
+    // left Role Security asserting that an established starter is his team's backup. Both
+    // halves of that component now come from one consistent reading of the start record.
+    fields.push(
+      makeField<string>({ field: 'depth_chart_status', value: ctx.qbRole.depthChartStatus, status: 'AVAILABLE', provenance: 'MODEL_CLASSIFICATION', confidence: c.score, modelId: 'role.qb_depth_chart', asOf, limitations: c.limitations }),
+    );
   }
   if (ctx.teRole) {
     const role = classifyTERole(ctx.teRole);

@@ -308,6 +308,26 @@ export const DEVELOPMENTAL_ROLE_SCORE: Readonly<Record<QBRoleStatus, number>> = 
   BACKUP: 35,
 });
 
+/**
+ * §26.6.3-CA — career anchor constants (methodology revision; see docs).
+ *
+ * `K_*_CAREER` is the career sample at which a quarterback's own record carries half the
+ * weight of the anchor, the other half staying on the draft-capital prior. 500 attempts is
+ * roughly a starter's single season, so one full season of starting earns an anchor that is
+ * half your own; a 94-attempt backup keeps a prior that is mostly the draft-round baseline.
+ *
+ * The recent window's `k` is then scaled by how much career stands behind it. That is the
+ * hierarchical reading: the more career evidence there is, the more precise the baseline, and
+ * the more a short window has to overcome to move it. Recent form is never removed — it keeps
+ * its own sample-size weight — it simply cannot erase an established record.
+ */
+export const CAREER_ANCHOR = Object.freeze({
+  /** Attempts at which a QB's own career AY/A carries half the anchor. */
+  kAypaCareer: 500,
+  /** Starts at which a QB's own career rushing rate carries half the anchor. */
+  kRushCareer: 16,
+});
+
 /** Component order (Section 26.9). */
 export const COMPONENT_ORDER = Object.freeze([
   "PO",
