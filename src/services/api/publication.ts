@@ -67,6 +67,14 @@ const boardEntrySchema = z.object({
   materialMissingInputs: z.array(z.string()).default([]),
   insufficientReason: z.string().nullable().default(null),
   provenance: provenanceSchema.nullable().default(null),
+  // Cross-position dynasty utility. Defaulted rather than required so a board published by an
+  // older backend still decodes — it simply carries no shared value, and the adapter falls
+  // back to the position composite with that limitation visible.
+  dynastyValue: z.number().nullable().default(null),
+  dynastySurplus: z.number().nullable().default(null),
+  dynastyPositionRank: z.number().nullable().default(null),
+  dynastyOverallRank: z.number().nullable().default(null),
+  leagueSchemaId: z.string().nullable().default(null),
 });
 
 const publicationMetadataSchema = z.object({

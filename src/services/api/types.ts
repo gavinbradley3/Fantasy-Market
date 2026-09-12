@@ -32,7 +32,7 @@ export interface ApiComposites {
 export type ApiModelTier = 'FULL' | 'ACCESSIBLE' | 'INSUFFICIENT';
 
 /** One player on a published board, exactly as `GET /publication` projects it. */
-export interface ApiBoardEntry {
+export interface ApiBoardEntry extends ApiDynastyUtility {
   readonly canonicalId: string;
   readonly position: ApiPositionCode;
   readonly normalizedInputChecksum: string;
@@ -76,6 +76,15 @@ export interface ApiProvenance {
   readonly observedFields: readonly string[];
   readonly derivedFields: readonly string[];
   readonly unavailableFields: readonly string[];
+}
+
+/** Cross-position dynasty utility, as the board publishes it. */
+export interface ApiDynastyUtility {
+  readonly dynastyValue: number | null;
+  readonly dynastySurplus: number | null;
+  readonly dynastyPositionRank: number | null;
+  readonly dynastyOverallRank: number | null;
+  readonly leagueSchemaId: string | null;
 }
 
 export interface ApiPublicationMetadata {

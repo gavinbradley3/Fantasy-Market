@@ -9,6 +9,13 @@ import type { ApiBoardEntry, ApiPublicationResponse } from '@/services/api';
 
 function entry(over: Partial<ApiBoardEntry> = {}): ApiBoardEntry {
   return {
+    // Default to NO shared value, so the existing cases keep exercising the composite
+    // fallback path an older board takes; the utility cases below set it explicitly.
+    dynastyValue: null,
+    dynastySurplus: null,
+    dynastyPositionRank: null,
+    dynastyOverallRank: null,
+    leagueSchemaId: null,
     canonicalId: 'pt-wr',
     position: 'WR',
     normalizedInputChecksum: 'ni',
@@ -300,5 +307,68 @@ describe('model tier reaches the frontend intact', () => {
     );
     expect(market.players[0].value).toBeNull();
     expect(market.players[0].insufficientReason).toMatch(/never targeted/);
+  });
+});
+
+describe('the board ranks on the SHARED cross-position value', () => {
+  // Sorting the position engines' internal composites together put whichever position had the
+  // widest internal scale on top — a TE scale reaching 92 beat a QB scale capped near 58,
+  // regardless of who was actually more valuable. These pin the replacement.
+
+  const withUtility = (over: Partial<ApiBoardEntry>, dynastyValue: number, composite: number) =>
+    entry({
+      ...over,
+      dynastyValue,
+      leagueSchemaId: 'dynasty-superflex-12',
+      composites: { weekly: composite, ros: composite, oneYear: composite, threeYear: composite, dynasty: composite },
+    });
+
+  it('orders by the shared value even when the composites disagree', () => {
+    const market = adaptPublication(
+      response([
+        // A tight end whose internal composite towers over the quarterback's.
+        withUtility({ canonicalId: 'pt-te', position: 'TE', name: 'Big Scale TE' }, 30, 92),
+        withUtility({ canonicalId: 'pt-qb', position: 'QB', name: 'Superflex QB' }, 100, 56),
+      ]),
+      { horizon: 'dynasty' },
+    );
+    expect(market.players[0].playerId).toBe('pt-qb');
+    expect(market.players[0].overallRank).toBe(1);
+    expect(market.players[1].playerId).toBe('pt-te');
+  });
+
+  it('carries the shared value and its league format through to the model', () => {
+    const market = adaptPublication(
+      response([withUtility({ canonicalId: 'pt-qb', position: 'QB' }, 87.5, 56)]),
+      { horizon: 'dynasty' },
+    );
+    expect(market.players[0].dynastyValue).toBe(87.5);
+    expect(market.players[0].leagueSchemaId).toBe('dynasty-superflex-12');
+    // The position composite is still there for diagnosis — it is just not what ranked him.
+    expect(market.players[0].value).toBe(56);
+  });
+
+  it('falls back to the composite for a board published before the layer existed', () => {
+    const market = adaptPublication(
+      response([
+        entry({ canonicalId: 'pt-a', position: 'WR', composites: { weekly: 40, ros: 40, oneYear: 40, threeYear: 40, dynasty: 40 } }),
+        entry({ canonicalId: 'pt-b', position: 'WR', composites: { weekly: 60, ros: 60, oneYear: 60, threeYear: 60, dynasty: 60 } }),
+      ]),
+      { horizon: 'dynasty' },
+    );
+    expect(market.players[0].playerId).toBe('pt-b');
+    expect(market.players[0].dynastyValue).toBeNull();
+  });
+
+  it('leaves a player with no shared value unranked rather than ranking him last', () => {
+    const market = adaptPublication(
+      response([
+        withUtility({ canonicalId: 'pt-qb', position: 'QB' }, 100, 56),
+        entry({ canonicalId: 'pt-none', position: 'WR', composites: { weekly: 50, ros: 50, oneYear: 50, threeYear: 50, dynasty: 50 } }),
+      ]),
+      { horizon: 'dynasty' },
+    );
+    const none = market.players.find((p) => p.playerId === 'pt-none')!;
+    expect(none.overallRank).toBeNull();
   });
 });

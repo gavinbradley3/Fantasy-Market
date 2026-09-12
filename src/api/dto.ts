@@ -19,6 +19,7 @@ import {
   withPositionalRanks,
   type PublishedPlayerProjection,
 } from './publicationProjection';
+import { withDynastyUtility, type UtilityProjection } from './utilityProjection';
 
 /** A framework-agnostic normalized request (built by the node:http adapter or tests). */
 export interface ApiRequest {
@@ -63,7 +64,7 @@ export interface RefreshAckResponse {
  * schema versions and integrity digests of the underlying records are still never leaked, and
  * nothing here is computed — an absent field is `null`, never a placeholder value.
  */
-export interface BoardEntryResponse extends PublishedPlayerProjection {
+export interface BoardEntryResponse extends PublishedPlayerProjection, UtilityProjection {
   readonly canonicalId: string;
   readonly position: string;
   readonly normalizedInputChecksum: string;
@@ -173,16 +174,21 @@ export function toPublicationResponse(bundle: PublicationBundle, metadata: Publi
   // Positional rank is the one field a per-player artifact cannot carry, because it is a
   // statement about the cohort. It is assigned here, over the projected board, so ranking
   // stays a pure function of the published values and never re-runs a valuation.
+  // The board's overall value is the SHARED cross-position utility, not the position engines'
+  // internal composites — those remain on each entry for diagnosis but are no longer what the
+  // board ranks on, exactly as every position spec requires.
   return {
     publication: metadata,
-    entries: withPositionalRanks(
-      bundle.entries.map((e) => ({
-        canonicalId: e.canonicalId,
-        position: e.position,
-        normalizedInputChecksum: e.normalizedInput.checksum,
-        outputChecksum: e.output.checksum,
-        ...projectPublishedPlayer(e.normalizedInput.serialized, e.output.serialized),
-      })),
+    entries: withDynastyUtility(
+      withPositionalRanks(
+        bundle.entries.map((e) => ({
+          canonicalId: e.canonicalId,
+          position: e.position,
+          normalizedInputChecksum: e.normalizedInput.checksum,
+          outputChecksum: e.output.checksum,
+          ...projectPublishedPlayer(e.normalizedInput.serialized, e.output.serialized),
+        })),
+      ),
     ),
   };
 }

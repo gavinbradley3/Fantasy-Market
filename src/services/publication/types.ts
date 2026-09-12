@@ -27,6 +27,20 @@ export interface PublishedComposites {
 export type PublishedModelTier = 'FULL' | 'ACCESSIBLE' | 'INSUFFICIENT';
 
 export interface PublishedPlayer {
+  /**
+   * PlayerTicker's CROSS-POSITION dynasty value, 0–100 on its own scale, and what the board
+   * ranks on. Null when the backend published none — an older board, or a player the engines
+   * never valued.
+   *
+   * Distinct from `value`, which is the player's position-internal composite for the selected
+   * horizon. The two are not interchangeable and never were: a composite is anchored inside its
+   * own position, and every position spec forbids publishing it as a universal value.
+   */
+  readonly dynastyValue: number | null;
+  /** Marginal utility above positional replacement, 0–1, before normalization. */
+  readonly dynastySurplus: number | null;
+  /** The league format the value was computed for. A value means nothing without one. */
+  readonly leagueSchemaId: string | null;
   /** The backend's canonical id, preserved verbatim — the stable identity for keys and links. */
   readonly playerId: string;
   readonly position: Position;
