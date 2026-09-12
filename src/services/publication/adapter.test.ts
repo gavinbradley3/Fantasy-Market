@@ -13,9 +13,12 @@ function entry(over: Partial<ApiBoardEntry> = {}): ApiBoardEntry {
     // fallback path an older board takes; the utility cases below set it explicitly.
     dynastyValue: null,
     dynastySurplus: null,
+    dynastyDepth: null,
+    dynastyValueSource: null,
     dynastyPositionRank: null,
     dynastyOverallRank: null,
     leagueSchemaId: null,
+    productionCurveVersion: null,
     canonicalId: 'pt-wr',
     position: 'WR',
     normalizedInputChecksum: 'ni',

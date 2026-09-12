@@ -39,8 +39,14 @@ export interface PublishedPlayer {
   readonly dynastyValue: number | null;
   /** Marginal utility above positional replacement, 0–1, before normalization. */
   readonly dynastySurplus: number | null;
+  /** The bounded below-replacement optionality term, same units. */
+  readonly dynastyDepth: number | null;
+  /** Which term produced the value: ABOVE_REPLACEMENT, DEPTH, BOTH or NONE. */
+  readonly dynastyValueSource: string | null;
   /** The league format the value was computed for. A value means nothing without one. */
   readonly leagueSchemaId: string | null;
+  /** The measured production reference the value was scored against. */
+  readonly productionCurveVersion: string | null;
   /** The backend's canonical id, preserved verbatim — the stable identity for keys and links. */
   readonly playerId: string;
   readonly position: Position;

@@ -72,9 +72,12 @@ const boardEntrySchema = z.object({
   // back to the position composite with that limitation visible.
   dynastyValue: z.number().nullable().default(null),
   dynastySurplus: z.number().nullable().default(null),
+  dynastyDepth: z.number().nullable().default(null),
+  dynastyValueSource: z.string().nullable().default(null),
   dynastyPositionRank: z.number().nullable().default(null),
   dynastyOverallRank: z.number().nullable().default(null),
   leagueSchemaId: z.string().nullable().default(null),
+  productionCurveVersion: z.string().nullable().default(null),
 });
 
 const publicationMetadataSchema = z.object({

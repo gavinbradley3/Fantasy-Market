@@ -15,11 +15,25 @@ export {
   type SlotAllocation,
   type UtilityPosition,
 } from './leagueSchema';
-export { replacementTable, standing, type PositionDemand } from './replacement';
+export { derivedSupply, replacementTable, type PositionDemand } from './replacement';
+export {
+  ageRunway,
+  curveDepth,
+  effectiveSupply,
+  productionAtRank,
+  validateProductionReference,
+  PRODUCTION_CURVE,
+  ProductionCurveError,
+  type GeneratedProductionReference,
+  type GeneratedPositionCurve,
+} from './productionCurve';
+export { PPR_SCORING, SCORING_RULES, scoreStatLine, type ScoringRules } from './scoring';
 export {
   computeUtilityBoard,
   rankUtilityBoard,
+  DEPTH,
   type UtilityBoard,
   type UtilityInput,
   type UtilityResult,
+  type ValueSource,
 } from './dynastyValue';

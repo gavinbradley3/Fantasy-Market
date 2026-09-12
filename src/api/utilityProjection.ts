@@ -24,17 +24,23 @@ import type { PublishedPlayerProjection } from './publicationProjection';
 export interface UtilityProjection {
   /** PlayerTicker's cross-position dynasty value, 0–100 on its own scale. */
   readonly dynastyValue: number | null;
-  /** Marginal utility above positional replacement, 0–1, before normalization. */
+  /** Production above positional replacement, in fantasy points per team game. */
   readonly dynastySurplus: number | null;
+  /** The bounded below-replacement optionality term, in the same units. */
+  readonly dynastyDepth: number | null;
+  /** Which term the published value came from: ABOVE_REPLACEMENT, DEPTH, BOTH or NONE. */
+  readonly dynastyValueSource: string | null;
   /** Rank within the player's position on the dynasty horizon. */
   readonly dynastyPositionRank: number | null;
   /** Overall rank across all positions, by dynasty value. */
   readonly dynastyOverallRank: number | null;
   /** The league format the value was computed for — a value means nothing without it. */
   readonly leagueSchemaId: string;
+  /** The production reference the value was measured against, so a value traces to its evidence. */
+  readonly productionCurveVersion: string;
 }
 
-type Entry = PublishedPlayerProjection & { position: string; canonicalId: string };
+type Entry = PublishedPlayerProjection & { position: string; canonicalId: string; age?: number | null };
 
 function isUtilityPosition(p: string): p is UtilityPosition {
   return (UTILITY_POSITIONS as readonly string[]).includes(p);
@@ -87,6 +93,7 @@ export function withDynastyUtility<T extends Entry>(
       playerId: e.canonicalId,
       position: e.position,
       positionRank: positionRanks.get(e.canonicalId) ?? null,
+      age: typeof e.age === 'number' && Number.isFinite(e.age) ? e.age : null,
     }));
 
   const board = computeUtilityBoard(inputs, schema);
@@ -94,14 +101,11 @@ export function withDynastyUtility<T extends Entry>(
 
   // Overall rank is assigned over the players who actually carry a value, so an unvalued
   // player does not occupy a rank that suggests the board placed him somewhere.
-  // Same ordering rule as `rankUtilityBoard`: surplus first, then within-position standing so
-  // the 86% of the board sitting at zero surplus is ordered by something real rather than by
-  // canonical id. Their published VALUE is still zero — only their position in the list uses it.
+  // Same ordering rule as `rankUtilityBoard`.
   const ordered = [...board.players]
     .filter((p) => p.positionRank !== null)
     .sort(
-      (a, b) =>
-        b.surplus - a.surplus || b.standing - a.standing || a.playerId.localeCompare(b.playerId),
+      (a, b) => b.total - a.total || b.production - a.production || a.playerId.localeCompare(b.playerId),
     );
   const overall = new Map(ordered.map((p, i) => [p.playerId, i + 1]));
 
@@ -112,9 +116,12 @@ export function withDynastyUtility<T extends Entry>(
       ...e,
       dynastyValue: u && rank !== null ? u.value : null,
       dynastySurplus: u && rank !== null ? u.surplus : null,
+      dynastyDepth: u && rank !== null ? u.depth : null,
+      dynastyValueSource: u && rank !== null ? u.source : null,
       dynastyPositionRank: rank,
       dynastyOverallRank: overall.get(e.canonicalId) ?? null,
       leagueSchemaId: board.schemaId,
+      productionCurveVersion: board.curveVersion,
     };
   });
 }

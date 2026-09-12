@@ -9,6 +9,8 @@
 // has no answer across positions; "how much better than the player you could start instead, in
 // THIS lineup" does. The schema is what turns the second question into arithmetic.
 
+import { PPR_SCORING, SCORING_RULES } from './scoring';
+
 /** The four positions PlayerTicker values. */
 export type UtilityPosition = 'QB' | 'RB' | 'WR' | 'TE';
 
@@ -44,16 +46,25 @@ export interface LeagueSchema {
   /** Multi-position slots, each with its declared allocation. */
   readonly flexSlots: readonly LineupSlot[];
   /**
-   * Players per NFL team who hold a real role at each position — the SUPPLY side.
+   * The scoring rules this league uses, by id (see `src/utility/scoring.ts`).
    *
-   * Scarcity is demand measured against supply, and supply is a football fact rather than a
-   * league setting: there are 32 starting quarterbacks and roughly three times as many starting
-   * receivers, whatever your lineup says. Without this the model could only see demand, and a
-   * league that started more of a position would look like it valued that position more, which
-   * is backwards.
+   * Scoring belongs to the league, and it changes what players are worth: half-PPR flattens the
+   * receiver curve and moves replacement with it. The production curve the utility layer values
+   * against records the scoring it was built under, and a mismatch is a hard error rather than a
+   * silently wrong board.
    */
-  readonly nflStartersPerTeam: Readonly<Record<UtilityPosition, number>>;
-  /** NFL teams — the multiplier on `nflStartersPerTeam`. */
+  readonly scoringId: string;
+  /**
+   * NFL teams. A fact about the league being played, used to express demand per team and to
+   * report derived supply.
+   *
+   * THERE IS NO `nflStartersPerTeam` HERE ANY MORE. Version 1 carried one, a hand-declared count
+   * of "real" starters per team at each position, and it silently set every position's value
+   * ceiling — the whole top of the board turned on four numbers nobody could support. The
+   * measured production curve replaced the straight-line scale that needed them, so they are
+   * gone from the valuation rather than merely better guessed. `effectiveSupply()` still reports
+   * the same quantity, derived from games, for diagnosis.
+   */
   readonly nflTeams: number;
 }
 
@@ -85,7 +96,7 @@ export const DYNASTY_SUPERFLEX_12: LeagueSchema = {
       allocation: { QB: 1 },
     },
   ],
-  nflStartersPerTeam: { QB: 1, RB: 1.5, WR: 3, TE: 1.5 },
+  scoringId: PPR_SCORING.id,
   nflTeams: 32,
 };
 
@@ -107,11 +118,11 @@ export const DYNASTY_1QB_12: LeagueSchema = {
 export function validateSchema(schema: LeagueSchema): void {
   if (schema.teams <= 0) throw new Error('league schema: teams must be positive');
   if (schema.nflTeams <= 0) throw new Error('league schema: nflTeams must be positive');
+  if (!(schema.scoringId in SCORING_RULES)) {
+    throw new Error(`league schema: unknown scoringId "${schema.scoringId}"`);
+  }
   for (const p of UTILITY_POSITIONS) {
     if (schema.dedicated[p] < 0) throw new Error(`league schema: negative dedicated slots for ${p}`);
-    if (schema.nflStartersPerTeam[p] <= 0) {
-      throw new Error(`league schema: nflStartersPerTeam must be positive for ${p}`);
-    }
   }
   for (const slot of schema.flexSlots) {
     if (slot.count < 0) throw new Error('league schema: negative flex slot count');

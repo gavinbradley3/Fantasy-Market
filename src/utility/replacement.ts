@@ -1,9 +1,11 @@
-// Positional demand and replacement level, derived from the league schema.
+// Positional demand and replacement level, derived from the league schema and the measured
+// production curve.
 //
 // REPLACEMENT IS A LEAGUE PROPERTY. It is not a property of a player, a position, or a model:
 // it is the answer to "if I did not have this player, who would be starting instead?" — and
 // that depends entirely on how many of each position the league starts. Nothing here is tuned,
-// and no position receives a bonus; every number below falls out of the schema's slot counts.
+// and no position receives a bonus; the rank falls out of the schema's slot counts and the
+// points that rank is worth fall out of nine seasons of box scores.
 
 import {
   UTILITY_POSITIONS,
@@ -11,47 +13,42 @@ import {
   type UtilityPosition,
   validateSchema,
 } from './leagueSchema';
+import {
+  assertScoringMatches,
+  curveDepth,
+  effectiveSupply,
+  productionAtRank,
+  PRODUCTION_CURVE,
+  type GeneratedProductionReference,
+} from './productionCurve';
 
 export interface PositionDemand {
   readonly position: UtilityPosition;
   /** Players the league starts at this position every week, across all teams. */
   readonly demand: number;
-  /** Players who hold a real NFL role at this position (the supply side). */
-  readonly supply: number;
   /**
    * The rank of the first player NOT startable in this league — the replacement player.
    *
    * Rounded to a whole player, because the replacement is a person, not an average.
    */
   readonly replacementRank: number;
+  /** What that replacement produces, in fantasy points per team game. */
+  readonly replacementProduction: number;
+  /** What the best player at the position produces — the top of the curve. */
+  readonly eliteProduction: number;
   /**
-   * Replacement standing on the position's own supply-normalized 0–1 scale.
+   * The most surplus anyone at this position can hold: elite minus replacement.
    *
-   * This is the number every player at the position is measured against, and the single place
-   * the league format enters the valuation. A deeper replacement rank means a WORSE player is
-   * replacing yours, which means everyone above them is worth more.
+   * This is the position's value ceiling, and it is now a measured quantity rather than a
+   * consequence of an assumed player-pool size. In version 1 it was set by a hand-declared
+   * count of NFL starters per team; four numbers nobody could support decided the whole top of
+   * the board. Here it is the distance between two points on a curve built from games.
    */
-  readonly replacementStanding: number;
-  /** Demand ÷ supply. Reported for diagnosis; nothing multiplies by it. */
-  readonly tightness: number;
-}
-
-/**
- * A player's standing within their position, on a supply-normalized 0–1 scale.
- *
- * Rank 1 stands at 1; the last player holding an NFL role stands at 0; anyone beyond the
- * position's supply is clamped to 0, so a fifth-string quarterback cannot carry negative value
- * into the board.
- *
- * RANK, NOT COMPOSITE. The position engines' composites are anchored inside their own position
- * and their specs forbid publishing them as cross-position values; their ranges do not even
- * agree in width. Rank is the part of an engine's output that survives leaving it.
- */
-export function standing(rank: number, supply: number): number {
-  if (!Number.isFinite(rank) || rank < 1) return 0;
-  if (!Number.isFinite(supply) || supply <= 1) return rank <= 1 ? 1 : 0;
-  const s = 1 - (rank - 1) / (supply - 1);
-  return Math.min(1, Math.max(0, s));
+  readonly ceiling: number;
+  /** Median surplus across the position's startable ranks — the scale a depth term is read at. */
+  readonly medianStarterSurplus: number;
+  /** How deep the measured curve runs for this position. */
+  readonly curveDepth: number;
 }
 
 /** Total weekly demand for one position: dedicated slots plus its share of each flex slot. */
@@ -63,32 +60,72 @@ function demandFor(schema: LeagueSchema, position: UtilityPosition): number {
   return perTeam * schema.teams;
 }
 
+function median(values: readonly number[]): number {
+  if (values.length === 0) return 0;
+  const s = [...values].sort((a, b) => a - b);
+  const h = s.length >> 1;
+  return s.length % 2 ? (s[h] as number) : (((s[h - 1] as number) + (s[h] as number)) / 2);
+}
+
 /**
- * Demand, supply and replacement for every position under one schema.
+ * Demand, replacement and ceiling for every position under one schema.
  *
- * Deterministic and pure: the same schema always yields the same table, which is what lets a
- * board's values be replayed and compared over time.
+ * Deterministic and pure: the same schema and the same curve always yield the same table, which
+ * is what lets a board's values be replayed and compared over time.
  */
 export function replacementTable(
   schema: LeagueSchema,
+  reference: GeneratedProductionReference = PRODUCTION_CURVE,
 ): Readonly<Record<UtilityPosition, PositionDemand>> {
   validateSchema(schema);
+  assertScoringMatches(schema.scoringId, reference);
   const out = {} as Record<UtilityPosition, PositionDemand>;
   for (const position of UTILITY_POSITIONS) {
     const demand = demandFor(schema, position);
-    const supply = schema.nflStartersPerTeam[position] * schema.nflTeams;
-    // At least one player, and never past the end of the supply: a league that started more
-    // quarterbacks than the NFL employs would have a replacement worse than the worst player,
-    // which the scale cannot express and which no real format produces.
-    const replacementRank = Math.min(Math.max(1, Math.round(demand)), Math.round(supply));
+    const depth = curveDepth(position, reference);
+    // At least one player, and never past the end of the measured curve: a league that started
+    // more of a position than has ever produced anything would have a replacement the evidence
+    // cannot describe.
+    const replacementRank = Math.min(Math.max(1, Math.round(demand)), depth);
+    const replacementProduction = productionAtRank(position, replacementRank, reference);
+    const eliteProduction = productionAtRank(position, 1, reference);
+    const starterSurpluses: number[] = [];
+    for (let r = 1; r < replacementRank; r++) {
+      starterSurpluses.push(productionAtRank(position, r, reference) - replacementProduction);
+    }
     out[position] = {
       position,
       demand,
-      supply,
       replacementRank,
-      replacementStanding: standing(replacementRank, supply),
-      tightness: supply > 0 ? demand / supply : 0,
+      replacementProduction,
+      eliteProduction,
+      ceiling: Math.max(0, eliteProduction - replacementProduction),
+      medianStarterSurplus: median(starterSurpluses),
+      curveDepth: depth,
     };
+  }
+  return out;
+}
+
+/**
+ * Effective supply per position, DERIVED — reported for diagnosis, never multiplied by.
+ *
+ * The bar is one league-wide number: the lowest replacement production of any position under
+ * this schema, so "supplied" means "produces at least as much as the weakest startable player
+ * anywhere in this league". Applying the same bar to all four positions is what makes the
+ * resulting counts comparable; a per-position threshold would simply be the old hand-declared
+ * assumption wearing a different hat.
+ */
+export function derivedSupply(
+  schema: LeagueSchema,
+  reference: GeneratedProductionReference = PRODUCTION_CURVE,
+): Readonly<Record<UtilityPosition, { readonly threshold: number; readonly players: number; readonly perTeam: number }>> {
+  const table = replacementTable(schema, reference);
+  const threshold = Math.min(...UTILITY_POSITIONS.map((p) => table[p].replacementProduction));
+  const out = {} as Record<UtilityPosition, { threshold: number; players: number; perTeam: number }>;
+  for (const position of UTILITY_POSITIONS) {
+    const s = effectiveSupply(position, threshold, schema.nflTeams, reference);
+    out[position] = { threshold, players: s.players, perTeam: s.perTeam };
   }
   return out;
 }

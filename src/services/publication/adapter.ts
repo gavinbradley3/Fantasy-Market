@@ -105,9 +105,9 @@ function ranked(players: readonly Omit<PublishedPlayer, 'overallRank' | 'positio
     if (av !== null && bv !== null && av !== bv) return bv - av;
     if (av !== null && bv === null) return -1;
     if (av === null && bv !== null) return 1;
-    // Most of the board ties at zero shared value — everyone at or past their position's
-    // replacement. Their surplus is the tiebreak's own basis upstream; here the position
-    // composite stands in, so a tie is broken by something real rather than by player id.
+    // The board no longer ties at zero in bulk — the depth term separates below-replacement
+    // players — but exact ties still occur where the measured curve has flattened to its floor.
+    // The position composite stands in there, so a tie breaks on something real, not a player id.
     if (anyShared && a.value !== null && b.value !== null && a.value !== b.value) return b.value - a.value;
     return a.playerId.localeCompare(b.playerId);
   });
@@ -188,7 +188,10 @@ export function adaptPublication(
       // The board's cross-position value, carried through verbatim.
       dynastyValue: finiteOrNull(entry.dynastyValue),
       dynastySurplus: finiteOrNull(entry.dynastySurplus),
+      dynastyDepth: finiteOrNull(entry.dynastyDepth),
+      dynastyValueSource: entry.dynastyValueSource ?? null,
       leagueSchemaId: entry.leagueSchemaId ?? null,
+      productionCurveVersion: entry.productionCurveVersion ?? null,
       confidenceScore: finiteOrNull(entry.confidenceScore),
       confidenceLabel: entry.confidenceLabel,
       publicConfidenceLabel: entry.publicConfidenceLabel,

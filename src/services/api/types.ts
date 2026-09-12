@@ -82,9 +82,12 @@ export interface ApiProvenance {
 export interface ApiDynastyUtility {
   readonly dynastyValue: number | null;
   readonly dynastySurplus: number | null;
+  readonly dynastyDepth: number | null;
+  readonly dynastyValueSource: string | null;
   readonly dynastyPositionRank: number | null;
   readonly dynastyOverallRank: number | null;
   readonly leagueSchemaId: string | null;
+  readonly productionCurveVersion: string | null;
 }
 
 export interface ApiPublicationMetadata {
