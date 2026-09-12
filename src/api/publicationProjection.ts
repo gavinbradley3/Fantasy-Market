@@ -84,6 +84,21 @@ export interface PublishedPlayerProjection {
   readonly negativeFactors: readonly string[];
   /** Product-language names of inputs a full valuation would have used and this one did not. */
   readonly materialMissingInputs: readonly string[];
+  /**
+   * How many of the engine's declared inputs were SUBSTITUTED rather than supplied — derived
+   * from the player's other numbers, or replaced by a league prior or a class default.
+   *
+   * A COVERAGE fact, and the one the QB tier had nowhere honest to put. The full model runs for
+   * every quarterback, so the tier badge reads "Full" — but on the live board every one of the
+   * 81 ran with 16 substituted inputs, because no free feed exists for protection context,
+   * offensive environment, explosive pass rate, CPOE, dropback share or the expected per-game
+   * splits. That was being reported as a 20-point confidence deduction on each player, which
+   * described the pipeline rather than the player. It is reported here instead.
+   *
+   * Null when the engine published no fallback log (the accessible tier, which states its own
+   * gaps through `materialMissingInputs`, and any player no model valued).
+   */
+  readonly inputsSubstituted: number | null;
   /** Product-facing reason no value was published, when the tier is INSUFFICIENT. */
   readonly insufficientReason: string | null;
   readonly provenance: PublishedProvenanceResponse | null;
@@ -302,6 +317,7 @@ export function projectPublishedPlayer(
     positiveFactors: strings(accessible?.positiveFactors),
     negativeFactors: strings(accessible?.negativeFactors),
     materialMissingInputs: strings(accessible?.materialMissingInputs),
+    inputsSubstituted: Array.isArray(engineOutput?.fallback_log) ? engineOutput.fallback_log.length : null,
     insufficientReason: str(insufficient?.reason) ?? str(envelope?.tier_not_attempted_reason),
     provenance: readProvenance(accessible),
   };

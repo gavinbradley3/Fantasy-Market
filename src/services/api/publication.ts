@@ -65,6 +65,7 @@ const boardEntrySchema = z.object({
   positiveFactors: z.array(z.string()).default([]),
   negativeFactors: z.array(z.string()).default([]),
   materialMissingInputs: z.array(z.string()).default([]),
+  inputsSubstituted: z.number().nullable().default(null),
   insufficientReason: z.string().nullable().default(null),
   provenance: provenanceSchema.nullable().default(null),
   // Cross-position dynasty utility. Defaulted rather than required so a board published by an

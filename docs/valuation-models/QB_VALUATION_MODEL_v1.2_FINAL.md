@@ -2269,16 +2269,39 @@ base_confidence =
 
 ### 26.11.2 Penalties
 
-Apply all applicable penalties additively:
+**Confidence measures THIS quarterback's evidence. Coverage is a different question.**
+
+A fallback-count bucket used to lead this list: 8 or more substituted inputs cost 20 points. It
+was **removed** (confidence only; no valuation output changed — see 26.11.4). The intent was
+sound where substitutions vary between players. In the production pipeline they do not:
+
+> Measured on the live board, **all 81 quarterbacks resolved exactly 16 fallbacks**, and 15 of
+> the 16 codes were identical for every one of them. No free source publishes protection
+> context, offensive environment, explosive pass rate, CPOE, dropback share, organizational
+> commitment, competition pressure or the expected per-game splits, so every quarterback
+> receives the same substitutions in the same places.
+
+A term with the same value for every member of a population carries no information about any
+member of it. What it carried instead was a true statement about the model's **coverage**, and
+the observable damage was not small:
+
+| | before | after |
+|---|---|---|
+| every quarterback's score | −20 | — |
+| ceiling actually reachable | 80.0 (9 tied there, none above) | 100 |
+| quarterbacks clamped to exactly 0 | 12 | 0 |
+
+The clamp is the sharpest part. Twelve quarterbacks with materially different records all
+published the same `0`, because subtracting a constant 20 pushed them through the floor — the
+metric stopped distinguishing them at all.
+
+The substituted-input count is still published, as coverage: `fallback_log` names every
+substitution on every output, `status` reports `FALLBACK_HEAVY`, and the count reaches the
+product as `inputsSubstituted`.
+
+Apply all applicable penalties additively. Every one names something about **this player**:
 
 ```text
-fallback_count:
-  0      -> 0
-  1..2   -> -4
-  3..4   -> -8
-  5..7   -> -14
-  8+     -> -20
-
 nfl_seasons_completed == 0                       -> -10
 role_status == COMPETITION                       -> -8
 role_status == TEMPORARY_INJURY_REPLACEMENT      -> -8
@@ -2290,13 +2313,9 @@ injury_status == QUESTIONABLE                    -> -5
 injury_status in {DOUBTFUL, OUT, IR, PUP}        -> -10
 ```
 
-Penalty codes:
+Penalty codes (no `FALLBACK_*` code is a confidence penalty any longer):
 
 ```text
-FALLBACK_1_2
-FALLBACK_3_4
-FALLBACK_5_7
-FALLBACK_8_PLUS
 ROOKIE_UNCERTAINTY
 ROLE_COMPETITION
 TEMPORARY_STARTER
@@ -2316,6 +2335,40 @@ confidence =
 ```
 
 A high or low component score does not directly alter confidence.
+
+### 26.11.3 Production distribution
+
+81 quarterbacks, nine-season career window (2017–2025), as-of `2026-09-12`:
+
+| | min | p10 | p25 | median | p75 | p90 | max | LOW | MEDIUM | HIGH |
+|---|---|---|---|---|---|---|---|---|---|---|
+| before | 0.0 | 0.0 | 14.6 | 59.6 | 76.2 | 80.0 | 80.0 | 36 | 12 | 33 |
+| after | 0.0–20.0 | 0.0–20.0 | 34.6 | 79.6 | 96.2 | 100.0 | 100.0 | 23 | 15 | 43 |
+
+Every uncensored score moves by exactly +20 — the removed constant — so the **ordering is
+unchanged**; only the band each score falls in moves. The 12 previously clamped at 0 spread
+across 0–20 and become distinguishable from one another; all of them stay LOW.
+
+The nine quarterbacks tied at the top are tied because all four sample terms saturate. That is
+correct behaviour, not compression: past roughly 1,200 career attempts and 32 starts, more
+attempts genuinely add no further certainty about how well observed a player is.
+
+### 26.11.4 Valuation invariance
+
+The confidence change is confined to `output.confidence`. Confidence is computed at step 27,
+after components (13–20), composites (21) and projections (22–26), and feeds nothing.
+
+Proven two ways, not asserted:
+
+* **Goldens** — all 24 golden outputs regenerated and compared field by field against the
+  pre-change files: byte-identical everywhere except `confidence`.
+* **Whole board** — the production pipeline re-run over 616 players: 0 composites changed,
+  0 `dynastyValue` changed, 0 overall ranks, 0 position ranks, 0 surplus/depth/source values,
+  0 model tiers, 0 volatility scores. 80 confidence scores changed, and nothing else.
+
+`tests/qb-model/confidenceInvariance.test.ts` holds the property permanently: it sweeps the
+fallback count across 0–40 and asserts confidence does not move, and sweeps a
+confidence-only input across its range asserting every other output field is byte-identical.
 
 ---
 

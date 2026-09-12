@@ -90,14 +90,24 @@ export function CoverageBadge({ player }: { player: PublishedPlayer }) {
   const tier = player.modelTier;
   const missing = player.materialMissingInputs;
   if (tier === 'FULL') {
-    // The unremarkable case. Decorating it would make the tiers that actually need
-    // attention harder to spot in a long board.
+    // "Full" means the full model ran, and until now it also IMPLIED the full model got its
+    // full input set. For quarterbacks that implication was false: the engine runs for all 81
+    // of them, and all 81 ran with 16 of its declared inputs substituted, because no free feed
+    // exists for protection context, offensive environment, explosive pass rate, CPOE, dropback
+    // share or the expected per-game splits. That fact was being reported only as a 20-point
+    // confidence deduction on every quarterback — a statement about the pipeline, charged to
+    // the player. It is reported here now, where it is true of the model rather than the man.
+    const substituted = player.inputsSubstituted ?? 0;
     return (
       <span
         className={cn(BADGE, 'border-border-default bg-surface-subtle text-text-secondary')}
-        title="Full coverage — the full model ran on its complete set of declared inputs."
+        title={
+          substituted > 0
+            ? `The full model ran, with ${substituted} of its declared inputs substituted — derived from this player's other numbers, or replaced by a league prior where no source publishes them. That is a fact about the data available to the model, not about this player; how well evidenced he is appears under Confidence.`
+            : 'Full coverage — the full model ran on its complete set of declared inputs.'
+        }
       >
-        Full
+        {substituted > 0 ? 'Full*' : 'Full'}
       </span>
     );
   }

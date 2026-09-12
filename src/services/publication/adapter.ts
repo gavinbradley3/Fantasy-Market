@@ -215,6 +215,7 @@ export function adaptPublication(
       positiveFactors: [...(entry.positiveFactors ?? [])],
       negativeFactors: [...(entry.negativeFactors ?? [])],
       materialMissingInputs: [...(entry.materialMissingInputs ?? [])],
+      inputsSubstituted: finiteOrNull(entry.inputsSubstituted),
       insufficientReason: entry.insufficientReason ?? null,
       provenance: adaptProvenance(entry.provenance),
     });

@@ -88,6 +88,11 @@ export interface PublishedPlayer {
   readonly positiveFactors: readonly string[];
   readonly negativeFactors: readonly string[];
   readonly materialMissingInputs: readonly string[];
+  /**
+   * Engine inputs that were substituted rather than supplied — a COVERAGE count, not a
+   * confidence deduction. See `PublishedPlayerProjection.inputsSubstituted`.
+   */
+  readonly inputsSubstituted: number | null;
   readonly insufficientReason: string | null;
   readonly provenance: PublishedProvenance | null;
 }

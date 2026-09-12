@@ -64,6 +64,7 @@ export interface ApiBoardEntry extends ApiDynastyUtility {
   readonly positiveFactors: readonly string[];
   readonly negativeFactors: readonly string[];
   readonly materialMissingInputs: readonly string[];
+  readonly inputsSubstituted?: number | null;
   readonly insufficientReason: string | null;
   readonly provenance: ApiProvenance | null;
 }

@@ -47,6 +47,7 @@ function player(over: Partial<PublishedPlayer> = {}): PublishedPlayer {
     positiveFactors: [],
     negativeFactors: [],
     materialMissingInputs: ['Route participation (no approved RB/TE method for converting it to career routes)'],
+    inputsSubstituted: null,
     insufficientReason: null,
     provenance: null,
     ...over,
@@ -129,5 +130,29 @@ describe('PlayerTickerValue', () => {
     expect(
       screen.getByTitle(/Projected dynasty value over positional replacement, 0–100 · league format dynasty-superflex-12/),
     ).toBeInTheDocument();
+  });
+});
+
+describe('CoverageBadge — a full model on a substituted input set', () => {
+  it('marks a full-model valuation that ran on substituted inputs, and says how many', () => {
+    // The QB case. The engine runs for every quarterback, so the tier is FULL — but on the live
+    // board all 81 ran with 16 of the engine's declared inputs substituted. That used to reach
+    // the user only as a 20-point confidence deduction applied to every one of them.
+    render(<CoverageBadge player={player({ modelTier: 'FULL', inputsSubstituted: 16 })} />);
+    expect(screen.getByText('Full*')).toBeInTheDocument();
+    expect(screen.getByTitle(/16 of its declared inputs substituted/)).toBeInTheDocument();
+    // And it says whose fact it is, so the reader does not read it as a knock on the player.
+    expect(screen.getByTitle(/not about this player/)).toBeInTheDocument();
+  });
+
+  it('says plain "Full" when the model genuinely got everything it asked for', () => {
+    render(<CoverageBadge player={player({ modelTier: 'FULL', inputsSubstituted: 0 })} />);
+    expect(screen.getByText('Full')).toBeInTheDocument();
+    expect(screen.getByTitle(/complete set of declared inputs/)).toBeInTheDocument();
+  });
+
+  it('falls back to plain "Full" for a board published before the count existed', () => {
+    render(<CoverageBadge player={player({ modelTier: 'FULL', inputsSubstituted: null })} />);
+    expect(screen.getByText('Full')).toBeInTheDocument();
   });
 });
