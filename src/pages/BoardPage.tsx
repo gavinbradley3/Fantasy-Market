@@ -11,6 +11,7 @@
 import { useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { usePublishedMarket } from '@/services/publication';
+import { FreshnessNote } from '@/components/data/FreshnessNote';
 import type { PublishedPlayer } from '@/services/publication';
 import {
   buildBoardComparisons,
@@ -140,6 +141,9 @@ export default function BoardPage() {
       />
 
       {/* Controls stay mounted across states so the layout does not jump on load. */}
+      {/* When the board was last refreshed. Renders nothing when no status document exists. */}
+      <FreshnessNote dataset="board" className="mb-3" />
+
       <div className="mb-5 flex flex-wrap items-center gap-2 border-y border-border-default py-3">
         <div className="relative min-w-[200px] flex-1">
           <SearchIcon

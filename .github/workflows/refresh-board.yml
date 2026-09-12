@@ -53,6 +53,8 @@ jobs:
     permissions:
       # The only write this job needs: committing the static export to the data branch.
       contents: write
+    outputs:
+      committed: ${{ steps.commit.outputs.committed }}
     steps:
       - uses: actions/checkout@v4
 
@@ -106,6 +108,7 @@ jobs:
       # leaves the branch exactly as it was, which is how the last known-good board survives a
       # provider outage: nothing overwrites it.
       - name: Commit site data
+        id: commit
         run: |
           cd ../site-data
           if [ ! -f board.json ]; then
@@ -117,13 +120,17 @@ jobs:
           git add -A
           if git diff --cached --quiet; then
             echo "no change in exported data"
+            echo "committed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           git commit -m "chore(data): board refresh $(date -u +%Y-%m-%dT%H:%MZ)"
           # Retried because two data-writing workflows can finish close together. Rebase keeps
           # the append-only history linear instead of creating a merge that could drop a line.
           for i in 1 2 3 4 5; do
-            git push origin HEAD:site-data && exit 0
+            if git push origin HEAD:site-data; then
+              echo "committed=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
             git fetch origin site-data && git rebase origin/site-data || exit 1
             sleep $((i * 3))
           done
@@ -132,3 +139,16 @@ jobs:
       - name: Report status
         if: always()
         run: cat ../site-data/status.json 2>/dev/null || echo "no status document produced"
+
+  # A refresh that published new data deploys it. This is the step that makes a scheduled
+  # refresh visible to users with no human involvement: data lands on `site-data`, the deploy
+  # copies it into the site, Pages serves it. Skipped when nothing changed, so an unchanged
+  # source does not cause a pointless deploy.
+  deploy:
+    needs: refresh
+    if: needs.refresh.outputs.committed == 'true'
+    uses: ./.github/workflows/deploy.yml
+    permissions:
+      contents: read
+      pages: write
+      id-token: write

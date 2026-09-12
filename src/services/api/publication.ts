@@ -105,11 +105,21 @@ export const publicationResponseSchema = z.object({
 export async function fetchCurrentPublication(
   client: ApiClient,
   options: RequestOptions = {},
+  /**
+   * Where the board lives, relative to the client's base URL.
+   *
+   * Defaults to the API route so every existing caller is unchanged. The deployed app passes
+   * `/board.json`, which is the SAME document — the static export is produced by
+   * `toPublicationResponse`, the identical projection this route uses — so it flows through the
+   * same schema and the same adapter rather than a parallel path that could validate
+   * differently.
+   */
+  path = '/publication',
 ): Promise<ApiPublicationResponse> {
-  const body = await client.getJson<unknown>('/publication', options);
+  const body = await client.getJson<unknown>(path, options);
   const parsed = publicationResponseSchema.safeParse(body);
   if (!parsed.success) {
-    throw new ApiError('invalidResponse', 'GET /publication returned a body that does not match the publication contract', {
+    throw new ApiError('invalidResponse', `${path} returned a body that does not match the publication contract`, {
       cause: parsed.error,
     });
   }

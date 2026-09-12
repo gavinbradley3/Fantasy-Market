@@ -25,6 +25,14 @@ const MOBILE_NAV = [
   { to: '/portfolio', label: 'Portfolio', Icon: PieIcon },
 ] as const;
 
+/**
+ * Routes that render PUBLISHED production data rather than the Demo Market.
+ *
+ * Kept as an explicit set rather than a prop so adding a real surface is one line here and
+ * cannot be forgotten at a call site.
+ */
+const REAL_DATA_ROUTES = new Set<string>(['/board']);
+
 export function AppShell({ children }: { children: ReactNode }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const { pathname } = useLocation();
@@ -47,7 +55,13 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen">
-      <DataModeBanner status={marketStatus} />
+      {/* The demo banner describes the DEMO MARKET surfaces, whose prices and signals are
+          simulated. It must not appear over The Board, which renders the published valuation —
+          real model output over real nflverse data. Showing it there would tell a reader the
+          one genuinely live surface is simulated, which is the same kind of mislabel as the
+          reverse and just as misleading. The Board states its own provenance through its
+          freshness note and its per-player tier and confidence. */}
+      {!REAL_DATA_ROUTES.has(pathname) && <DataModeBanner status={marketStatus} />}
 
       {/* Desktop / top nav */}
       <header className="sticky top-0 z-30 border-b border-border-default bg-canvas/90 backdrop-blur-md">

@@ -29,6 +29,8 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: write
+    outputs:
+      committed: ${{ steps.commit.outputs.committed }}
     steps:
       - uses: actions/checkout@v4
 
@@ -70,6 +72,7 @@ jobs:
       # a market-only database has no publication — committing its (absent) board would delete a
       # good one.
       - name: Commit market data
+        id: commit
         run: |
           cd ../site-data
           if [ ! -f market-latest.json ]; then
@@ -81,12 +84,29 @@ jobs:
           git add market-latest.json market-history.jsonl
           if git diff --cached --quiet; then
             echo "no change in market data"
+            echo "committed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           git commit -m "chore(data): market snapshot $(date -u +%Y-%m-%dZ)"
           for i in 1 2 3 4 5; do
-            git push origin HEAD:site-data && exit 0
+            if git push origin HEAD:site-data; then
+              echo "committed=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
             git fetch origin site-data && git rebase origin/site-data || exit 1
             sleep $((i * 3))
           done
           exit 1
+
+  # A refresh that published new data deploys it. This is the step that makes a scheduled
+  # refresh visible to users with no human involvement: data lands on `site-data`, the deploy
+  # copies it into the site, Pages serves it. Skipped when nothing changed, so an unchanged
+  # source does not cause a pointless deploy.
+  deploy:
+    needs: market
+    if: needs.market.outputs.committed == 'true'
+    uses: ./.github/workflows/deploy.yml
+    permissions:
+      contents: read
+      pages: write
+      id-token: write

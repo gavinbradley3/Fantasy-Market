@@ -208,6 +208,44 @@ failed; a Sleeper failure alone is **not** degraded.
 
 No path substitutes synthetic or empty values for real ones.
 
-## 10. One-time setup
+## 10. Deployment
 
-See §11 of the accompanying report. Nothing here is a recurring task.
+**GitHub Pages**, built and deployed by `.github/workflows/deploy.yml`.
+
+```
+providers → GitHub Actions (refresh) → site-data branch → deploy workflow → GitHub Pages → SPA
+```
+
+The deploy builds the SPA and copies `board.json`, `status.json` and `market-latest.json` from
+the `site-data` branch into `dist/data/`, so the browser fetches them from the same origin and
+CDN as the app. **One source of truth:** the copy happens in CI, from the branch, every deploy,
+so the served JSON cannot drift from what the refresh published — it *is* what the refresh
+published. `market-history.jsonl` is deliberately not copied: nothing in the UI reads it, it is
+the archive rather than a serving document, and it grows without bound.
+
+**Code deploy:** a push to the default branch (ignoring `docs/**` and `*.md`).
+**Data deploy:** each refresh workflow calls the deploy workflow when — and only when — it
+actually committed new data.
+
+Pages was chosen over Vercel and Netlify because it needs **no third-party account and no
+authorization click**: it is a repository setting on a repo that already runs Actions. It is
+free, HTTPS by default, CDN-backed and supports a custom domain later. Vercel or Netlify would
+be equally capable and would each add an account, an app authorization and a second place to
+look when something breaks.
+
+Two Pages specifics are handled in the build: a project site is served from `/<repo>/`, so
+`PLAYERTICKER_BASE_PATH` is derived from the repository name and the router takes its basename
+from `import.meta.env.BASE_URL`; and Pages serves files rather than routes, so `index.html` is
+copied to `404.html` as the standard single-page fallback for deep links.
+
+### Known scaling limit
+
+`market-history.jsonl` grows by one line per weekly capture — roughly 50 KB, about 2.6 MB a
+year. **Migration trigger: when the file passes 50 MB, or when a shallow clone of `site-data`
+starts adding noticeable time to the deploy.** At the current rate that is many years away, so
+nothing is migrated now. When it arrives, the smallest fix is to shard by season
+(`market-history-2026.jsonl`), which keeps the git-based store and needs no database.
+
+## 11. One-time setup
+
+See the accompanying report. Nothing here is a recurring task.
