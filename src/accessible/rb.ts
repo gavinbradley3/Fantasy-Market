@@ -37,7 +37,6 @@ import {
   isUnavailable,
   shrunkPerGameRate,
   TIER_WIDE_MISSING_INPUTS,
-  TIER_WIDE_PENALTIES,
   trajectoryScore,
   type ConfidencePenaltyCode,
 } from './common';
@@ -323,7 +322,7 @@ export function evaluateAccessibleRB(input: AccessibleInput): AccessibleResult {
 
   const role = classifyRole(carriesPerGame, targetsPerGame, shares?.carryShare ?? null);
   const penalties = collectPenalties(input, TR, AG);
-  const confidence = buildConfidence(penalties);
+  const confidence = buildConfidence(penalties, p.career.games);
   const factors = buildFactors({ input, components, role, carriesPerGame, targetsPerGame, shrunkYpc, shares });
 
   return {
@@ -442,10 +441,12 @@ function collectPenalties(
   trajectory: number | null,
   age: number | null,
 ): ConfidencePenaltyCode[] {
-  const codes: ConfidencePenaltyCode[] = [...TIER_WIDE_PENALTIES];
+  // Player-specific evidence gaps only. Sample size is not here: it sets the BASE the score
+  // starts from (`sampleEvidenceScore`), because every other number the model produces rests
+  // on it. The tier's constant coverage gaps are not here either — they are reported through
+  // `materialMissingInputs` and the model tier, not subtracted from every player's confidence.
+  const codes: ConfidencePenaltyCode[] = [];
   const p = input.production;
-  if (p.career.games < 4) codes.push('MINIMAL_CAREER_SAMPLE');
-  if (p.career.games < 8) codes.push('SPARSE_CAREER_SAMPLE');
   if (trajectory === null) codes.push('NO_TRAJECTORY');
   if (p.teamShares === null) codes.push('NO_TEAM_SHARES');
   if (age === null) codes.push('AGE_UNKNOWN');

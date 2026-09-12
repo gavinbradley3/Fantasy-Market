@@ -244,6 +244,13 @@ describe('the published tier decides which model’s numbers are published', () 
     expect(p.modelTier).toBe('INSUFFICIENT');
     expect(p.composites).toBeNull();
     expect(p.insufficientReason).toBe('never targeted');
+    // And no CONFIDENCE either, for the same reason. Four of them published "LOW 0" beside an
+    // empty value on the live board — a claim about the reliability of a valuation that does
+    // not exist. Absence is the whole row, not just the number.
+    expect(p.confidenceScore).toBeNull();
+    expect(p.confidenceLabel).toBeNull();
+    expect(p.volatilityScore).toBeNull();
+    expect(p.volatilityLabel).toBeNull();
   });
 
   it('still reads an envelope written before the tier field existed, by presence', () => {

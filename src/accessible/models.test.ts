@@ -2,12 +2,12 @@
 //
 // These assert model PROPERTIES rather than pinned numbers wherever possible: monotonicity,
 // ordering between recognisable archetypes, refusal to substitute for missing data, and the
-// confidence ceiling. A number is pinned only where the exact value is the contract (the
-// ceiling, the labels).
+// separation of coverage from confidence. A number is pinned only where the exact value is the
+// contract (the label thresholds).
 
 import { describe, expect, it } from 'vitest';
 import { evaluateAccessible, evaluateAccessibleRB, evaluateAccessibleTE } from './index';
-import { ACCESSIBLE_CONFIDENCE_CEILING } from './common';
+import { sampleEvidenceScore } from './common';
 import type { CountingWindow, ObservedProduction } from './production';
 import type { AccessibleInput, AccessibleOutput, AccessiblePosition } from './types';
 
@@ -262,18 +262,55 @@ describe('accessible tier invariants', () => {
     valued(evaluateAccessibleTE(depthTE())),
   ];
 
-  it('never publishes HIGH confidence, however complete the box score is', () => {
+  it('does not cap confidence for being an accessible-tier valuation', () => {
+    // The tier's coverage gaps are identical for all 712 players it values, so subtracting them
+    // from each player's confidence ranked nobody against anybody. A well-evidenced player —
+    // long career sample, reconstructed team shares, known age, attested status, fresh
+    // production — is now allowed to reach HIGH on the strength of that evidence.
     for (const v of all()) {
-      expect(v.confidence.label).not.toBe('HIGH');
-      expect(v.confidence.score).toBeLessThanOrEqual(ACCESSIBLE_CONFIDENCE_CEILING);
+      expect(v.confidence.score).toBeGreaterThan(50);
+      // Never above the sample term: penalties only ever subtract from it.
+      expect(v.confidence.score).toBeLessThanOrEqual(
+        Math.round(sampleEvidenceScore(v.confidence.gamesObserved)),
+      );
+    }
+    expect(valued(evaluateAccessibleRB(eliteRB())).confidence.label).toBe('HIGH');
+  });
+
+  it('reports the tier-wide coverage gaps as missing inputs, not as confidence penalties', () => {
+    for (const v of all()) {
+      expect(v.materialMissingInputs.join(' ')).toMatch(/Route participation/);
+      expect(v.materialMissingInputs.join(' ')).toMatch(/Red-zone/);
+      expect(v.materialMissingInputs.join(' ')).toMatch(/Team offensive context/);
+      // Every penalty that survives must name something about THIS player, so no two players
+      // can differ in coverage-only terms.
+      for (const code of v.confidence.penaltyCodes) {
+        expect(code).not.toMatch(/PARTICIPATION|HIGH_VALUE_USAGE|TEAM_CONTEXT/);
+      }
     }
   });
 
-  it('always carries the tier-wide missing inputs and the participation penalty', () => {
-    for (const v of all()) {
-      expect(v.confidence.penaltyCodes).toContain('NO_PARTICIPATION_DATA');
-      expect(v.materialMissingInputs.join(' ')).toMatch(/Route participation/);
-    }
+  it('separates confidence from coverage: a thin sample scores below a long one', () => {
+    const long = valued(evaluateAccessibleRB(eliteRB()));
+    const thin = valued(
+      evaluateAccessibleRB(
+        input('RB', {
+          age: null,
+          draftRound: null,
+          production: production({
+            career: career(3, { carries: 9, rushingYards: 38, targets: 2, receptions: 1.6, receivingYards: 12 }),
+            seasonsPlayed: 1,
+          }),
+        }),
+      ),
+    );
+    expect(thin.confidence.score).toBeLessThan(long.confidence.score);
+    // The thin sample is carried by the BASE, not by a penalty code — three games leaves half
+    // the estimate on the league prior, so the score starts at 50 before anything is deducted.
+    expect(thin.confidence.sampleScore).toBe(50);
+    expect(long.confidence.sampleScore).toBeGreaterThan(90);
+    expect(thin.confidence.penaltyCodes).toContain('AGE_UNKNOWN');
+    expect(thin.confidence.label).toBe('LOW');
   });
 
   it('labels itself ACCESSIBLE with a versioned model id', () => {

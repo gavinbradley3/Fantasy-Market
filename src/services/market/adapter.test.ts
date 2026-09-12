@@ -53,8 +53,15 @@ function player(over: Partial<PublishedPlayer> = {}): PublishedPlayer {
     team: 'BUF',
     age: 30,
     value: 55.3,
-    // The market comparison is made on the DYNASTY composite, not on the board's displayed
-    // horizon, so the fixture has to carry one.
+    // The board ranks on the shared cross-position dynasty value, and the market comparison
+    // reuses that ranking, so the fixture carries one — plus the position composites, which
+    // are deliberately DIFFERENT numbers so a test can catch a reversion to ranking on them.
+    dynastyValue: 88.0,
+    dynastySurplus: null,
+    dynastyDepth: null,
+    dynastyValueSource: null,
+    leagueSchemaId: 'dynasty-superflex-12',
+    productionCurveVersion: 'production-v1-2017-2025',
     composites: { weekly: 61.0, ros: 60.2, oneYear: 58.1, threeYear: 56.0, dynasty: 55.3 },
     overallRank: 1,
     positionRank: 1,
@@ -153,21 +160,69 @@ describe('board comparisons', () => {
     expect(buildBoardComparisons([player()], undefined).size).toBe(0);
   });
 
-  it('ranks the model side on DYNASTY value, not on the board’s displayed horizon', () => {
-    // The board is showing weekly; on weekly this player leads, on dynasty they do not. The
-    // comparison must use the dynasty ordering or the disagreement it reports is an artefact.
-    const a = player({ playerId: 'pt-a', composites: { weekly: 99, ros: 0, oneYear: 0, threeYear: 0, dynasty: 10 } });
-    const b = player({ playerId: 'pt-b', composites: { weekly: 1, ros: 0, oneYear: 0, threeYear: 0, dynasty: 90 } });
+  it('uses the board’s OWN rank as the model side — it does not compute a second ordering', () => {
+    const a = player({ playerId: 'pt-a', dynastyValue: 91, overallRank: 1, positionRank: 1 });
+    const b = player({ playerId: 'pt-b', dynastyValue: 62, overallRank: 2, positionRank: 2 });
     const sides = buildDynastyModelSide([a, b]);
-    expect(sides.find((s) => s.canonicalPlayerId === 'pt-b')?.overallRank).toBe(1);
-    expect(sides.find((s) => s.canonicalPlayerId === 'pt-a')?.overallRank).toBe(2);
+    expect(sides.find((s) => s.canonicalPlayerId === 'pt-a')?.overallRank).toBe(1);
+    expect(sides.find((s) => s.canonicalPlayerId === 'pt-b')?.overallRank).toBe(2);
+    // The model VALUE carried alongside it is the quantity that ordering is over, so a reader
+    // never sees a rank from one number and a value from another.
+    expect(sides.find((s) => s.canonicalPlayerId === 'pt-a')?.value).toBe(91);
   });
 
-  it('leaves a player with no dynasty composite UNRANKED rather than last', () => {
-    const sides = buildDynastyModelSide([player(), player({ playerId: 'pt-none', composites: null })]);
+  it('does NOT re-rank on the position engines’ internal composites — the Bowers regression', () => {
+    // THE DEFECT THIS REPLACED. `composites.dynasty` is anchored inside its own position's
+    // distribution, so a tight end's internal composite can exceed a quarterback's while the
+    // canonical board — ranking on cross-position value over replacement — has them the other
+    // way round. Sorting the four positions' internal scales together produced a second
+    // PlayerTicker ranking, and the Edge column reported the gap between OUR TWO RANKINGS as
+    // though it were the market's disagreement with us.
+    const qb = player({
+      playerId: 'pt-qb',
+      position: 'QB',
+      dynastyValue: 88,
+      overallRank: 1,
+      positionRank: 1,
+      composites: { weekly: 61, ros: 60, oneYear: 58, threeYear: 56, dynasty: 55.3 },
+    });
+    const bowers = player({
+      playerId: 'pt-bowers',
+      position: 'TE',
+      dynastyValue: 54,
+      overallRank: 2,
+      positionRank: 1,
+      // Higher on the TE scale than the quarterback's number is on the QB scale...
+      composites: { weekly: 80, ros: 79, oneYear: 78, threeYear: 77, dynasty: 76.4 },
+    });
+    const sides = buildDynastyModelSide([qb, bowers]);
+    // ...and yet the model side keeps the board's order, because it IS the board's order.
+    expect(sides.find((s) => s.canonicalPlayerId === 'pt-qb')?.overallRank).toBe(1);
+    expect(sides.find((s) => s.canonicalPlayerId === 'pt-bowers')?.overallRank).toBe(2);
+  });
+
+  it('leaves a player the board did not rank UNRANKED rather than last', () => {
+    const sides = buildDynastyModelSide([
+      player({ dynastyValue: 88 }),
+      player({ playerId: 'pt-none', dynastyValue: null, value: null, composites: null, overallRank: null, positionRank: null }),
+    ]);
     const none = sides.find((s) => s.canonicalPlayerId === 'pt-none');
     expect(none?.overallRank).toBeNull();
     expect(none?.value).toBeNull();
+  });
+
+  it('agrees with the board rank the reader sees, for every player on a real board', () => {
+    // The invariant in one line: subtracting the two ranks on screen must reproduce the Edge.
+    const board = [
+      player({ playerId: 'pt-1', dynastyValue: 100, overallRank: 1 }),
+      player({ playerId: 'pt-2', position: 'RB', dynastyValue: 71, overallRank: 2 }),
+      player({ playerId: 'pt-3', position: 'WR', dynastyValue: 70, overallRank: 3 }),
+      player({ playerId: 'pt-4', position: 'TE', dynastyValue: 12, overallRank: 4 }),
+    ];
+    for (const side of buildDynastyModelSide(board)) {
+      const onBoard = board.find((p) => p.playerId === side.canonicalPlayerId)!;
+      expect(side.overallRank).toBe(onBoard.overallRank);
+    }
   });
 
   it('counts coverage honestly — uncovered players are not counted as covered', () => {

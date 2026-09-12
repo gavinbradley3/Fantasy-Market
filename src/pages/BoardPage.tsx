@@ -37,11 +37,15 @@ import type { Position } from '@/types/market';
 
 const POSITIONS: Position[] = ['QB', 'RB', 'WR', 'TE'];
 
-type SortKey = 'rank' | 'value' | 'confidence' | 'volatility' | 'name';
+type SortKey = 'rank' | 'confidence' | 'volatility' | 'name';
 
+// There is no separate "Model value" sort any more. It ordered the board by the position
+// engine's internal composite for the displayed horizon, which is a DIFFERENT ordering from the
+// rank in the first column — two sort options that claimed to be the same thing and were not.
+// PlayerTicker Rank is the ordering over PlayerTicker Value, so sorting by one IS sorting by
+// the other.
 const SORTS: { key: SortKey; label: string }[] = [
-  { key: 'rank', label: 'Published rank' },
-  { key: 'value', label: 'Model value' },
+  { key: 'rank', label: 'PlayerTicker Rank' },
   { key: 'confidence', label: 'Confidence' },
   { key: 'volatility', label: 'Volatility' },
   { key: 'name', label: 'Name (A–Z)' },
@@ -58,8 +62,6 @@ function byNumberDesc(a: number | null, b: number | null): number {
 function sortPlayers(players: readonly PublishedPlayer[], sort: SortKey): PublishedPlayer[] {
   const s = [...players];
   switch (sort) {
-    case 'value':
-      return s.sort((a, b) => byNumberDesc(a.value, b.value) || a.playerId.localeCompare(b.playerId));
     case 'confidence':
       return s.sort(
         (a, b) => byNumberDesc(a.confidenceScore, b.confidenceScore) || a.playerId.localeCompare(b.playerId),
@@ -72,9 +74,31 @@ function sortPlayers(players: readonly PublishedPlayer[], sort: SortKey): Publis
       return s.sort((a, b) => (a.name ?? a.playerId).localeCompare(b.name ?? b.playerId));
     case 'rank':
     default:
-      // The adapter already ordered the board by published value with unvalued players last.
+      // The adapter already ordered the board by PlayerTicker Value — the shared
+      // cross-position dynasty value over replacement — with unvalued players last.
       return s;
   }
+}
+
+/**
+ * What the board is ranked by, said on the page rather than left to be inferred.
+ *
+ * The league format is not asserted as a constant — it is read from the schema the backend
+ * actually valued this board under, so the subtitle cannot outlive a format change. An older
+ * board that published no schema id says only what it ranks on.
+ */
+const SCHEMA_LABELS: Readonly<Record<string, string>> = {
+  'dynasty-superflex-12': '12-team Superflex',
+};
+
+export function boardSubtitle(players: readonly PublishedPlayer[]): string {
+  const base = 'Ranked by projected dynasty value over replacement';
+  const ids = new Set(players.map((p) => p.leagueSchemaId).filter((id): id is string => id !== null));
+  // More than one schema on one board would mean two formats were mixed, which is a backend
+  // fault; naming neither is the honest reading rather than picking one arbitrarily.
+  if (ids.size !== 1) return base;
+  const id = [...ids][0];
+  return `${base} · ${SCHEMA_LABELS[id] ?? id}`;
 }
 
 function matchesQuery(player: PublishedPlayer, query: string): boolean {
@@ -132,7 +156,7 @@ export default function BoardPage() {
     <div>
       <PageHeader
         title="The Board"
-        subtitle="The current published market"
+        subtitle={boardSubtitle(players)}
         actions={
           <Button onClick={market.retry} disabled={market.isFetching}>
             {market.isFetching ? 'Refreshing…' : 'Refresh Market'}
@@ -336,9 +360,13 @@ function PublicationProvenance({
         <p className="max-w-4xl">
           <span className="data">{limited}</span> of these players{' '}
           {limited === 1 ? 'is' : 'are'} valued by the <strong>accessible-data model</strong> and
-          marked “Limited data”. That is a deliberately reduced model built only on the data we
-          can obtain for them — box-score production, team shares and age — without route,
-          snap or red-zone data. Those valuations are never shown as high confidence.
+          marked <strong>Coverage: Standard</strong>. That is a deliberately reduced model built
+          only on the data we can obtain for them — box-score production, team shares and age —
+          without route, snap or red-zone data. <strong>Coverage is not confidence.</strong> It
+          describes which inputs existed, and it is the same for all {limited} of them;
+          confidence describes how well evidenced each player is for what the model asks, and is
+          scored per player. A player can legitimately read Standard coverage and high
+          confidence.
         </p>
       )}
       {unvalued > 0 && (
@@ -349,6 +377,15 @@ function PublicationProvenance({
           as “—” rather than estimated.
         </p>
       )}
+      {/* PlayerTicker's own movement. The board publishes a single current snapshot, so there is
+          no prior PlayerTicker value to difference against and no movement column exists. Saying
+          so beats leaving the reader to wonder whether movement is zero or simply absent — and
+          it is the one honest thing to say, because the alternative is a 0.0 that would read as
+          "unchanged" when nothing has been measured. */}
+      <p>
+        Movement in PlayerTicker Value appears once multiple PlayerTicker snapshots have been
+        collected; this board shows the current one, so no PlayerTicker movement is displayed.
+      </p>
       {market.rejected.length > 0 && (
         <p>
           <span className="data">{market.rejected.length}</span> published record
@@ -369,9 +406,14 @@ function PublicationProvenance({
 /**
  * Where the market columns come from, and what they do not cover.
  *
- * Three things have to be said here and none of them are decoration: whose numbers these are,
- * how current they actually are, and how many board players the source has never heard of.
- * The wording stays restrained — "Market updated Sep 11", not "live" — because the source
+ * Four things have to be said here and none of them are decoration: whose numbers these are,
+ * how current they actually are, how many board players the source has never heard of, and
+ * which PlayerTicker ranking the comparison is against. That last line used to say the delta
+ * was NOT against the rank column beside it, because the comparison re-ranked the board on the
+ * position engines' internal composites. It is the same ranking now, and saying so is what
+ * makes the Edge column checkable by eye.
+ *
+ * The wording stays restrained — "market updated Sep 11", not "live" — because the source
  * publishes weekly and any stronger word would outrun the data.
  */
 function MarketProvenance({
@@ -403,9 +445,9 @@ function MarketProvenance({
   return (
     <p className="max-w-4xl">
       Market columns show <strong>{external.attribution.publisher}</strong> dynasty{' '}
-      {formatLabel(external.format)} ranks, compared against PlayerTicker’s{' '}
-      <strong>dynasty</strong> value — not against the rank column above, which follows the
-      horizon the board is showing
+      {formatLabel(external.format)} ranks, compared against the{' '}
+      <strong>PlayerTicker Rank</strong> in the first column — the same ranking, so subtracting
+      the two ranks on a row reproduces its “vs Mkt” figure
       {updated ? <> · market updated <span className="data">{updated}</span></> : null} ·{' '}
       {external.attribution.refreshCadence} · external comparison source, not a PlayerTicker
       valuation.

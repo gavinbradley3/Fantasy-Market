@@ -27,13 +27,13 @@ export {
   draftCapitalScore,
 } from './wr';
 export {
-  ACCESSIBLE_CONFIDENCE_CEILING,
+  sampleEvidenceScore,
   CONFIDENCE_PENALTY,
   RB_AGE_ANCHORS,
   TE_AGE_ANCHORS,
   WR_AGE_ANCHORS,
   TIER_WIDE_MISSING_INPUTS,
-  TIER_WIDE_PENALTIES,
+  TIER_WIDE_COVERAGE_GAPS,
   ageScore,
   availabilityScore,
   buildConfidence,

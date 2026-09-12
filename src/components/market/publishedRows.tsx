@@ -42,7 +42,13 @@ const BADGE =
 export function HonestyBadge({ player }: { player: PublishedPlayer }) {
   const state = player.honestyState ?? player.outputStatus;
   if (!state) return <Unpublished />;
-  const unavailable = state === 'UNAVAILABLE' || player.readiness === 'NOT_READY';
+  // `readiness` is the FULL model's verdict on the FULL model's input set. On the accessible
+  // tier it is NOT_READY by construction — that is the precondition for the fallback running —
+  // so reading it here painted every accessible player with the warning treatment beside a
+  // complete valuation. A player a model actually valued is not unavailable, whatever the model
+  // that did not value him would have needed.
+  const valued = player.modelTier === 'FULL' || player.modelTier === 'ACCESSIBLE';
+  const unavailable = state === 'UNAVAILABLE' || (!valued && player.readiness === 'NOT_READY');
   return (
     <span
       className={cn(
@@ -63,48 +69,107 @@ export function HonestyBadge({ player }: { player: PublishedPlayer }) {
 }
 
 /**
- * The model tier, in product language.
+ * COVERAGE — how much of the intended input set existed for this valuation.
  *
- * This is the badge that keeps the board honest: a reduced-input valuation is visibly marked
- * as one, everywhere it appears, rather than sitting in the same column as a full-model value
- * with nothing to tell them apart. The label is deliberately plain — "Limited data", not
- * "ACCESSIBLE" — and the tooltip names what was missing in words rather than registry keys.
+ * Coverage and Confidence answer different questions and are now two columns, because merging
+ * them made both unreadable. Coverage is a property of the MODEL TIER: identical for every
+ * player that tier values, and a statement about our data, not about the player. Confidence is
+ * a property of the PLAYER: how well evidenced he is for what the model asks. A receiver with
+ * five seasons of measured usage can honestly read **Coverage: Standard, Confidence: High** —
+ * limited inputs, well evidenced within them — and that combination used to be unreachable,
+ * because the tier's constant coverage gaps were subtracted from every player's confidence.
+ *
+ * The words are deliberately plain and describe the INPUT SET, not the quality of the answer:
+ *
+ *   Full      the full model ran on its complete declared input set
+ *   Standard  the accessible model ran on the inputs available for every player, without the
+ *             premium charting feeds — a reduced input set, honestly valued
+ *   Limited   no model could value this player from what exists, so no value is published
  */
-export function ModelTierBadge({ player }: { player: PublishedPlayer }) {
+export function CoverageBadge({ player }: { player: PublishedPlayer }) {
   const tier = player.modelTier;
   const missing = player.materialMissingInputs;
   if (tier === 'FULL') {
-    // The unremarkable case. Decorating it would make the two tiers that actually
-    // need attention harder to spot in a long board.
+    // The unremarkable case. Decorating it would make the tiers that actually need
+    // attention harder to spot in a long board.
     return (
       <span
         className={cn(BADGE, 'border-border-default bg-surface-subtle text-text-secondary')}
-        title="Valued by the full model, using its complete set of inputs."
+        title="Full coverage — the full model ran on its complete set of declared inputs."
       >
-        Full model
+        Full
       </span>
     );
   }
   if (tier === 'ACCESSIBLE') {
     return (
       <span
-        className={cn(BADGE, 'border-warning/30 bg-warning/10 text-warning')}
+        className={cn(BADGE, 'border-border-default bg-surface-subtle text-text-secondary')}
         title={
           missing.length > 0
-            ? `Valued by the accessible-data model — a reduced model that uses only the data available for this player. Not used: ${missing.join('; ')}.`
-            : 'Valued by the accessible-data model — a reduced model that uses only the data available for this player.'
+            ? `Standard coverage — valued by the accessible-data model from box-score production, team shares and age. Inputs not available for any player at this tier: ${missing.join('; ')}. Coverage describes the inputs, not the reliability of this player's valuation — see Confidence.`
+            : "Standard coverage — valued by the accessible-data model from the inputs available for every player. Coverage describes the inputs, not the reliability of this player's valuation — see Confidence."
         }
       >
-        Limited data
+        Standard
       </span>
     );
   }
   return (
     <span
       className={cn(BADGE, 'border-dashed border-border-strong bg-transparent text-text-muted')}
-      title={player.insufficientReason ?? 'Not enough information to value this player.'}
+      title={
+        player.insufficientReason ??
+        'Limited coverage — not enough information exists to value this player, so no value is published.'
+      }
     >
-      No value
+      Limited
+    </span>
+  );
+}
+
+/**
+ * THE NUMBER THE BOARD RANKS ON.
+ *
+ * `dynastyValue` is PlayerTicker's cross-position value: projected multi-year utility over
+ * positional replacement in a 12-team Superflex league, normalized to 0–100. It is what the
+ * publication adapter orders the board by, and now what the board shows.
+ *
+ * It used to show `value` — the position engine's INTERNAL composite for the selected horizon,
+ * weekly by default. So the board displayed one number and sorted by another, and the column
+ * disagreed with the column beside it: rank 3 could carry a lower displayed value than rank 40,
+ * because the two were measured on different scales over different horizons. Nothing was wrong
+ * with either number; putting the wrong one in the ranked column was the defect.
+ *
+ * A board published before the shared utility layer existed carries no `dynastyValue`. Those
+ * fall back to the composite — the SAME fallback the ranking uses, so display and order still
+ * agree — rather than blanking an older board.
+ */
+export function playerTickerValue(player: PublishedPlayer): number | null {
+  return player.dynastyValue ?? player.value;
+}
+
+/** The value cell, with the units and the league it is measured in on hover. */
+export function PlayerTickerValue({
+  player,
+  className,
+}: {
+  player: PublishedPlayer;
+  className?: string;
+}) {
+  const value = playerTickerValue(player);
+  if (value === null) return <Unpublished label="no value published for this player" />;
+  const schema = player.leagueSchemaId;
+  return (
+    <span
+      className={className}
+      title={
+        `Projected dynasty value over positional replacement, 0–100` +
+        (schema ? ` · league format ${schema}` : '') +
+        '. This is the number the board is ranked by.'
+      }
+    >
+      {value.toFixed(1)}
     </span>
   );
 }
@@ -143,33 +208,31 @@ export function MarketRank({ comparison }: { comparison: ModelMarketComparison |
 }
 
 /**
- * The disagreement, in ranks — both sides on the DYNASTY horizon.
+ * The disagreement, in ranks.
  *
- * Not against the board's Rank column beside it: that column follows whichever horizon the
- * board is showing (weekly by default), and diffing a weekly rank against a dynasty quote
- * would report a disagreement neither side holds. The model side here is always the player's
- * dynasty composite, whatever the board is sorted by.
+ * BOTH SIDES ARE THE RANKS ON SCREEN. The model side is the board's own `overallRank` — the
+ * number in the first column of the same row — so a reader who subtracts the two visible ranks
+ * gets exactly this figure. It used to be a second, invisible ranking over the position
+ * engines' internal dynasty composites, which is why the tooltip once had to warn that the
+ * arithmetic on screen would not reproduce the delta. There is one PlayerTicker ranking now.
  *
- * A negative `overallRankDifference` means PlayerTicker ranks the player higher (a smaller rank
- * number is a better rank), so it is rendered with a leading "+" to read the way a reader
- * expects: "+7" = seven places higher than the market has them. The sign is inverted here, in
- * the one place that renders it, rather than in the data.
+ * SIGN. `overallRankDifference` is `modelRank - marketRank`, so it is NEGATIVE when
+ * PlayerTicker ranks the player higher (a smaller rank number is a better rank). It is negated
+ * here, in the one place that renders it, so the reader sees the direction they expect:
+ * POSITIVE means PlayerTicker ranks him HIGHER than the market. "+7" = seven places higher.
  */
 /**
  * The long form of the delta, for hover.
  *
- * It names BOTH ranks rather than only their difference, for two reasons. The board's own Rank
- * column follows the displayed horizon (weekly by default) while this delta is measured on
- * dynasty, so a reader who subtracts the two visible numbers can get a different answer — the
- * tooltip shows the arithmetic that was actually done. And the two sides rank different
- * numbers of players, which the percentiles express and a raw place count cannot.
+ * It names BOTH ranks rather than only their difference, because the two sides rank different
+ * numbers of players — which the percentiles express and a raw place count cannot.
  */
 function rankDeltaExplanation(comparison: ModelMarketComparison, placesHigher: number): string {
   const direction = placesHigher > 0 ? 'higher' : 'lower';
   const places = Math.abs(placesHigher);
   const head =
-    `On dynasty value: PlayerTicker #${comparison.modelRank}, market #${comparison.marketRank} — ` +
-    `${places} place${places === 1 ? '' : 's'} ${direction}.`;
+    `PlayerTicker #${comparison.modelRank}, market #${comparison.marketRank} — ` +
+    `${places} place${places === 1 ? '' : 's'} ${direction}. Both on dynasty value.`;
   if (comparison.modelPercentile === null || comparison.marketPercentile === null) return head;
   return (
     `${head} Percentile ${comparison.modelPercentile.toFixed(1)} vs ` +
@@ -183,7 +246,7 @@ export function MarketRankDelta({ comparison }: { comparison: ModelMarketCompari
   const placesHigher = -comparison.overallRankDifference;
   if (placesHigher === 0) {
     return (
-      <span className="text-[13px] text-text-muted" title="On dynasty value, PlayerTicker and the market rank this player the same.">
+      <span className="text-[13px] text-text-muted" title="PlayerTicker and the market rank this player the same.">
         =
       </span>
     );
@@ -200,17 +263,19 @@ export function MarketRankDelta({ comparison }: { comparison: ModelMarketCompari
   );
 }
 
+// "Rank" and "PlayerTicker Value" are one ordering and the number it is over. "Coverage" and
+// "Confidence" are two different questions and sit apart deliberately — see `CoverageBadge`.
 export const PUBLISHED_COLUMNS = [
   { label: 'Rank', align: 'right' },
   { label: 'Player', align: 'left', grow: true },
   { label: 'Pos', align: 'left' },
   { label: 'Team', align: 'left' },
-  { label: 'Value', align: 'right' },
+  { label: 'PlayerTicker Value', align: 'right' },
   { label: 'Mkt Dyn', align: 'right' },
   { label: 'vs Mkt', align: 'right' },
   { label: 'Confidence', align: 'right' },
   { label: 'Volatility', align: 'right' },
-  { label: 'Model', align: 'left' },
+  { label: 'Coverage', align: 'left' },
 ] as const;
 
 export function PublishedPlayerRow({
@@ -239,9 +304,7 @@ export function PublishedPlayerRow({
         {label(player.team)}
       </td>
       <td className="w-px whitespace-nowrap px-3 py-2 text-right">
-        <span className="data text-[15px] font-semibold text-text-primary">
-          {player.value === null ? <Unpublished /> : player.value.toFixed(1)}
-        </span>
+        <PlayerTickerValue player={player} className="data text-[15px] font-semibold text-text-primary" />
       </td>
       <td className="w-px whitespace-nowrap px-3 py-2 text-right">
         <MarketRank comparison={comparison} />
@@ -271,7 +334,7 @@ export function PublishedPlayerRow({
         {label(player.volatilityLabel)}
       </td>
       <td className="w-px whitespace-nowrap py-2 pl-3 pr-4">
-        <ModelTierBadge player={player} />
+        <CoverageBadge player={player} />
       </td>
     </tr>
   );
@@ -308,16 +371,14 @@ export function PublishedPlayerCard({
           </div>
         </div>
         <div className="shrink-0 text-right">
-          <div className="data text-data-lg font-semibold text-text-primary">
-            {player.value === null ? <Unpublished /> : player.value.toFixed(1)}
-          </div>
+          <PlayerTickerValue player={player} className="data text-data-lg font-semibold text-text-primary" />
           <div className="pt-0.5 text-[10px] uppercase tracking-[0.06em] text-text-faint">
-            Model value
+            PlayerTicker Value
           </div>
         </div>
       </div>
       <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] text-text-muted">
-        <ModelTierBadge player={player} />
+        <CoverageBadge player={player} />
         <span>Confidence {label(player.confidenceLabel ?? player.publicConfidenceLabel)}</span>
         <span>Volatility {label(player.volatilityLabel)}</span>
         <span className="inline-flex items-baseline gap-1">

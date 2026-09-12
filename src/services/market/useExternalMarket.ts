@@ -11,7 +11,7 @@
 
 import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
 import type { QueryState } from '@/services/query/QueryClient';
-import { fetchMarket, isApiError } from '@/services/api';
+import { ApiError, fetchMarket, isApiError } from '@/services/api';
 import { usePublicationContext } from '@/services/publication';
 import { adaptMarket } from './adapter';
 import type { ExternalMarket } from './types';
@@ -28,13 +28,19 @@ export interface UseExternalMarketResult {
 }
 
 export function useExternalMarket(): UseExternalMarketResult {
-  const { client, query, getSignal } = usePublicationContext();
-  const key = JSON.stringify(['market', 'dynasty_superflex']);
+  const { client, query, getSignal, source } = usePublicationContext();
+  // The path is part of the cache key, exactly as it is for the publication read: a provider
+  // swapped between the static export and the dev API must not serve one's answer for the other.
+  const path = source.marketPath;
+  const key = JSON.stringify(['market', 'dynasty_superflex', path]);
 
   const fetcher = useCallback(async (): Promise<ExternalMarket> => {
     const signal = getSignal();
-    return adaptMarket(await fetchMarket(client, { signal }));
-  }, [client, getSignal]);
+    // A source that publishes no market (none does today) is a market with nothing in it,
+    // which the board already renders honestly — not an error to put on screen.
+    if (path === null) throw new ApiError('invalidResponse', 'this data source publishes no market document');
+    return adaptMarket(await fetchMarket(client, { signal }, path));
+  }, [client, getSignal, path]);
 
   const fetcherRef = useRef(fetcher);
   fetcherRef.current = fetcher;

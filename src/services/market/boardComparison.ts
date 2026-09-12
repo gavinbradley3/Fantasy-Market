@@ -1,16 +1,25 @@
 // Joining the board to the external market, for display.
 //
-// THE HORIZON TRAP, and why this file does not simply reuse the board's own ranks.
-// `/board` ranks on its selected horizon, which defaults to WEEKLY. DynastyProcess quotes
-// DYNASTY value. Diffing a weekly rank against a dynasty rank would produce a number for every
-// player and mean nothing for any of them — a rookie running back is a different proposition
-// over one week than over five years, and the disagreement it would report is an artefact of
-// the mismatch, not a view either side holds.
+// ONE PLAYERTICKER RANK. The model side of this comparison is the board's OWN ordering — the
+// same `overallRank` the reader sees in the board's first column, computed once by the
+// publication adapter over the shared cross-position `dynastyValue`.
 //
-// So the model side of the comparison is built from each player's DYNASTY composite
-// specifically, ranked among the players who have one, regardless of which horizon the board
-// is currently displaying. The comparison is therefore dynasty-vs-dynasty whatever the reader
-// has the board sorted by, and the column labels say so.
+// IT USED TO BE A SECOND ORDERING, and that was the defect. This file re-ranked the board on
+// `composites.dynasty`: the position engine's INTERNAL dynasty composite, anchored inside its
+// own position's distribution. Four positions on four scales, sorted together. So "vs Mkt" was
+// not the market's disagreement with PlayerTicker — it was partly the market's disagreement
+// with a ranking PlayerTicker does not publish and the reader cannot see. Brock Bowers is the
+// clean example: a tight end's internal composite sits high on the TE scale, which lifted him
+// in this ordering while the canonical board, ranking on cross-position value over
+// replacement, placed him elsewhere. The Edge column reported the gap between our two rankings
+// as though it were the market's view.
+//
+// THE HORIZON TRAP is still avoided, by construction rather than by a second ranking. The old
+// comment here warned that `/board` ranks on the selected horizon (weekly by default) and that
+// diffing a weekly rank against a dynasty quote would report a disagreement neither side
+// holds. That is no longer how the board ranks: `overallRank` is ordered on `dynastyValue`,
+// the multi-year value over positional replacement, whatever horizon the VALUE COLUMN is
+// showing. Reusing it is therefore dynasty-vs-dynasty AND identical to what the reader sees.
 //
 // The join itself lives in `@/market/comparison` and is tested there; this file is the
 // projection onto its `ModelSide` input. Keeping the projection out of the comparison means
@@ -29,37 +38,30 @@ import type { ExternalMarket } from './types';
 export const COMPARISON_HORIZON = 'dynasty' as const;
 
 /**
- * Rank the board on its DYNASTY composite.
+ * The model side of the comparison: the board's published ranking, unchanged.
  *
- * A player the engine published no dynasty value for is ranked `null` rather than last:
- * "unvalued" and "worst" are different claims, and only one of them is true.
+ * This function deliberately computes NO ordering. The publication adapter ranks the board
+ * once, on the shared cross-position `dynastyValue`, and that ordering is the only PlayerTicker
+ * rank that exists. Re-deriving it here — from the same field or any other — would reintroduce
+ * the possibility of two rankings that disagree, which is the exact defect this replaced.
+ *
+ * `value` carries `dynastyValue`, the quantity the ranking is over, so a consumer reading the
+ * model's value and its rank sees one number and its own ordering rather than two unrelated
+ * ones. It falls back to the position composite only for a board published before the shared
+ * utility layer existed, which carries no `dynastyValue` — the same fallback the adapter's
+ * ranking uses, so the two never diverge.
+ *
+ * A player the board ranked `null` (no published value) stays `null` here: "unvalued" and
+ * "worst" are different claims, and only one of them is true.
  */
 export function buildDynastyModelSide(players: readonly PublishedPlayer[]): ModelSide[] {
-  const valued = players
-    .filter((p) => p.composites?.dynasty != null)
-    .sort(
-      (a, b) =>
-        (b.composites?.dynasty ?? 0) - (a.composites?.dynasty ?? 0) ||
-        a.playerId.localeCompare(b.playerId),
-    );
-
-  const overallRank = new Map<string, number>();
-  valued.forEach((p, i) => overallRank.set(p.playerId, i + 1));
-
-  const positionRank = new Map<string, number>();
-  const perPosition = new Map<string, number>();
-  for (const p of valued) {
-    const next = (perPosition.get(p.position) ?? 0) + 1;
-    perPosition.set(p.position, next);
-    positionRank.set(p.playerId, next);
-  }
-
+  const anyShared = players.some((p) => p.dynastyValue !== null);
   return players.map((p) => ({
     canonicalPlayerId: p.playerId,
     position: p.position,
-    value: p.composites?.dynasty ?? null,
-    overallRank: overallRank.get(p.playerId) ?? null,
-    positionRank: positionRank.get(p.playerId) ?? null,
+    value: anyShared ? p.dynastyValue : (p.composites?.dynasty ?? null),
+    overallRank: p.overallRank,
+    positionRank: p.positionRank,
     modelVersion: p.modelVersion,
     updatedAt: p.asOf,
   }));

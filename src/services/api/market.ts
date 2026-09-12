@@ -54,7 +54,19 @@ export interface FetchMarketOptions extends RequestOptions {
 }
 
 /**
- * Fetch the latest external market quotes.
+ * Fetch the latest external market quotes, from `path` — the dev API's `/market` route, or the
+ * static `market-latest.json` the scheduled refresh publishes.
+ *
+ * THE PATH IS A PARAMETER FOR THE SAME REASON `fetchCurrentPublication`'s is. The deployed app
+ * reads static JSON; only `resolveSiteDataSource` knows that, and it says so in
+ * `source.marketPath`. This function hard-coded `/market`, so the deployed site requested
+ * `<base>/data/market` — a URL the export does not produce — and every production page read the
+ * market as unavailable. The board still rendered (the market is supplementary by design, which
+ * is exactly why the fault was quiet), but the market columns showed an em-dash for all 616
+ * players and the Edge column never appeared at all.
+ *
+ * The response contract is identical either way: `market-latest.json` is written by
+ * `toMarketResponse`, the same projection the HTTP route returns, so one schema validates both.
  *
  * An EMPTY market is a 200 with zero quotes, not a 404 — so unlike `/publication` there is no
  * "nothing yet" error kind to handle. A caller distinguishes "no market data" from "market
@@ -63,14 +75,18 @@ export interface FetchMarketOptions extends RequestOptions {
 export async function fetchMarket(
   client: ApiClient,
   options: FetchMarketOptions = {},
+  path = '/market',
 ): Promise<ApiMarketResponse> {
   const { format, source, ...request } = options;
   const params = new URLSearchParams();
   if (format) params.set('format', format);
   if (source) params.set('source', source);
-  const query = params.toString();
+  // A STATIC document has no query string to select a lens with — it is one published file,
+  // whose `format` field says which lens it already is. Appending `?format=` to it would ask a
+  // CDN for a URL that does not exist. The dev API takes the parameters; the export does not.
+  const query = path.endsWith('.json') ? '' : params.toString();
 
-  const body = await client.getJson<unknown>(`/market${query ? `?${query}` : ''}`, request);
+  const body = await client.getJson<unknown>(`${path}${query ? `?${query}` : ''}`, request);
   const parsed = marketResponseSchema.safeParse(body);
   if (!parsed.success) {
     throw new ApiError('invalidResponse', 'GET /market returned a body that does not match the market contract', {

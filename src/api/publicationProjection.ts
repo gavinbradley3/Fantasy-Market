@@ -240,12 +240,12 @@ export function projectPublishedPlayer(
   // Keyed on the EXPLICIT tier string, not on `tier`: `readTier` defaults an absent tier to
   // INSUFFICIENT (the safe direction for a badge), and an envelope written before the tier field
   // existed carries none. Nulling those would blank an older board rather than close a leak.
-  const publishedComposites =
-    str(envelope?.model_tier) === 'INSUFFICIENT'
-      ? null
-      : useAccessible
-        ? accessibleComposites ?? fullComposites
-        : fullComposites ?? accessibleComposites;
+  const insufficientTier = str(envelope?.model_tier) === 'INSUFFICIENT';
+  const publishedComposites = insufficientTier
+    ? null
+    : useAccessible
+      ? accessibleComposites ?? fullComposites
+      : fullComposites ?? accessibleComposites;
 
   return {
     // Identity prefers the engine's own published spelling and falls back to the canonical
@@ -268,16 +268,27 @@ export function projectPublishedPlayer(
     // `published_confidence_score` first would silently re-point every FULL-tier player at the
     // AIL's public confidence, which is a different quantity from the engine's confidence and
     // would leave the label describing one number while the score showed another.
-    confidenceScore: useAccessible
-      ? num(accessibleConfidence?.score) ?? num(envelope?.published_confidence_score)
-      : num(confidence?.score) ?? num(envelope?.published_confidence_score) ?? num(accessibleConfidence?.score),
-    confidenceLabel: useAccessible
-      ? str(accessibleConfidence?.label) ?? str(envelope?.public_confidence_label)
-      : str(confidence?.label) ?? str(accessibleConfidence?.label) ?? str(envelope?.public_confidence_label),
+    // AND AN INSUFFICIENT PLAYER PUBLISHES NO CONFIDENCE EITHER — for the same reason he
+    // publishes no composites. Confidence describes how much to trust a valuation; printing
+    // "LOW 0" in the row of a player who has no valuation asserts that one exists and is bad,
+    // when the truth is that none was produced. Four receivers who played but were never
+    // targeted hit this on the live board: the frozen engine ran (nothing was missing — the
+    // counts are real zeros), so its confidence was read and published beside an empty value.
+    confidenceScore: insufficientTier
+      ? null
+      : useAccessible
+        ? num(accessibleConfidence?.score) ?? num(envelope?.published_confidence_score)
+        : num(confidence?.score) ?? num(envelope?.published_confidence_score) ?? num(accessibleConfidence?.score),
+    confidenceLabel: insufficientTier
+      ? null
+      : useAccessible
+        ? str(accessibleConfidence?.label) ?? str(envelope?.public_confidence_label)
+        : str(confidence?.label) ?? str(accessibleConfidence?.label) ?? str(envelope?.public_confidence_label),
     // Volatility is a frozen-engine output and describes the FULL model's input set, so it is
-    // withheld on the accessible tier rather than borrowed from a model that did not value him.
-    volatilityScore: useAccessible ? null : num(volatility?.score),
-    volatilityLabel: useAccessible ? null : str(volatility?.label),
+    // withheld on the accessible tier rather than borrowed from a model that did not value him,
+    // and withheld from an INSUFFICIENT player, who has no valuation to be volatile.
+    volatilityScore: useAccessible || insufficientTier ? null : num(volatility?.score),
+    volatilityLabel: useAccessible || insufficientTier ? null : str(volatility?.label),
     composites: publishedComposites,
     limitations: strings(envelope?.limitations),
     modelTier: tier,

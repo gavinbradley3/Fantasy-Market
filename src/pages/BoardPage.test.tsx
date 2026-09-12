@@ -30,6 +30,8 @@ interface EntryOverrides {
   role?: string | null;
   explanation?: string | null;
   materialMissingInputs?: string[];
+  dynastyValue?: number | null;
+  leagueSchemaId?: string | null;
 }
 
 function apiEntry(o: EntryOverrides) {
@@ -69,6 +71,12 @@ function apiEntry(o: EntryOverrides) {
     materialMissingInputs: o.materialMissingInputs ?? [],
     insufficientReason: valued ? null : 'Not enough information to value this player.',
     provenance: null,
+    // The shared cross-position value the board ranks on AND displays. Defaulted to the
+    // composite so the existing fixtures keep their numbers; the trust-pass tests below set it
+    // apart from the composite deliberately, which is the only way to catch a display or a
+    // ranking that has quietly re-pointed at the position-internal number.
+    dynastyValue: o.dynastyValue !== undefined ? o.dynastyValue : o.weekly,
+    leagueSchemaId: o.leagueSchemaId !== undefined ? o.leagueSchemaId : 'dynasty-superflex-12',
   };
 }
 
@@ -213,8 +221,8 @@ describe('The Board renders the real publication end to end', () => {
     expect(within(unvaluedRow).queryByText('0.0')).not.toBeInTheDocument();
     expect(within(unvaluedRow).getAllByText('—').length).toBeGreaterThan(0);
     // The tier badge names the state in product language rather than an internal status code.
-    expect(within(unvaluedRow).getByText('No value')).toBeInTheDocument();
-    expect(within(valuedRow).getByText('Full model')).toBeInTheDocument();
+    expect(within(unvaluedRow).getByText('Limited')).toBeInTheDocument();
+    expect(within(valuedRow).getByText('Full')).toBeInTheDocument();
     // And the page says so in words, next to the count.
     await waitFor(() =>
       expect(provenanceText()).toMatch(/1 of these players has no published value/i),
@@ -273,7 +281,10 @@ describe('The Board — search, filters and sorting over published data', () => 
     expect(screen.getAllByText('Test End').length).toBeGreaterThan(0);
   });
 
-  it('sorts by published value, keeping unvalued players last', async () => {
+  it('offers ONE PlayerTicker ordering, and it keeps unvalued players last', async () => {
+    // There is no separate "Model value" sort. It ordered on the position engines' internal
+    // composite for the displayed horizon — a different ordering from the rank in the first
+    // column, offered beside it as though the two were the same thing.
     const mixed = [
       apiEntry({ canonicalId: 'a', position: 'WR', name: 'Low Value', weekly: 10 }),
       apiEntry({ canonicalId: 'b', position: 'WR', name: 'No Value', weekly: null }),
@@ -282,7 +293,10 @@ describe('The Board — search, filters and sorting over published data', () => 
     renderBoard(respondWith(publication(mixed)));
     await screen.findAllByText('High Value');
 
-    await userEvent.selectOptions(screen.getByLabelText('Sort by'), 'value');
+    const sort = screen.getByLabelText('Sort by') as HTMLSelectElement;
+    expect([...sort.options].map((o) => o.value)).not.toContain('value');
+    expect([...sort.options].map((o) => o.textContent)).toContain('PlayerTicker Rank');
+
     await waitFor(() => {
       const names = screen
         .getAllByRole('row')
@@ -305,10 +319,10 @@ describe('The Board — search, filters and sorting over published data', () => 
   });
 
   it('honors position and sort from the URL', async () => {
-    renderBoard(respondWith(publication(FOUR_POSITIONS)), '/board?pos=RB&sort=value');
+    renderBoard(respondWith(publication(FOUR_POSITIONS)), '/board?pos=RB&sort=name');
     await waitFor(() => expect(boardCount()).toMatch(/1 of 4 published players/));
     expect(screen.getAllByText('Test Runner').length).toBeGreaterThan(0);
-    expect((screen.getByLabelText('Sort by') as HTMLSelectElement).value).toBe('value');
+    expect((screen.getByLabelText('Sort by') as HTMLSelectElement).value).toBe('name');
   });
 });
 
@@ -410,9 +424,10 @@ describe('The Board — model tier is visible to the user', () => {
     const accRow = (await screen.findAllByText('Limited Data Player'))[0].closest('tr')!;
     const noneRow = (await screen.findAllByText('No Value Player'))[0].closest('tr')!;
 
-    expect(within(fullRow).getByText('Full model')).toBeInTheDocument();
-    expect(within(accRow).getByText('Limited data')).toBeInTheDocument();
-    expect(within(noneRow).getByText('No value')).toBeInTheDocument();
+    // COVERAGE, in three words that describe the INPUT SET rather than the answer's quality.
+    expect(within(fullRow).getByText('Full')).toBeInTheDocument();
+    expect(within(accRow).getByText('Standard')).toBeInTheDocument();
+    expect(within(noneRow).getByText('Limited')).toBeInTheDocument();
 
     // The accessible-tier player still carries a real value — the tier is a label, not a gap.
     expect(within(accRow).getByText('64.0')).toBeInTheDocument();
@@ -459,13 +474,16 @@ describe('external market context on the board', () => {
       ]),
     );
     await screen.findAllByText('Test Passer');
-    // The tooltip names BOTH ranks, because the visible Rank column follows the board's
-    // displayed horizon (weekly) while the delta is measured on dynasty.
+    // The tooltip names BOTH ranks, and the model rank it names is the one in the row's first
+    // column — so a reader can subtract the two numbers on screen and get the same answer.
     await waitFor(() =>
       expect(
-        screen.getAllByTitle(/On dynasty value: PlayerTicker #1, market #3 — 2 places higher/).length,
+        screen.getAllByTitle(/PlayerTicker #1, market #3 — 2 places higher/).length,
       ).toBeGreaterThan(0),
     );
+    const row = (await screen.findAllByText('Test Passer'))[0].closest('tr')!;
+    expect(within(row).getByText('1')).toBeInTheDocument();
+    expect(within(row).getByText('+2')).toBeInTheDocument();
   });
 
   it('renders an UNCOVERED player as absent — never as zero or last place', async () => {
@@ -527,5 +545,192 @@ describe('external market context on the board', () => {
     expect(screen.getAllByText('90.0').length).toBeGreaterThan(0);
     expect(screen.queryByText('10256')).not.toBeInTheDocument();
     expect(screen.queryByText('10,256')).not.toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The core-product trust pass
+//
+// One ranking, displayed as the number it is over; coverage and confidence as two independent
+// dimensions; and an honest word for a player a reduced model valued. Each test here pins a
+// specific defect that shipped, so a reversion fails loudly rather than quietly.
+// ---------------------------------------------------------------------------
+
+describe('The Board — one ranking, one number', () => {
+  it('displays the value it RANKS on, not the position engine’s weekly composite', async () => {
+    // THE DEFECT. The board ordered rows by `dynastyValue` and printed `value` — the position
+    // engine's internal composite for the displayed horizon. So rank 1 could carry a smaller
+    // printed number than rank 3, because the column and the ordering were different
+    // quantities on different scales. Here the two are deliberately opposed: the weekly
+    // composites descend 90/80/70 while the dynasty values ascend 40/60/95.
+    const opposed = [
+      apiEntry({ canonicalId: 'pt-a', position: 'QB', name: 'Weekly Leader', weekly: 90, dynastyValue: 40 }),
+      apiEntry({ canonicalId: 'pt-b', position: 'RB', name: 'Middle', weekly: 80, dynastyValue: 60 }),
+      apiEntry({ canonicalId: 'pt-c', position: 'WR', name: 'Dynasty Leader', weekly: 70, dynastyValue: 95 }),
+    ];
+    renderBoard(respondWith(publication(opposed)));
+    await screen.findAllByText('Dynasty Leader');
+
+    const rows = screen.getAllByRole('row').slice(1);
+    expect(rows[0].textContent).toContain('Dynasty Leader');
+    expect(rows[0].textContent).toContain('95.0');
+    expect(rows[2].textContent).toContain('Weekly Leader');
+    expect(rows[2].textContent).toContain('40.0');
+    // The weekly composites are not on the board at all now.
+    expect(screen.queryByText('90.0')).not.toBeInTheDocument();
+  });
+
+  it('reads down the value column monotonically, because rank IS that ordering', async () => {
+    renderBoard(
+      respondWith(
+        publication([
+          apiEntry({ canonicalId: 'pt-a', position: 'QB', name: 'One', weekly: 10, dynastyValue: 88 }),
+          apiEntry({ canonicalId: 'pt-b', position: 'TE', name: 'Two', weekly: 99, dynastyValue: 54 }),
+          apiEntry({ canonicalId: 'pt-c', position: 'WR', name: 'Three', weekly: 50, dynastyValue: 21 }),
+        ]),
+      ),
+    );
+    await screen.findAllByText('One');
+    const values = screen
+      .getAllByRole('row')
+      .slice(1)
+      .map((r) => Number(/(\d+\.\d)/.exec(r.textContent ?? '')?.[1] ?? NaN));
+    expect(values).toEqual([...values].sort((a, b) => b - a));
+  });
+
+  it('names what the board is ranked by, and the league it is ranked for', async () => {
+    renderBoard(respondWith(publication(FOUR_POSITIONS)));
+    await screen.findAllByText('Test Passer');
+    expect(
+      screen.getByText(/Ranked by projected dynasty value over replacement · 12-team Superflex/),
+    ).toBeInTheDocument();
+    // Desktop column header and mobile card label both name it.
+    expect(screen.getAllByText('PlayerTicker Value').length).toBeGreaterThan(0);
+    expect(screen.getByText('Rank')).toBeInTheDocument();
+  });
+
+  it('keeps the OVERALL rank visible under a position filter', async () => {
+    // A filter narrows what is shown; it does not renumber the board. A tight end who is 4th
+    // overall is 4th overall while the TE filter is on — showing "1" there would invent a
+    // second ranking out of a view state.
+    renderBoard(respondWith(publication(FOUR_POSITIONS)), '/board?pos=TE');
+    await waitFor(() => expect(boardCount()).toMatch(/1 of 4 published players/));
+    const row = (await screen.findAllByText('Test End'))[0].closest('tr')!;
+    expect(within(row).getByText('4')).toBeInTheDocument();
+    expect(within(row).queryByText('1')).not.toBeInTheDocument();
+  });
+});
+
+describe('The Board — coverage and confidence are independent', () => {
+  const mixed = [
+    apiEntry({
+      canonicalId: 'pt-acc-high',
+      position: 'WR',
+      name: 'Well Evidenced Receiver',
+      weekly: 64,
+      dynastyValue: 64,
+      modelTier: 'ACCESSIBLE',
+      honestyState: 'ESTIMATED',
+      readiness: 'NOT_READY',
+      confidenceScore: 83,
+      confidenceLabel: 'HIGH',
+      materialMissingInputs: ['Route participation (no approved RB/TE method for converting it to career routes)'],
+    }),
+    apiEntry({
+      canonicalId: 'pt-full-low',
+      position: 'QB',
+      name: 'Thin Full Model Passer',
+      weekly: 70,
+      dynastyValue: 70,
+      confidenceScore: 22,
+      confidenceLabel: 'LOW',
+      // Distinct from the confidence label, so the assertions below cannot pass on the wrong cell.
+      volatilityLabel: 'HIGH',
+    }),
+  ];
+
+  it('shows Standard coverage WITH high confidence — the combination that used to be impossible', async () => {
+    // Confidence used to start from a ceiling of 74 and then subtract the same 21 points of
+    // tier-wide coverage gaps from every accessible player, so 53 was the highest score any of
+    // them could reach and HIGH was unreachable for 82% of the board. Coverage says which
+    // inputs existed; confidence says how well evidenced this player is within them.
+    renderBoard(respondWith(publication(mixed)));
+    const row = (await screen.findAllByText('Well Evidenced Receiver'))[0].closest('tr')!;
+    expect(within(row).getByText('Standard')).toBeInTheDocument();
+    expect(within(row).getByText('HIGH')).toBeInTheDocument();
+    expect(within(row).getByText('83')).toBeInTheDocument();
+  });
+
+  it('shows Full coverage WITH low confidence — the same independence in the other direction', async () => {
+    renderBoard(respondWith(publication(mixed)));
+    const row = (await screen.findAllByText('Thin Full Model Passer'))[0].closest('tr')!;
+    expect(within(row).getByText('Full')).toBeInTheDocument();
+    expect(within(row).getByText('LOW')).toBeInTheDocument();
+    expect(within(row).getByText('22')).toBeInTheDocument();
+  });
+
+  it('says in words that coverage is not confidence', async () => {
+    renderBoard(respondWith(publication(mixed)));
+    await screen.findAllByText('Well Evidenced Receiver');
+    await waitFor(() => expect(provenanceText()).toContain('Coverage is not confidence'));
+  });
+
+  it('gives Coverage and Confidence their own columns', async () => {
+    renderBoard(respondWith(publication(mixed)));
+    await screen.findAllByText('Well Evidenced Receiver');
+    expect(screen.getByText('Coverage')).toBeInTheDocument();
+    expect(screen.getAllByText(/^Confidence/).length).toBeGreaterThan(0);
+    // The old single "Model" column, which conflated the two, is gone.
+    expect(screen.queryByText('Model')).not.toBeInTheDocument();
+  });
+});
+
+describe('The Board — honest absence', () => {
+  it('publishes an accessible valuation as valued, not as unavailable', async () => {
+    // The backend used to publish honesty UNAVAILABLE for every accessible player, because
+    // `honestyState` read the FULL model's readiness — NOT_READY on this tier by construction.
+    // All 272 accessible players on the live board carried it, beside a complete valuation.
+    const entries = [
+      apiEntry({
+        canonicalId: 'pt-acc',
+        position: 'RB',
+        name: 'Accessible Back',
+        weekly: 61,
+        dynastyValue: 61,
+        modelTier: 'ACCESSIBLE',
+        honestyState: 'ESTIMATED',
+        readiness: 'NOT_READY',
+      }),
+    ];
+    renderBoard(respondWith(publication(entries)));
+    const row = (await screen.findAllByText('Accessible Back'))[0].closest('tr')!;
+    expect(within(row).queryByText('UNAVAILABLE')).not.toBeInTheDocument();
+    expect(within(row).getByText('61.0')).toBeInTheDocument();
+    expect(within(row).getByText('Standard')).toBeInTheDocument();
+  });
+
+  it('is honest that PlayerTicker movement needs more than one snapshot', async () => {
+    renderBoard(respondWith(publication(FOUR_POSITIONS)));
+    await screen.findAllByText('Test Passer');
+    await waitFor(() =>
+      expect(provenanceText()).toMatch(
+        /Movement in PlayerTicker Value appears once multiple PlayerTicker snapshots have been collected/,
+      ),
+    );
+  });
+
+  it('shows no Edge at all for a player the market does not cover', async () => {
+    renderBoard(
+      routed(
+        publication(FOUR_POSITIONS),
+        marketResponse([{ canonicalPlayerId: 'pt-qb', value: 10256, overallRank: 1 }]),
+      ),
+    );
+    const row = (await screen.findAllByText('Test Receiver'))[0].closest('tr')!;
+    expect(within(row).getByLabelText('not covered by this market source')).toBeInTheDocument();
+    expect(within(row).getByLabelText('no comparison available')).toBeInTheDocument();
+    // Not a zero, and not "="; "=" would assert the two sides agree, which is a claim.
+    expect(within(row).queryByText('0')).not.toBeInTheDocument();
+    expect(within(row).queryByText('=')).not.toBeInTheDocument();
   });
 });

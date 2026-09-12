@@ -71,6 +71,15 @@ export interface AccessibleConfidence {
   readonly label: ConfidenceLabel;
   /** Stable, sorted codes naming every confidence deduction that applied. */
   readonly penaltyCodes: readonly string[];
+  /**
+   * The sample term the score starts from, before any deduction: how much of this player's
+   * valuation is carried by football we watched him play rather than by the league prior.
+   * Published so a reader can separate "we barely have a sample" from "we have a sample and
+   * something specific about him is unknown" — two very different reasons to be unsure.
+   */
+  readonly sampleScore: number;
+  /** Career games the sample term was computed over. */
+  readonly gamesObserved: number;
 }
 
 export interface AccessibleOutput {

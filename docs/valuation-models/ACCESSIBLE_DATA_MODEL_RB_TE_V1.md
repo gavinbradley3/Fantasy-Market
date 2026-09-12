@@ -55,7 +55,7 @@ all. Every efficiency and share field was reported `UNAVAILABLE` despite being c
 | Tier | Meaning |
 |---|---|
 | `FULL` | The frozen engine ran on its complete declared input set. Unchanged by this work. |
-| `ACCESSIBLE` | This model ran on the acquirable input set. Fewer inputs, lower confidence ceiling, **a different model**. |
+| `ACCESSIBLE` | This model ran on the acquirable input set. Fewer inputs, **a different model** — but not, on that account, a less reliable valuation: see §6. |
 | `INSUFFICIENT` | Neither model had enough evidence. No value published. |
 
 The tier is published per player (`model_tier` in the AIL envelope, `modelTier` on the API and
@@ -357,30 +357,95 @@ remains the largest single component.
 
 ## 6. Confidence
 
-Ceiling **74** — strictly inside MEDIUM. **An accessible-tier valuation can never be HIGH
-confidence**, however clean the box score, because the inputs that would confirm a role are
-absent for every player in the tier.
+**Confidence and coverage are separate questions, and they are published separately.**
 
-Penalties (subtracted from the ceiling):
+| | Question | Property of | Published as |
+|---|---|---|---|
+| Coverage | How much of the intended input set exists for this valuation? | the model **tier** — identical for every player it values | `modelTier` → Full / Standard / Limited, plus `materialMissingInputs` |
+| Confidence | How stable is **this player's** valuation, given the evidence actually available? | the **player** | `confidence.score` / `confidence.label` |
+
+### Why they were split
+
+Confidence used to start from a ceiling of 74 and then subtract three penalties every
+accessible player carried by construction — no participation data, no red-zone usage, no team
+context — worth 21 points between them. The arithmetic was `74 − 21 = 53`, so 53 was the best
+score any running back, receiver or tight end could reach, HIGH was unreachable for 82% of the
+board, and the LOW/MEDIUM line at 50 turned on roughly three points of genuine per-player
+difference. Bijan Robinson, the board's most valuable asset, scored 53; Ashton Jeanty at ninth
+scored 47 and was labelled LOW. Neither number described how much to trust the valuation — both
+described which columns the tier lacks, which is the same for all of them.
+
+A constant subtracted from every member of a set carries no information about any member of it.
+So the constants moved to coverage, where they are a true statement, and confidence now measures
+only what varies between players.
+
+There is deliberately **no ceiling**. Limited coverage does not imply an unreliable valuation: a
+receiver with five seasons of measured usage is well evidenced for what this model asks of him,
+whatever a premium feed would add. `Coverage: Standard` with `Confidence: High` is a legitimate
+and common combination.
+
+### The sample term
+
+Confidence **starts** from sample size rather than deducting for it, because every other number
+the model produces rests on it. The base is the shrinkage weight the model already declares in
+`VOLUME_PSEUDO_GAMES`:
+
+```
+confidence base = 100 × n / (n + 3)        n = career games observed
+```
+
+| n | 1 | 4 | 8 | 17 | 48 | 90 |
+|---|---|---|---|---|---|---|
+| base | 25 | 57 | 73 | 85 | 94 | 97 |
+
+This replaced two threshold penalties (14 for "under 8 career games", a further 12 for "under
+4"). Both were cliffs — a player at 8 games scored 14 points above one at 7 — and both were
+sized against a ceiling that no longer exists. Read against the full 0–100 range they were far
+too small: a running back with **four** career games came out at 80 and was labelled HIGH, which
+is a worse falsehood than the ceiling that was removed. The shrinkage weight has no cliff, is
+already justified in football terms, and is the model's own existing statement about sample size
+rather than a second one invented for the confidence scale. It cannot reach 100, which is
+correct and is not a coverage cap: no finite number of games makes a projection certain.
+
+### Penalties (subtracted from the sample term)
+
+Every one names something about **this player** that could not be established.
 
 | Code | Cost | When |
 |---|---|---|
-| `NO_PARTICIPATION_DATA` | 10 | Always (tier-wide) |
-| `NO_HIGH_VALUE_USAGE_DATA` | 6 | Always (tier-wide) |
-| `NO_TEAM_CONTEXT` | 5 | Always (tier-wide) |
-| `SPARSE_CAREER_SAMPLE` | 14 | Fewer than 8 career games |
-| `MINIMAL_CAREER_SAMPLE` | 12 | Fewer than 4 career games (cumulative with the above) |
 | `AGE_UNKNOWN` | 12 | No birth date, so no age curve |
 | `STALE_PRODUCTION` | 8 | No game within 365 days of the as-of |
 | `NO_TRAJECTORY` | 6 | Only one season observed |
 | `STATUS_UNATTESTED` | 6 | No roster status attested at the as-of |
+| `NO_TARGET_DEPTH` | 5 | Air yards never published for the role window (WR) |
 | `NO_TEAM_SHARES` | 4 | Shares not reconstructible |
+| `DRAFT_ROUND_UNKNOWN` | 4 | No draft round attested (WR) |
 
-Live distribution after the audit fixes: RB 91 MEDIUM / 135 LOW; TE 87 MEDIUM / 80 LOW.
+The three tier-wide codes (`NO_PARTICIPATION_DATA`, `NO_HIGH_VALUE_USAGE_DATA`,
+`NO_TEAM_CONTEXT`) no longer exist. What they described is reported through
+`materialMissingInputs` and the published tier.
 
-The published confidence for an accessible-tier player is this model's own score, capped so it
-can only move downward — the AIL's public confidence describes the *full* model's input
-completeness, which is by definition incomplete here.
+### Publication
+
+The published confidence for an accessible-tier player **is** this model's own score. It used to
+be `min(AIL public confidence, this score)`; that cap described the completeness of the *full*
+model's input set — incomplete by definition here — and on WR it dominated, because the frozen
+engine runs before being stood down for want of route evidence and its own confidence came out
+at or below 10 for every receiver.
+
+### Live distribution
+
+616 players, seasons 2025, as-of `2026-09-11`:
+
+| Tier | n | HIGH | MEDIUM | LOW | none |
+|---|---|---|---|---|---|
+| Full (QB) | 81 | 0 | 4 | 77 | 0 |
+| Standard | 495 | 209 | 225 | 61 | 0 |
+| Limited | 40 | — | — | — | 40 |
+
+Accessible confidence: min 11, p25 61, median 73, p75 77, max 79. The maximum is bounded by the
+ingested career window — one season, so at most 17 games and a sample term of 85 — not by any
+tier rule.
 
 ---
 
@@ -412,7 +477,7 @@ As-of `2026-02-15`, seasons 2023–2025:
 | TE | 180 | **167** | **92.8** | 0 | 167 | 13 | `NO_RECEIVING_OPPORTUNITY` |
 | **Total** | **868** | **814** | **93.8** | 421 | 393 | 54 | |
 
-Confidence distribution: RB 106 MEDIUM / 120 LOW; TE 92 MEDIUM / 75 LOW. No HIGH, by design.
+Confidence distribution at that as-of predates the coverage/confidence split (§6); see the live distribution there for the current scheme.
 
 `career_routes` is no longer a universal blocker for any position. Every remaining unvalued RB
 and TE has a player-specific reason.

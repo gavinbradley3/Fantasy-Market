@@ -117,9 +117,13 @@ describe('production path: every position reaches its engine', () => {
 
   it.each(CROSSING)('%s is honest about how thin the evidence is', (position, gsis) => {
     const { result } = runFor(gsis, position);
-    // Values produced from mostly-unavailable inputs must NOT claim high confidence.
+    // Values produced from mostly-unavailable inputs must NOT claim high confidence. These
+    // fixtures carry four career games, so whichever model values them says so: the sample
+    // term alone caps the accessible score at 57, and the frozen QB engine's own confidence
+    // is lower still.
     expect(result.honestyState).not.toBe('COMPLETE');
-    expect(result.publicConfidenceLabel).toBe('LOW');
+    expect(result.publicConfidenceLabel).not.toBe('HIGH');
+    expect(result.publishedConfidenceScore).toBeLessThan(60);
     // The engine's own fallback log names every documented fallback it had to use.
     const out = result.engineOutput as unknown as { fallback_log: unknown[] };
     expect(Array.isArray(out.fallback_log)).toBe(true);
@@ -149,9 +153,15 @@ describe('positions blocked by an unavailable NON-NULLABLE input stay blocked at
     // The FROZEN engine is still not run, and no full-model value is invented for it.
     expect(result.engineInvoked).toBe(false);
     expect(result.engineOutput).toBeNull();
-    // Readiness/honesty continue to describe the FULL model's input completeness, which is
-    // genuinely incomplete — the accessible tier does not launder that away.
-    expect(result.honestyState).toBe('UNAVAILABLE');
+    // READINESS continues to describe the FULL model's input completeness, which is genuinely
+    // incomplete — the accessible tier does not launder that away.
+    expect(result.readinessStatus).toBe('NOT_READY');
+    // HONESTY describes the model that produced the published value, and one did: the
+    // accessible model, from observed box-score football. It used to read UNAVAILABLE here,
+    // which was a verdict on the blocked full model printed beside a complete valuation — on
+    // the live board all 272 accessible players carried it. It can never read VERIFIED either;
+    // ESTIMATED is the honest word for a reduced-input model that guessed at nothing.
+    expect(result.honestyState).toBe('ESTIMATED');
   });
 
   it.each(ROUTE_BLOCKED)(
@@ -165,10 +175,11 @@ describe('positions blocked by an unavailable NON-NULLABLE input stay blocked at
       expect(result.modelTier).toBe('ACCESSIBLE');
       expect(result.accessibleOutput).not.toBeNull();
       expect(result.accessibleOutput!.positionValue).toBeGreaterThan(0);
-      // Confidence is now published, and it comes from the accessible model — never HIGH.
+      // Confidence is published, and it is the accessible model's own — not capped by the AIL's
+      // view of the FULL model's coverage, which is incomplete by definition here.
       expect(result.publicConfidenceLabel).not.toBeNull();
-      expect(result.publicConfidenceLabel).not.toBe('HIGH');
       expect(result.publicConfidenceLabel).toBe(result.accessibleOutput!.confidence.label);
+      expect(result.publishedConfidenceScore).toBe(result.accessibleOutput!.confidence.score);
       // The reduced valuation is never presented as a full-model one.
       expect(result.engineOutput).toBeNull();
       expect(result.accessibleOutput!.provenance.unavailableFields).toContain('career_routes');

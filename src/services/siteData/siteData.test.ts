@@ -4,7 +4,7 @@
 // production read, and old data is never labelled current.
 
 import { describe, expect, it } from 'vitest';
-import { ApiClient, ApiError, isApiError } from '@/services/api';
+import { ApiClient, ApiError, fetchMarket, isApiError } from '@/services/api';
 import { resolveSiteDataSource } from './source';
 import { fetchMarketDocument, fetchStatusDocument } from './documents';
 import { describeAge, describeFreshness } from './freshness';
@@ -167,3 +167,80 @@ describe('freshness wording', () => {
     expect(describeAge(null)).toBeNull();
   });
 });
+
+describe('the market read follows the resolved source', () => {
+  it('requests the STATIC market document in production, not the API route', async () => {
+    // THE DEFECT. `fetchMarket` hard-coded `/market`, so the deployed app asked for
+    // `<base>/data/market` — a URL the export does not write. Every production page therefore
+    // read the market as unavailable, and because the market is supplementary by design the
+    // board rendered fine and said nothing was wrong: 616 em-dashes and no Edge column.
+    const seen: string[] = [];
+    const client = {
+      getJson: async (path: string) => {
+        seen.push(path);
+        return marketBody();
+      },
+    } as unknown as ApiClient;
+    const source = resolveSiteDataSource({ BASE_URL: '/Fantasy-Market/' });
+    await fetchMarket(client, {}, source.marketPath!);
+    expect(seen).toEqual(['/market-latest.json']);
+  });
+
+  it('appends no query string to a static document, which has no lens to select', async () => {
+    const seen: string[] = [];
+    const client = {
+      getJson: async (path: string) => {
+        seen.push(path);
+        return marketBody();
+      },
+    } as unknown as ApiClient;
+    await fetchMarket(client, { format: 'dynasty_superflex' }, '/market-latest.json');
+    expect(seen).toEqual(['/market-latest.json']);
+    // The dev API route still takes its parameters.
+    await fetchMarket(client, { format: 'dynasty_1qb' }, '/market');
+    expect(seen[1]).toBe('/market?format=dynasty_1qb');
+  });
+
+  it('validates the exported document against the SAME contract the API route uses', async () => {
+    // `market-latest.json` is written by `toMarketResponse`, the projection the HTTP route
+    // returns, so one schema covers both and the two surfaces cannot drift.
+    const client = { getJson: async () => marketBody() } as unknown as ApiClient;
+    const parsed = await fetchMarket(client, {}, '/market-latest.json');
+    expect(parsed.quotes[0].canonicalPlayerId).toBe('pt-1');
+    expect(parsed.attribution.publisher).toBe('DynastyProcess');
+  });
+});
+
+function marketBody() {
+  return {
+    source: 'dynastyprocess',
+    format: 'dynasty_superflex',
+    attribution: {
+      publisher: 'DynastyProcess',
+      url: 'https://example.test',
+      licence: 'MIT',
+      derivedFrom: null,
+      refreshCadence: 'weekly',
+      usage: 'comparison only',
+    },
+    sourceTimestamp: '2026-09-11T00:00:00.000Z',
+    sourceVersion: null,
+    capturedAt: '2026-09-11T21:33:45.639Z',
+    captureCount: 2,
+    quoteCount: 1,
+    quotes: [
+      {
+        canonicalPlayerId: 'pt-1',
+        source: 'dynastyprocess',
+        format: 'dynasty_superflex',
+        value: 10256,
+        overallRank: 1,
+        positionRank: 1,
+        sourceTimestamp: '2026-09-11T00:00:00.000Z',
+        ingestedAt: '2026-09-11T21:33:45.639Z',
+        freshness: 'fresh',
+        provenance: 'external',
+      },
+    ],
+  };
+}
