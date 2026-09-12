@@ -98,6 +98,18 @@ export interface PlayerRecord extends NormalizedRecordBase {
   readonly draftRound: number | null;
   readonly status: NormalizedStatus | null;
   readonly injuryDesignation: string | null;
+  /**
+   * When the source that supplied `team`/`status`/`injuryDesignation` attested them.
+   *
+   * WHY THIS IS SEPARATE FROM `sourceTimestamp`. After a multi-provider merge, one record's
+   * fields no longer share one provider or one timestamp: biography comes from the most
+   * authoritative source and time-varying facts from the most recent one. A single
+   * `sourceTimestamp` therefore cannot gate both, and using the wrong one either admits
+   * post-as-of evidence onto a historical board or withholds evidence that was valid for it.
+   *
+   * Absent on a single-provider record, where it is simply `sourceTimestamp`.
+   */
+  readonly timeVaryingAttestedAt?: string;
 }
 
 /** One roster membership snapshot (per team, per season/week). */

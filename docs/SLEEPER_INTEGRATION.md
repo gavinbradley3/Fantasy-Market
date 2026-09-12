@@ -126,6 +126,78 @@ therefore move a QB dynasty composite. The bound is small and computable — `AV
 largest possible swing (healthy ⇄ out) is about 89 AV points, or **≈2.7 dynasty points on a
 0–100 scale**, against ≈10.7 on weekly. Measure it with the report before enabling by default.
 
+## Audit: why enrichment moved RB/WR/TE dynasty values
+
+The first measured enrichment run moved 105 dynasty composites — RB mean |Δ| 5.31, TE 4.16,
+WR 2.77, QB 0.51 — even though all three accessible models weight availability at **exactly
+0.00** on dynasty. The weights were not the problem.
+
+### Root cause: one merge precedence for two kinds of fact
+
+`comparePrecedence` in `identityMerge.ts` ordered a canonical player's source records by **latest
+`sourceTimestamp` first**, with provider priority only the *third* key. Sleeper's players
+resource is a current-state snapshot carrying an HTTP `Last-Modified` of roughly now, while an
+nflverse release is dated when it was cut — so Sleeper was always "newer", and `firstNonNull`
+took **Sleeper's value for every scalar field**: age, seasons completed, draft round, position
+and name, not just availability.
+
+Age is the largest single dynasty weight in every accessible model, and the observed magnitudes
+are that ordering exactly:
+
+| position | dynasty AG weight | measured dynasty mean |Δ| |
+|---|---|---|
+| RB | 0.23 | 5.31 |
+| TE | 0.21 | 4.16 |
+| WR | 0.16 | 2.77 |
+| QB | ≈0.137 (AD 0.21 × age 0.65) | 0.51 |
+
+Sleeper also publishes age as a **current-state integer** where PlayerTicker derives it from a
+birth date at the as-of, so the value that was winning was both coarser and, for any historical
+board, answering a different question.
+
+### The fix: precedence by field class
+
+- **Time-varying** facts — team, roster status, injury designation — keep **recency-first**.
+  These are what an enrichment provider legitimately improves, and now the only fields it can
+  affect.
+- **Stable biographical** facts — age, seasons completed, draft round, position, name — use
+  **provider authority first**. Recency is not a measure of quality for a fact that does not
+  change with the news; it only says who was fetched last.
+
+Reproduced offline first, then held: `src/ingestion/sleeperMergeScope.test.ts` drives the full
+production path (ingest → normalized input → `runInference`) with a Sleeper payload that
+disagrees about age and agrees about availability. Before the fix, RB age went 25 → 29 and RB
+dynasty went **75.1 → 62.7**. After it, dynasty is identical and Sleeper's injury designation is
+still taken.
+
+### A second defect the fix exposed
+
+With biography and time-varying facts now coming from different providers, the merged record's
+single `sourceTimestamp` could no longer gate both. The as-of guard was reading the
+authoritative provider's earlier stamp, which would have admitted a Sleeper designation attested
+*after* the as-of onto a historical board. `PlayerRecord` now carries
+`timeVaryingAttestedAt` and the guard reads that instead.
+
+### Known limitation: provenance is per-record, not per-field
+
+`CanonicalPlayer` labels every field with one provider — the merged primary's. After a merge
+whose fields come from different providers, that label is right for biography and can be wrong
+for a time-varying field. This is why the measured run reported 196 players as
+`status=DIRECT/sleeper` when `resolvePointInTime` always prefers an nflverse roster row over any
+identity export's status: Sleeper had won the merge and relabelled a nflverse-derived value.
+Per-field provenance is the correct fix and is not yet implemented.
+
+### Why `active/rostered` was 0, and why it is correct
+
+`resolvePointInTime` resolves status as `roster ? ROSTER_TO_CANONICAL[roster.rosterStatus] : …`.
+**A weekly roster row always wins over an identity export.** Almost every board player has one,
+so Sleeper's status can never flip a rostered player, and no previously-`inactive` player could
+become `active/rostered`. That is the designed behaviour, not a join failure.
+
+The practical consequence is the important part: for status, enrichment is **structurally close
+to inert**, while for biography it was silently destructive. All it can genuinely add is an
+injury designation (8 of 396) and the cross-provider id union.
+
 ## Where Sleeper enters the system
 
 ### 1. Transport — `src/transport/providers/sleeper.ts`

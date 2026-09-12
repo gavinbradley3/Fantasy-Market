@@ -212,7 +212,11 @@ function resolvePointInTime(
   canonicalId: string,
   asOf: string,
 ): PointInTimeFacts {
-  const identityAttested = withinAsOf(asOf, rec.sourceTimestamp);
+  // Gated on the timestamp of the TIME-VARYING values, not the record's own. On a merged
+  // record those differ: biography is taken from the most authoritative provider and
+  // team/status/designation from the most recent one, so only the latter's stamp can say
+  // whether those values are evidence for this as-of.
+  const identityAttested = withinAsOf(asOf, rec.timeVaryingAttestedAt ?? rec.sourceTimestamp);
   const roster = latest(index.rostersByPlayer.get(canonicalId) ?? EMPTY, asOf);
   return {
     team: roster?.team ?? (identityAttested ? rec.team : null),
