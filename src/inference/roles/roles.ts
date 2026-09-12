@@ -260,6 +260,52 @@ export function classifyQBRoleStatus(s: QBRoleSignals): QBRoleStatus {
   }
   if (s.veteranBridgeSigned && s.nflSeasonsCompleted >= QB_ROLE.bridgeMinSeasons) return 'BRIDGE_STARTER';
   if (s.depthChartStatus === 'CO_STARTER' || s.twoQbStartSignal) return 'COMPETITION';
+
+  // A CURRENT STARTER IS NOT A BACKUP.
+  //
+  // Everything above this line asks whether a quarterback's RECORD qualifies him for a named
+  // rung. Nothing above it asks the simplest question there is — is he the starter right now —
+  // so a quarterback who is plainly his team's starter but fails both credential tests fell
+  // through to the catch-all and was published as a BACKUP.
+  //
+  // He fails them for reasons that have nothing to do with whether he holds the job:
+  //   ESTABLISHED_STARTER needs a 0.9 start rate AND 48 career starts. Brock Purdy started his
+  //     last 8 appearances and has 45 career starts, three short.
+  //   YOUNG_COMMITTED_STARTER needs a 0.8 start rate AND 4 seasons or fewer. Jacoby Brissett
+  //     started his last 8 appearances and is in his eleventh season.
+  //   BRIDGE_STARTER needs `veteranBridgeSigned`, which no free source publishes, so the rung
+  //     was unreachable and the state unused.
+  // Measured on a production-scale board, 28 of 81 quarterbacks read depth chart STARTER and
+  // role BACKUP at once — the pipeline contradicting itself about a third of the position.
+  //
+  // The consequence was not cosmetic. `role_status` sets competition pressure and half of
+  // organizational commitment, which drive Role Security — so a starting quarterback was valued
+  // with a backup's 0.85 competition pressure and 0.20 commitment.
+  //
+  // The rung below is deliberately the LAST one: every credentialed state still wins, and this
+  // only catches what would otherwise have been called a backup. It introduces no threshold and
+  // no new state.
+  //
+  // EVERYONE WHO REACHES IT LANDS ON BRIDGE_STARTER, whatever their age — and that is the
+  // conservative choice, not a convenient one. The obvious alternative was to route the young
+  // ones to YOUNG_COMMITTED_STARTER, but that state carries the HIGHEST organizational
+  // commitment in the table (0.95, above ESTABLISHED_STARTER's 0.92), and a quarterback who
+  // reaches this rung is by definition one whose record met NEITHER credential test. Awarding
+  // him the strongest commitment rating in the model for failing both would be inflation
+  // wearing a correction's clothes.
+  //
+  // BRIDGE_STARTER is what the consuming tables already describe: competition pressure 0.45 and
+  // commitment 0.45 — "starting now, but neither secure nor a long-term commitment". That is
+  // the honest reading of a Kirk Cousins, a Brock Purdy three starts short of the established
+  // threshold, or a young starter who has not yet held the job for a full season. It sits below
+  // both credentialed starter states on both tables, so this rung can only move a player out of
+  // BACKUP and never above someone the ladder actually credentialed.
+  //
+  // It widens the rung's trigger from "signed this offseason as the expected starter" to "holds
+  // the job now without the record that makes him established". The narrower trigger needed
+  // `veteranBridgeSigned`, which no free source publishes, so the rung was unreachable and the
+  // state named no one.
+  if (s.depthChartStatus === 'STARTER') return 'BRIDGE_STARTER';
   return 'BACKUP';
 }
 

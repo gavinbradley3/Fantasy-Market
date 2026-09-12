@@ -489,13 +489,36 @@ export function buildEvidenceFor(
       const roleWindowStarts = [...startedIds].filter((id) => roleWindowIds.has(id)).length;
       const recentStartRate = roleWindowGames > 0 ? roleWindowStarts / roleWindowGames : null;
 
+      // THE DEPTH CHART IS A QUESTION ABOUT NOW, AND IT NEEDS A WINDOW THAT ASKS ABOUT NOW.
+      //
+      // `classifyQBDepthChartStatus` in the spec reads LAST GAME snap share: one game, the most
+      // recent one. This code answered it with `recentStartRate` — the share of the newest
+      // SEVENTEEN appearances that were starts — which is a different question with a different
+      // answer. A seventeen-appearance average for a quarterback who plays part-time can reach
+      // back two or three seasons, so it reports the job he used to have.
+      //
+      // Measured on a production-scale board: Anthony Richardson started 1 of his last 8
+      // appearances and still read STARTER, because seventeen appearances back he was starting.
+      // Teddy Bridgewater (3 of 8), Joshua Dobbs (3 of 8) and Brandon Allen (2 of 8) read the
+      // same way. That is stale evidence presented as current.
+      //
+      // The window is `RECENT_GAME_WINDOW` — the engine's OWN declared recent window, which it
+      // already cross-validates `recent_starts` against — rather than a new constant invented
+      // here. The 0.5 cut is the spec's own. One game would be closer to the letter of the spec
+      // but would flip a starter to BACKUP for a single missed week, so the shortest window the
+      // model already declares is used instead.
+      const currentWindowIds = new Set(newestFirst.slice(0, RECENT_GAME_WINDOW).map((r) => r.gameId));
+      const currentWindowGames = Math.min(rows.length, RECENT_GAME_WINDOW);
+      const currentWindowStarts = [...startedIds].filter((id) => currentWindowIds.has(id)).length;
+      const currentStartRate = currentWindowGames > 0 ? currentWindowStarts / currentWindowGames : null;
+
       const rosterStatus = rosterStatusFor(index.rostersByPlayer.get(canonicalId) ?? EMPTY, asOf);
       const depthChartStatus: QBDepthChartStatus =
         team === null
           ? 'FREE_AGENT'
           : rosterStatus === 'PRACTICE_SQUAD'
             ? 'PRACTICE_SQUAD'
-            : recentStartRate !== null && recentStartRate >= QB_STARTER_START_RATE
+            : currentStartRate !== null && currentStartRate >= QB_STARTER_START_RATE
               ? 'STARTER'
               : 'BACKUP';
 

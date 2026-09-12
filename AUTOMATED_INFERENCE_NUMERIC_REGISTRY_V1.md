@@ -262,12 +262,71 @@ starting → `BACKUP`; practice-squad roster → `PRACTICE_SQUAD`; no team → `
 | 5 | rookie (0 seasons) with `depth_chart_status ∈ {STARTER,CO_STARTER}` | `ROOKIE_EXPECTED_STARTER` |
 | 6 | veteran signed this offseason as expected starter (S9) & `nfl_seasons_completed ≥ 5` | `BRIDGE_STARTER` |
 | 7 | `depth_chart_status = CO_STARTER` OR two-QB start signal | `COMPETITION` |
-| 8 | else | `BACKUP` |
+| 8 | `depth_chart_status = STARTER` | `BRIDGE_STARTER` |
+| 9 | else | `BACKUP` |
 
 Rule 3's `AND starts.provenance = DERIVED` is the **D2 guardrail** (see §9.3):
 `ESTABLISHED_STARTER` is unreachable when starts are inferred. `career_starts ≥ 48`
 and `recent_start_rate ≥ 0.9` thresholds: FOOTBALL_RATIONALE (~3 seasons of starts).
 Downstream, the QB engine maps `role_status` to role-security/commitment — unchanged.
+
+### Rule 8 — a current starter is not a backup
+
+Rules 1–7 all ask whether a quarterback's RECORD qualifies him for a named rung. None of
+them asks the simplest question there is: **is he the starter right now.** So a quarterback
+who plainly holds the job but fails both credential tests fell through to rule 9 and was
+published as a `BACKUP`.
+
+He fails them for reasons that have nothing to do with whether he holds the job:
+
+* rule 3 needs a 0.90 start rate **and** 48 career starts — Brock Purdy started his last 8
+  appearances with 45 career starts, three short;
+* rule 4 needs a 0.80 start rate **and** ≤4 seasons — Jacoby Brissett started his last 8
+  appearances in his eleventh season;
+* rule 6 needs a signed-veteran-bridge event, which no free source publishes, so the rung
+  was unreachable and `BRIDGE_STARTER` named nobody.
+
+Measured on a production-scale board (81 quarterbacks, nine-season career window):
+**28 read `depth_chart_status = STARTER` and `role_status = BACKUP` at the same time** —
+the pipeline contradicting itself about a third of the position. The consequence was not
+cosmetic: `role_status` sets competition pressure (§4.1) and half of organizational
+commitment (§5.2), so a starting quarterback was valued with a backup's 0.85 pressure and
+0.20 commitment.
+
+Rule 8 is deliberately LAST, so every credentialed state still wins and it catches only what
+rule 9 would otherwise have called a backup. It introduces no threshold and no new state.
+
+**Everyone who reaches it lands on `BRIDGE_STARTER`, whatever their age.** Routing the young
+ones to `YOUNG_COMMITTED_STARTER` was the obvious alternative and is wrong: that state carries
+the highest organizational commitment in the model (0.95, above `ESTABLISHED_STARTER`'s 0.92),
+and a quarterback reaching rule 8 is by definition one whose record met NEITHER credential
+test. `BRIDGE_STARTER` is what the consuming tables already describe — pressure 0.45,
+commitment 0.45, "starting now, but neither secure nor a long-term commitment" — and it sits
+below both credentialed starter states on both tables, so rule 8 can only move a player out of
+`BACKUP` and never above someone the ladder actually credentialed. This widens rule 6's state
+from "signed this offseason as the expected starter" to "holds the job now without the record
+that makes him established".
+
+### `depth_chart_status` is a question about NOW
+
+The ladder above reads *last game* snap share. nflverse publishes no snap columns, so the
+production pipeline substitutes official starts — but it was taking them over the newest
+**seventeen appearances**, which is a different question. Seventeen appearances of a part-time
+quarterback reach back two or three seasons, so the field reported the job he used to have.
+
+On the same board, Anthony Richardson had started **1 of his last 8** appearances and still
+read `STARTER`; Teddy Bridgewater (3 of 8), Joshua Dobbs (3 of 8) and Brandon Allen (2 of 8)
+read the same way.
+
+The window is now `RECENT_GAME_WINDOW` (8) — the engine's own declared recent window, which it
+already cross-validates `recent_starts` against — rather than a constant invented for this
+purpose. The 0.5 cut is unchanged. One game would be closer to the letter of the ladder but
+would flip a starter to `BACKUP` for a single missed week, so the shortest window the model
+already declares is used instead. `recent_start_rate` (the 17-game role window, §9.2) is
+untouched and still feeds rules 3 and 4 and §6.2 starter stability.
+
+Every game is filtered by the as-of before any window is taken, so both fields remain
+point-in-time reproducible: a replay at an older as-of sees the role that was true then.
 
 ---
 
