@@ -64,7 +64,10 @@ describe('refresh-run persistence', () => {
     const { store } = openStore();
     const outcome = persistRefreshResult(store, { result, inferenceBuilds: builds, requiredProviders: ['nflverse'], ...META });
     expect(outcome.status).toBe('partial');
-    expect(outcome.publishable).toBe(false);
+    // Publishable: the only failure was Sleeper, which is enrichment and not a required
+    // provider. A missing enrichment is published as an absent field, not as an absent board.
+    expect(outcome.publishable).toBe(true);
+    expect(store.getRefreshRun(outcome.runId)!.run.requiredFailure).toBe(false);
     const view = store.getRefreshRun(outcome.runId)!;
     // The failed sleeper source is recorded as a failure with a safe, redacted diagnostic.
     const sleeper = view.sources.find((s) => s.provider === 'sleeper')!;

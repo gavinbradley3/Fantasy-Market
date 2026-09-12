@@ -53,6 +53,79 @@ players  403  an intermediary refused the request (403, x-deny-reason: host_not_
 
 ---
 
+## Enabling enrichment, and the gate that had to be fixed first
+
+```bash
+npm run ingest -- --sleeper [...]
+npm run report:sleeper-enrichment -- --baseline .local/base.db --enriched .local/slp.db
+```
+
+### What enrichment is for
+
+nflverse publishes a player `status` but no injury feed, so `inactive` conflates two very
+different states: a player on injured reserve, and a free agent between contracts. **396 of 867
+board entries — 46% — sit in that state.** Sleeper's players resource carries a per-player injury
+designation, which splits it. `toAccessibleAvailability` already reads one when present; without
+enrichment that branch never fires.
+
+### A defect the first `--sleeper` run exposed
+
+Requesting enrichment with Sleeper unreachable **published nothing**:
+
+```
+published: false   entryCount: 0
+run status: partial   required_failure: 0   success 17 / failure 1
+```
+
+Seventeen nflverse sources succeeded, the snapshot was built, every player was valued — and an
+867-player board became zero entries because one optional provider was unreachable.
+
+The cause was the publication gate reading the wrong signal. A run's `status` goes to `'partial'`
+when **any** source fails, including an optional one, and both `persistRefreshResult` and
+`publishBoard` gated on `status === 'success'`. The signal that actually answers "is this board
+trustworthy" was already computed from the refresh policy's `requiredProviders` and already
+stored on the run: `requiredFailure`. Both gates now read that instead, and `publishBoard`
+additionally rejects any run in which a required provider failed.
+
+A partial run that lost only enrichment has a complete board built from complete required
+evidence. What it is missing is an enrichment, and **a missing enrichment is published as an
+absent field, not as an absent board.**
+
+### Degrade behaviour, verified
+
+Two replays from identical captures, one with `--sleeper` against a blocked Sleeper and one
+without:
+
+| | baseline | `--sleeper`, Sleeper blocked |
+|---|---|---|
+| published | yes | **yes** |
+| entries | 867 | **867** |
+| board checksum | `board-4de9fd8f777dc2b2` | **`board-4de9fd8f777dc2b2`** |
+| players lost | — | **0** |
+| weekly / dynasty / confidence movement | — | **none** |
+| the 396 ambiguous players | `inactive` | **396 unresolved** — not assumed healthy, not assumed injured |
+
+Same checksum: with Sleeper down, `--sleeper` produces a board byte-identical to nflverse-only.
+`unresolved` is its own bucket in the report and is never folded into "genuinely unrostered",
+because Sleeper not carrying a player is a gap in the join, not evidence about his health.
+
+### Why dynasty values cannot move
+
+All three accessible models weight availability at **exactly 0.00 on the dynasty horizon**
+(`AV: 0.0` in the RB, TE and WR horizon tables). Availability is a statement about this week; a
+dynasty value is a statement about years. So no injury designation, however severe, can move a
+dynasty composite for the 712 accessible entries — a property of the weights rather than an
+observation about one board. `availability cannot move a dynasty value` in
+`src/accessible/models.test.ts` asserts it across all nine availability states, and also asserts
+that weekly *does* move, so it cannot pass by being unwired.
+
+QB is the exception and is not invariant: it is a FULL-tier engine whose spec assigns `AV: 0.03`
+on DYNASTY, and its availability reaches the engine through `probability_active`. Enrichment can
+therefore move a QB dynasty composite. The bound is small and computable — `AV` is
+`0.7·(100·probability_active) + 0.2·injuryStatusScore + 0.1·career_start_availability`, so the
+largest possible swing (healthy ⇄ out) is about 89 AV points, or **≈2.7 dynasty points on a
+0–100 scale**, against ≈10.7 on weekly. Measure it with the report before enabling by default.
+
 ## Where Sleeper enters the system
 
 ### 1. Transport — `src/transport/providers/sleeper.ts`

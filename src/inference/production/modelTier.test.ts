@@ -9,7 +9,7 @@ import { ingest, buildNormalizedInferenceInput } from '@/ingestion/buildInput';
 import type { NormalizedSnapshot } from '@/ingestion/snapshot';
 import { AS_OF, fourPositionNflverseSource } from '@/ingestion/__fixtures';
 import { runInference } from './runInference';
-import { blockedOnlyByPremiumInputs, PREMIUM_ONLY_FIELDS, decideTier } from './modelTier';
+import { blockedOnlyByPremiumInputs, PREMIUM_ONLY_FIELDS, decideTier, toAccessibleAvailability } from './modelTier';
 import type { ProductionResult } from './types';
 
 function idOf(snapshot: NormalizedSnapshot, gsis: string): string {
@@ -292,5 +292,47 @@ describe('point-in-time correctness and determinism', () => {
       });
       expect(input!.evidence.production).toBeDefined();
     }
+  });
+});
+
+
+describe('Sleeper injury enrichment — the join that splits an ambiguous `inactive`', () => {
+  // nflverse publishes a player status but no injury feed, so `inactive` conflates a player on
+  // injured reserve with a free agent between contracts. 396 of 867 board entries — 46% — sit
+  // in that state. Sleeper's players resource carries a per-player designation, which arrives
+  // as `injury_designation` on the canonical player and splits the state here.
+  const state = (status: string | null, designation: string | null) =>
+    toAccessibleAvailability(
+      status === null
+        ? { present: false, reason: 'NOT_PROVIDED' }
+        : { present: true, value: status as 'active', provenance: 'DIRECT', provider: 'sleeper', sourceTimestamp: AS_OF },
+      designation === null
+        ? { present: false, reason: 'NOT_PROVIDED' }
+        : { present: true, value: designation, provenance: 'DIRECT', provider: 'sleeper', sourceTimestamp: AS_OF },
+    );
+
+  it('reports an unenriched `inactive` as NOT_ROSTERED, never as injured', () => {
+    // This is the nflverse-only reading, and it is the conservative one: without a designation
+    // there is no evidence of injury, and claiming one would be inventing it.
+    expect(state('inactive', null)).toBe('NOT_ROSTERED');
+  });
+
+  it('splits an injured status into the designation Sleeper actually supplied', () => {
+    expect(state('injured', 'Out')).toBe('OUT');
+    expect(state('injured', 'IR')).toBe('IR');
+    expect(state('injured', 'PUP')).toBe('PUP');
+    expect(state('injured', 'Doubtful')).toBe('DOUBTFUL');
+    expect(state('injured', 'Questionable')).toBe('QUESTIONABLE');
+  });
+
+  it('falls back to QUESTIONABLE for an injured player whose designation it cannot parse', () => {
+    // A designation exists, so the player IS hurt; the severity is what is unknown. The mildest
+    // injured state is the honest reading, not the most severe.
+    expect(state('injured', 'Sore ankle, game-time decision')).toBe('QUESTIONABLE');
+  });
+
+  it('never invents a designation for a player Sleeper did not carry', () => {
+    expect(state(null, null)).toBe('UNKNOWN');
+    expect(state('active', null)).toBe('HEALTHY');
   });
 });

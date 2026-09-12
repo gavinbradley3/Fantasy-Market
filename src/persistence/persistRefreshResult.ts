@@ -164,7 +164,10 @@ export function persistRefreshResult(store: PersistenceStore, params: PersistRef
     runId,
     status: result.status,
     snapshotId,
-    publishable: result.status === 'success' && persistedInference.length > 0,
+    // Publishable when no REQUIRED provider failed and there is a board to publish. NOT
+    // `status === 'success'`: that goes to 'partial' when any OPTIONAL source fails, which let
+    // one unreachable enrichment provider suppress a complete board (see `publishBoard`).
+    publishable: result.summary.requiredFailures.length === 0 && persistedInference.length > 0,
     inference: persistedInference,
   };
 }

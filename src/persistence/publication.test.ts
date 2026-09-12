@@ -9,7 +9,8 @@ import { dirname } from 'node:path';
 import { PersistenceStore } from './store';
 import { persistRefreshResult, type PersistRefreshOutcome } from './persistRefreshResult';
 import { PersistenceError } from './errors';
-import { mockedPartialRefresh, mockedSuccessfulRefresh, tempDbPath, type MockedRefresh } from './__fixtures';
+import { mockedPartialRefresh,
+  mockedRequiredFailureRefresh, mockedSuccessfulRefresh, tempDbPath, type MockedRefresh } from './__fixtures';
 
 const META = { startedAt: '2026-01-01T00:00:00.000Z', completedAt: '2026-01-01T00:00:05.000Z' };
 const paths: string[] = [];
@@ -55,18 +56,15 @@ describe('board publication', () => {
     store.close();
   });
 
-  it('a partial run cannot publish by default', async () => {
+  it('a partial run publishes when only an OPTIONAL provider failed', async () => {
     const { store } = openStore();
     const m = await mockedPartialRefresh();
     const outcome = persist(store, m);
     expect(outcome.status).toBe('partial');
-    try {
-      store.publishBoard({ runId: outcome.runId });
-      throw new Error('expected throw');
-    } catch (e) {
-      expect((e as PersistenceError).code).toBe('PUBLICATION_NOT_ALLOWED');
-    }
-    expect(store.getCurrentPublication()).toBeNull();
+    expect(outcome.publishable).toBe(true);
+    const published = store.publishBoard({ runId: outcome.runId });
+    expect(published.entryCount).toBeGreaterThan(0);
+    expect(store.getCurrentPublication()).not.toBeNull();
     store.close();
   });
 
@@ -125,8 +123,9 @@ describe('board publication', () => {
     const { store } = openStore();
     const first = persist(store, await mockedSuccessfulRefresh());
     const pub1 = store.publishBoard({ runId: first.runId });
-    // A run that cannot publish must not disturb current.
-    const failed = persist(store, await mockedPartialRefresh(), 'run-partial');
+    // A run that cannot publish must not disturb current. A REQUIRED-provider failure is the
+    // case that cannot publish; an optional one publishes (see above).
+    const failed = persist(store, await mockedRequiredFailureRefresh(), 'run-required-fail');
     expect(() => store.publishBoard({ runId: failed.runId })).toThrowError(PersistenceError);
     expect(store.getCurrentPublicationRecord()!.publicationId).toBe(pub1.publicationId);
     store.close();

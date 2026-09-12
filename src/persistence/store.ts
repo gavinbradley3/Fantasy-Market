@@ -489,22 +489,40 @@ export class PersistenceStore {
   }
 
   /**
-   * Publish the COMPLETE board produced by one successful, complete refresh run — atomically.
+   * Publish the COMPLETE board produced by one complete refresh run — atomically.
    * The board is the full, deterministically-ordered set of the run's player inference
-   * associations (from `run_inference`). Rejects non-success runs, runs with no snapshot,
-   * runs with zero associations, and any incomplete/mismatched/corrupt artifact. Idempotent:
-   * the deterministic board publication id means re-publishing the same board reuses one row
-   * and one pointer; a different board content yields a different id.
+   * associations (from `run_inference`). Rejects failed runs, runs where a REQUIRED provider
+   * failed, runs with no snapshot, runs with zero associations, and any incomplete/mismatched/
+   * corrupt artifact. Idempotent: the deterministic board publication id means re-publishing
+   * the same board reuses one row and one pointer; a different board content yields a
+   * different id.
+   *
+   * WHY THE GATE IS `requiredFailure`, NOT `status === 'success'`.
+   * A run's status goes to 'partial' when ANY source fails, including an OPTIONAL one. Gating
+   * publication on 'success' therefore let one optional provider delete the entire board: with
+   * Sleeper enrichment requested and Sleeper unreachable, 17 of 18 nflverse sources succeeded,
+   * the snapshot was built, every player was valued — and nothing published, because the run
+   * was 'partial'. An 867-player board became zero entries for a reason unrelated to any
+   * player on it.
+   *
+   * `requiredFailure` is the signal that actually answers "is this board trustworthy": it was
+   * already computed from the refresh policy's `requiredProviders` and already stored on the
+   * run. A partial run whose required providers all succeeded has a complete board built from
+   * complete required evidence; what it is missing is enrichment, and a missing enrichment is
+   * published as an absent field, not as an absent board.
    */
   publishBoard(params: PublishBoardParams): PublicationRecord {
     const view = this.getRefreshRun(params.runId);
     if (!view) throw new PersistenceError('ARTIFACT_NOT_FOUND', `run ${params.runId} not found`, { stage: 'publication', detail: params.runId });
-    if (view.run.status !== 'success') {
-      throw new PersistenceError('PUBLICATION_NOT_ALLOWED', `run status ${view.run.status} is not publishable (only 'success')`, { stage: 'publication', detail: view.run.status });
+    if (view.run.status === 'failure') {
+      throw new PersistenceError('PUBLICATION_NOT_ALLOWED', `run status ${view.run.status} is not publishable`, { stage: 'publication', detail: view.run.status });
+    }
+    if (view.run.requiredFailure) {
+      throw new PersistenceError('PUBLICATION_NOT_ALLOWED', 'a run in which a required provider failed is not publishable', { stage: 'publication', detail: view.run.status });
     }
     const snapshotId = view.run.snapshotId;
     if (!snapshotId) {
-      throw new PersistenceError('PUBLICATION_NOT_ALLOWED', 'a successful run without a snapshot cannot publish', { stage: 'publication', detail: params.runId });
+      throw new PersistenceError('PUBLICATION_NOT_ALLOWED', 'a run without a snapshot cannot publish', { stage: 'publication', detail: params.runId });
     }
     if (view.inference.length === 0) {
       throw new PersistenceError('PUBLICATION_NOT_ALLOWED', 'a run with no inference associations cannot publish', { stage: 'publication', detail: params.runId });
