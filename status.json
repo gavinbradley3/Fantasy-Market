@@ -1,0 +1,49 @@
+{
+  "generatedAt": "2026-09-12T21:05:48.529Z",
+  "board": {
+    "state": "current",
+    "publishedAt": "2026-09-12T21:05:41.650Z",
+    "ageHours": 0,
+    "entryCount": 615,
+    "checksum": "dec6b5a627b0a557",
+    "currentWithinHours": 12
+  },
+  "market": {
+    "state": "unknown",
+    "capturedAt": null,
+    "sourceTimestamp": null,
+    "ageHours": null,
+    "quoteCount": 0,
+    "historyAppended": false,
+    "currentWithinHours": 336
+  },
+  "providers": {
+    "nflverse": {
+      "lastAttemptAt": "2026-09-12T21:05:15.256Z",
+      "lastSuccessAt": "2026-09-12T21:05:15.256Z",
+      "lastAttemptSucceeded": true,
+      "required": true
+    },
+    "sleeper": {
+      "lastAttemptAt": "2026-09-12T21:05:15.256Z",
+      "lastSuccessAt": "2026-09-12T21:05:15.256Z",
+      "lastAttemptSucceeded": true,
+      "required": false
+    }
+  },
+  "lastRun": {
+    "runId": "run-manual-2026-09-12T21:04:45.393Z-1",
+    "startedAt": "2026-09-12T21:04:45.393Z",
+    "completedAt": "2026-09-12T21:05:15.256Z",
+    "durationSeconds": 30,
+    "mode": "live",
+    "status": "success",
+    "requiredProviderFailure": false,
+    "sourceCount": 14,
+    "successCount": 14,
+    "failureCount": 0,
+    "playerCount": 615,
+    "servingLastKnownGood": false
+  },
+  "overall": "ok"
+}
