@@ -158,6 +158,21 @@ export interface GameStatRecord extends NormalizedRecordBase {
   readonly receptions: number | null;
   readonly receivingYards: number | null;
   readonly receivingTds: number | null;
+  /**
+   * Receiving air yards for the game — the depth signal `average_depth_of_target` divides by
+   * targets. Published by nflverse in the same weekly export as the columns above (100%
+   * populated across the 2025 release), and carried verbatim like them.
+   */
+  readonly receivingAirYards: number | null;
+  /**
+   * The PROVIDER'S OWN weekly target share for this player, verbatim.
+   *
+   * Kept rather than reconstructed because it comes with the provider's real team-target
+   * denominator. PlayerTicker's `buildTeamGameTotals` can only sum the players the snapshot
+   * holds rows for, which is a floor — so a share derived from it is an upper bound, while
+   * this one is the provider's measurement.
+   */
+  readonly targetShare: number | null;
 }
 
 /** Route/participation record (paid/limited coverage; drives WR/RB proxies). */

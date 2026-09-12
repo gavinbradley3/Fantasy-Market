@@ -364,6 +364,11 @@ export const nflverseAdapter: ProviderAdapter = {
         receptions: num(row, 'receptions'),
         receivingYards: num(row, 'receiving_yards'),
         receivingTds: num(row, 'receiving_tds'),
+        // Both are published in this same export and were previously dropped, which left the
+        // WR engine's `average_depth_of_target` and `target_share` on constant fallbacks for
+        // every receiver in the league. Read verbatim; an absent column stays null.
+        receivingAirYards: num(row, 'receiving_air_yards'),
+        targetShare: num(row, 'target_share'),
       });
     }
     return { records, warnings };

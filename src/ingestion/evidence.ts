@@ -12,6 +12,7 @@ import type { NormalizedEvidence } from '@/inference/production/orchestrate';
 import type { CompetitionPosition, CompetitionTeammate } from '@/inference/competition';
 import type { RosterStatus } from '@/inference/features/types';
 import { observedCountingFacts, D2_ROLE_WINDOW_GAMES, RECENT_GAME_WINDOW } from './observedFacts';
+import { observedReceivingRates } from './observedReceiving';
 import { buildTeamGameTotals, observedProduction, type TeamGameTotals } from './observedProduction';
 import { compareOrdinal, withinAsOf } from './ordering';
 import type { NormalizedSnapshot } from './snapshot';
@@ -426,6 +427,17 @@ export function buildEvidenceFor(
   if (newestGame !== undefined) {
     for (const key of Object.keys(facts)) factTimestamps[key] = newestGame;
   }
+  // --- observed receiving rates (WR) ---
+  // The WR engine declares `target_share` and `average_depth_of_target`; neither was ever
+  // supplied, so every receiver fell back to the same constants and two of the engine's eight
+  // components were identical league-wide. Both are ratios over provider columns the snapshot
+  // already holds, so they join `facts` (and therefore win over any AIL estimate) exactly as
+  // the counting facts do. WR only: RB and TE are valued by the accessible tier, which reads
+  // its own observed production and must not have its inputs changed here.
+  if (position === 'WR') {
+    Object.assign(facts, observedReceivingRates(myGames));
+  }
+
   // Observed practice_status enum, when an injury record is present.
   if (myInjury) {
     facts.practice_status = myInjury.practiceStatus;

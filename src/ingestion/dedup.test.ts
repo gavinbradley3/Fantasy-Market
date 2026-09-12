@@ -75,3 +75,80 @@ describe('canonical player deduplication (Correction 2)', () => {
     expect(players.map((p) => p.canonicalId)).toEqual(['pt-1']);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Duplicate PER-GAME STAT rows.
+//
+// A provider export can carry the same (player, game) twice, typically one complete row and
+// one that omits an auxiliary column. Two things then go wrong, and both were live until the
+// receiving columns made them visible: the game's stats are counted twice, and the snapshot's
+// bytes depend on which duplicate happened to arrive first.
+// ---------------------------------------------------------------------------
+
+function weeklyRow(over: Record<string, unknown> = {}) {
+  return {
+    player_id: '00-WR', season: 2025, week: 2, season_type: 'REG', recent_team: 'CIN',
+    targets: 13, receptions: 9, receiving_yards: 138, receiving_tds: 2,
+    receiving_air_yards: 165, target_share: 0.34,
+    ...over,
+  };
+}
+
+function ingestWeekly(rows: readonly Record<string, unknown>[]) {
+  const source: ProviderSource = {
+    adapter: nflverseAdapter,
+    freshness: freshness('nflverse'),
+    payloads: {
+      identity: [{ gsis_id: '00-WR', full_name: 'Test Receiver', position: 'WR', team: 'CIN' }],
+      games: rows,
+    },
+  };
+  return ingest([source]).snapshot;
+}
+
+describe('duplicate per-game stat rows', () => {
+  it('collapses a duplicated (player, game) to ONE record — the stats are not counted twice', () => {
+    const snapshot = ingestWeekly([weeklyRow(), weeklyRow()]);
+    expect(snapshot.games).toHaveLength(1);
+    expect(snapshot.games[0].targets).toBe(13);
+  });
+
+  it('keeps the observed value when only one of the duplicates supplies a column', () => {
+    // The partial row omitting air yards is not evidence AGAINST the row that has them.
+    const partial = weeklyRow();
+    delete (partial as Record<string, unknown>).receiving_air_yards;
+    const snapshot = ingestWeekly([weeklyRow(), partial]);
+    expect(snapshot.games).toHaveLength(1);
+    expect(snapshot.games[0].receivingAirYards).toBe(165);
+  });
+
+  it('produces the SAME snapshot id whichever duplicate arrives first', () => {
+    // The regression this pins: a stable sort left colliding records in input order, so a
+    // reordered export re-ingested to a different snapshot id and therefore a different board.
+    const partial = weeklyRow();
+    delete (partial as Record<string, unknown>).receiving_air_yards;
+    const forward = ingestWeekly([weeklyRow(), partial]);
+    const reversed = ingestWeekly([partial, weeklyRow()]);
+    expect(reversed.snapshotId).toBe(forward.snapshotId);
+    expect(reversed.games).toEqual(forward.games);
+  });
+
+  it('reports a genuine contradiction rather than absorbing it', () => {
+    const source: ProviderSource = {
+      adapter: nflverseAdapter,
+      freshness: freshness('nflverse'),
+      payloads: {
+        identity: [{ gsis_id: '00-WR', full_name: 'Test Receiver', position: 'WR', team: 'CIN' }],
+        games: [weeklyRow({ targets: 13 }), weeklyRow({ targets: 9 })],
+      },
+    };
+    const { snapshot, diagnostics } = ingest([source]);
+    expect(snapshot.games).toHaveLength(1);
+    expect(diagnostics.warnings.some((w) => w.detail?.includes('conflicting duplicate game stat'))).toBe(true);
+  });
+
+  it('leaves distinct games alone', () => {
+    const snapshot = ingestWeekly([weeklyRow({ week: 1 }), weeklyRow({ week: 2 })]);
+    expect(snapshot.games).toHaveLength(2);
+  });
+});

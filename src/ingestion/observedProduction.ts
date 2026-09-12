@@ -83,6 +83,24 @@ function windowOf(games: readonly GameStatRecord[]): CountingWindow {
   return { games: games.length, ...out } as CountingWindow;
 }
 
+/**
+ * The games that describe a player's CURRENT role.
+ *
+ * A full latest season is preferred over the rolling recent window (see the contract note on
+ * `ObservedProduction.roleWindow`); the rolling window stands in when the latest season is
+ * too short to describe a role. Exported so every consumer of "the current role window"
+ * shares one definition instead of re-deriving it — two subtly different role windows would
+ * put two engines on different questions.
+ *
+ * `games` must already be filtered to the player and to the as-of by the caller.
+ */
+export function roleWindowGames(games: readonly GameStatRecord[]): readonly GameStatRecord[] {
+  const { career, recent } = windowsFor(games);
+  if (career.length === 0) return [];
+  const split = seasonSplit(career);
+  return split.latest && split.latest.length >= ROLE_WINDOW_MIN_GAMES ? split.latest : recent;
+}
+
 /** The two newest seasons present in a career window, newest first. */
 function seasonSplit(career: readonly GameStatRecord[]): {
   latest: readonly GameStatRecord[] | null;
@@ -166,10 +184,7 @@ export function observedProduction(
   const { career, recent } = windowsFor(games);
   if (career.length === 0) return null;
   const split = seasonSplit(career);
-  // The role window prefers a full latest season over the rolling recent window; see the
-  // contract note on `ObservedProduction.roleWindow` for why.
-  const roleGames =
-    split.latest && split.latest.length >= ROLE_WINDOW_MIN_GAMES ? split.latest : recent;
+  const roleGames = roleWindowGames(games);
   return {
     career: windowOf(career),
     recent: windowOf(recent),
