@@ -300,6 +300,11 @@ export const ACTIVE_PROBABILITY_BY_INJURY: Readonly<Record<string, number>> = {
   OUT: 0.0,
   IR: 0.0,
   PUP: 0.0,
+  // A player with no roster spot and no injury against him. Zero would assert he cannot play,
+  // which is the injury claim this state exists to avoid; 0.99 would ignore that he has no job.
+  // 0.40 is the same 40:100 ratio against HEALTHY that the accessible models already use for
+  // NOT_ROSTERED, so the concept scores consistently wherever it appears.
+  NOT_ROSTERED: 0.4,
 };
 
 /** §7.4 RB workload_ramp_factor from the TE ramp table (ENGINE_PRECEDENT). */

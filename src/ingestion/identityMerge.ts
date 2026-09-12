@@ -7,7 +7,7 @@
 // evidence — never depends on how many providers supplied identity or in what order.
 
 import { compareOrdinal } from './ordering';
-import type { IngestionProvider, IngestionWarning, PlayerRecord } from './types';
+import type { FieldSource, IngestionProvider, IngestionWarning, MergedFieldKey, PlayerRecord } from './types';
 
 /**
  * Provider priority used only as the THIRD precedence key (after authoritative source
@@ -88,13 +88,26 @@ function compareAuthority(a: PlayerRecord, b: PlayerRecord): number {
   return compareOrdinal(`${a.providerRef.key}:${a.providerRef.value}`, `${b.providerRef.key}:${b.providerRef.value}`);
 }
 
-/** First non-null value across the precedence-ordered group for a scalar field. */
-function firstNonNull<T>(sorted: readonly PlayerRecord[], pick: (p: PlayerRecord) => T | null): T | null {
+/**
+ * First non-null value across the precedence-ordered group, WITH the record it came from.
+ *
+ * Returning the source record is what makes per-field provenance possible: the merged value and
+ * the claim about where it came from are produced by the same decision, so they cannot drift.
+ */
+function firstNonNullFrom<T>(
+  sorted: readonly PlayerRecord[],
+  pick: (p: PlayerRecord) => T | null,
+): { value: T | null; from: PlayerRecord | null } {
   for (const r of sorted) {
     const v = pick(r);
-    if (v !== null && v !== undefined) return v;
+    if (v !== null && v !== undefined) return { value: v, from: r };
   }
-  return null;
+  return { value: null, from: null };
+}
+
+/** First non-null value only, for callers that do not need the source. */
+function firstNonNull<T>(sorted: readonly PlayerRecord[], pick: (p: PlayerRecord) => T | null): T | null {
+  return firstNonNullFrom(sorted, pick).value;
 }
 
 /**
@@ -151,6 +164,35 @@ function mergeGroup(canonicalId: string, group: readonly PlayerRecord[]): { reco
     emit({ code: 'SOURCE_CONFLICT', provider: primary.freshness.provider, detail: `team differs across sources for ${canonicalId}: [${[...teams].sort().join(',')}] → kept ${firstNonNull(recent, (r) => r.team)}` });
   }
 
+  // Each field is resolved from the ordering appropriate to its KIND, and each remembers the
+  // record that supplied it so the canonical player can attribute it truthfully.
+  const fieldSources: Partial<Record<MergedFieldKey, FieldSource>> = {};
+  const resolve = <T>(
+    field: MergedFieldKey,
+    order: readonly PlayerRecord[],
+    pick: (p: PlayerRecord) => T | null,
+  ): T | null => {
+    const { value, from } = firstNonNullFrom(order, pick);
+    if (from !== null) {
+      fieldSources[field] = { provider: from.freshness.provider, sourceTimestamp: from.sourceTimestamp };
+    }
+    return value;
+  };
+
+  // Stable biography: most AUTHORITATIVE non-null value. A current-state export fetched today
+  // does not get to restate how old a player is.
+  const nameNormalized = resolve('nameNormalized', authoritative, (r) => r.nameNormalized);
+  const position = resolve('position', authoritative, (r) => r.position);
+  const age = resolve('age', authoritative, (r) => r.age);
+  const nflSeasonsCompleted = resolve('nflSeasonsCompleted', authoritative, (r) => r.nflSeasonsCompleted);
+  const draftRound = resolve('draftRound', authoritative, (r) => r.draftRound);
+
+  // Time-varying facts: most RECENT non-null value. These are the fields an enrichment provider
+  // legitimately improves, and the only ones it can affect.
+  const team = resolve('team', recent, (r) => r.team);
+  const status = resolve('status', recent, (r) => r.status);
+  const injuryDesignation = resolve('injuryDesignation', recent, (r) => r.injuryDesignation);
+
   const record: PlayerRecord = {
     // Identity + provenance come from the highest-precedence source record.
     canonicalId,
@@ -160,24 +202,18 @@ function mergeGroup(canonicalId: string, group: readonly PlayerRecord[]): { reco
     // Provider-id UNION across the whole group (canonically ordered, conflict-aware).
     providerIds: mergeProviderIds(authoritative, emit),
 
-    // Stable biography: most AUTHORITATIVE non-null value. A current-state export fetched
-    // today does not get to restate how old a player is.
-    nameNormalized: firstNonNull(authoritative, (r) => r.nameNormalized) ?? primary.nameNormalized,
-    position: firstNonNull(authoritative, (r) => r.position),
-    age: firstNonNull(authoritative, (r) => r.age),
-    nflSeasonsCompleted: firstNonNull(authoritative, (r) => r.nflSeasonsCompleted),
-    draftRound: firstNonNull(authoritative, (r) => r.draftRound),
-
-    // Time-varying facts: most RECENT non-null value. These are the fields an enrichment
-    // provider legitimately improves, and the only ones it can now affect.
-    team: firstNonNull(recent, (r) => r.team),
-    status: firstNonNull(recent, (r) => r.status),
-    injuryDesignation: firstNonNull(recent, (r) => r.injuryDesignation),
-    // The timestamp those three values were attested at, carried separately because it is no
-    // longer the same as the merged record's own. Without it, a designation from a provider
-    // fetched AFTER the as-of would be gated by the authoritative provider's earlier stamp and
-    // silently admitted onto a board it postdates.
-    timeVaryingAttestedAt: (recent[0] as PlayerRecord).sourceTimestamp,
+    nameNormalized: nameNormalized ?? primary.nameNormalized,
+    position,
+    age,
+    nflSeasonsCompleted,
+    draftRound,
+    team,
+    status,
+    injuryDesignation,
+    // Per-field attribution, which also carries each field's own attestation instant. This is
+    // what keeps a post-as-of designation from being gated by the authoritative provider's
+    // earlier stamp and silently admitted onto a board it postdates.
+    fieldSources,
   };
   return { record, warnings };
 }

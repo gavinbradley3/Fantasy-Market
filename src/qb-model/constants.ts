@@ -82,9 +82,17 @@ export const INJURY_STATUSES: readonly QBInjuryStatus[] = Object.freeze([
   "OUT",
   "IR",
   "PUP",
+  "NOT_ROSTERED",
 ]);
 
-/** Injury statuses that force probability_active = 0 and Weekly EFO = 0. */
+/**
+ * Injury statuses that force probability_active = 0 and Weekly EFO = 0.
+ *
+ * `NOT_ROSTERED` is deliberately NOT here. These three are CONFIRMED injuries, and the engine
+ * cross-validates that a player carrying one has no chance of playing. A quarterback who is
+ * merely not on a roster has no injury evidence against him at all; forcing his activity
+ * probability to zero would re-import the very claim this state exists to stop making.
+ */
 export const INACTIVE_INJURY_STATUSES: readonly QBInjuryStatus[] = Object.freeze([
   "OUT",
   "IR",
@@ -181,6 +189,10 @@ export const ACTIVE_PROBABILITY_BY_INJURY: Readonly<Record<QBInjuryStatus, numbe
     OUT: 0.0,
     IR: 0.0,
     PUP: 0.0,
+    // No roster spot, no injury evidence. Zero would assert he cannot play — the injury claim
+    // this state exists to avoid — and 0.99 would ignore that he has no job. The 40:100 ratio
+    // against HEALTHY matches the accessible models' own NOT_ROSTERED treatment.
+    NOT_ROSTERED: 0.4,
   });
 
 /** Expected-limited-games caps by injury status (Section 26.5.9). */
@@ -192,6 +204,10 @@ export const LIMITED_GAMES_CAP_BY_INJURY: Readonly<Record<QBInjuryStatus, number
     OUT: 2,
     IR: 4,
     PUP: 4,
+    // Limited games are games played while working back from an injury. An unrostered
+    // quarterback has no injury to work back from: if he signs he plays normally, and if he
+    // does not he plays not at all. Neither is a limited game.
+    NOT_ROSTERED: 0,
   });
 
 /** QB prior strength by draft round (Section 26.6.2). */
@@ -228,6 +244,17 @@ export const RS_ROLE_STATUS_SCORE: Readonly<Record<QBRoleStatus, number>> = Obje
 });
 
 /** Availability injury-status score mapping (Section 26.8.7). */
+/**
+ * Availability score by status (Section 26.8.7).
+ *
+ * `NOT_ROSTERED: 40` is taken from the value the RB, TE and WR accessible models already use
+ * for the same concept, so one idea has one meaning across PlayerTicker. It satisfies both
+ * semantic bounds: materially below a confirmed active quarterback (100) and materially above a
+ * confirmed OUT/IR/PUP one (0), while sitting above DOUBTFUL (25) because a doubtful player has
+ * an injury against him and an unrostered one has only the absence of a job.
+ *
+ * Chosen from the existing cross-position treatment, not from where it places any player.
+ */
 export const AV_INJURY_STATUS_SCORE: Readonly<Record<QBInjuryStatus, number>> = Object.freeze({
   HEALTHY: 100,
   QUESTIONABLE: 70,
@@ -235,6 +262,7 @@ export const AV_INJURY_STATUS_SCORE: Readonly<Record<QBInjuryStatus, number>> = 
   OUT: 0,
   IR: 0,
   PUP: 0,
+  NOT_ROSTERED: 40,
 });
 
 /**
@@ -362,6 +390,9 @@ export const LIMITED_WORKLOAD_FACTOR_BY_INJURY: Readonly<Record<QBInjuryStatus, 
     OUT: 0.75,
     IR: 0.75,
     PUP: 0.75,
+    // Unreachable in practice, because the limited-games cap above is 0 for this state. Defined
+    // as no reduction, because there is no injury to reduce a workload for.
+    NOT_ROSTERED: 1.0,
   });
 
 /** ROS future healthy active probability by role status (Section 26.10.6). */
@@ -386,6 +417,10 @@ export const INJURY_UNCERTAINTY_BY_INJURY: Readonly<Record<QBInjuryStatus, numbe
     OUT: 70,
     IR: 65,
     PUP: 60,
+    // Genuinely uncertain — whether he signs anywhere, and whether he starts if he does — but
+    // it is ROSTER uncertainty, not a medical unknown. Placed clearly above healthy and
+    // questionable and below the confirmed-injury band.
+    NOT_ROSTERED: 55,
   });
 
 /** Explanation component priority tie-break order (Section 26.13.1). */

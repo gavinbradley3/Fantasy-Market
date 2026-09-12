@@ -51,6 +51,8 @@ interface Row {
   designation: string | null;
   designationProvider: string | null;
   designationProvenance: string | null;
+  /** True when Sleeper carried a record for this player at all — the join actually landed. */
+  sleeperJoined: boolean;
   modelTier: string | null;
   availabilityScore: number | null;
   confidence: number | null;
@@ -119,6 +121,7 @@ function read(dbPath: string): Map<string, Row> {
              (accessible?.composites as Record<string, unknown> | undefined))
     ) ?? {};
     const identity = (player.identity ?? {}) as Record<string, unknown>;
+    const providerIds = (identity.provider_ids ?? {}) as Record<string, unknown>;
     out.set(id, {
       canonicalId: id,
       position: String(e.position ?? ''),
@@ -129,6 +132,11 @@ function read(dbPath: string): Map<string, Row> {
       designation: designation.value,
       designationProvider: designation.provider,
       designationProvenance: designation.provenance,
+      // The provider-id union is the reliable evidence that identity resolution matched this
+      // player to a Sleeper record. Field provenance cannot stand in for it: a weekly roster row
+      // always outranks an identity export for `status`, so a correctly-attributed status is
+      // nflverse's even for a player Sleeper knows perfectly well.
+      sleeperJoined: typeof providerIds.sleeper === 'string' && providerIds.sleeper !== '',
       modelTier: tier,
       availabilityScore: availabilityOf(e),
       confidence: num(e.published_confidence_score),
@@ -143,16 +151,23 @@ function read(dbPath: string): Map<string, Row> {
 /**
  * What an `inactive` player turned out to be once Sleeper answered.
  *
+ * THE DISCRIMINATOR IS THE JOIN, NOT THE FIELD PROVENANCE. An earlier version asked whether
+ * `status` was attributed to Sleeper, which was wrong twice over: before per-field provenance
+ * that label was applied to nflverse-derived values whenever Sleeper won the metadata merge, and
+ * after it the label is correctly nflverse for every rostered player, because a weekly roster
+ * row always outranks an identity export for status. Neither reading answers the question. The
+ * provider-id union does: it is present exactly when identity resolution matched the player to a
+ * Sleeper record.
+ *
  * `unresolved` is its own bucket and is never folded into "genuinely unrostered": Sleeper not
  * carrying a player is a gap in the join, not evidence about his health.
  */
 function classify(after: Row): 'injured/unavailable' | 'active/rostered' | 'genuinely unrostered' | 'unresolved' {
   if (after.designation !== null) return 'injured/unavailable';
   if (after.status === 'active') return 'active/rostered';
-  if (after.status === 'inactive') {
-    // Sleeper attested this player's status, and it was still inactive with no designation.
-    return after.statusProvider === 'sleeper' ? 'genuinely unrostered' : 'unresolved';
-  }
+  // Sleeper knows this player and reported no injury designation for him, and he is still not on
+  // an active roster. That is a positive finding, not a missing one.
+  if (after.status === 'inactive' && after.sleeperJoined) return 'genuinely unrostered';
   return 'unresolved';
 }
 
@@ -176,14 +191,13 @@ function main(): void {
   const onlyBefore = [...before.keys()].filter((k) => !after.has(k));
   const onlyAfter = [...after.keys()].filter((k) => !before.has(k));
 
-  // 1. Players enriched — a designation or a status Sleeper itself attested.
+  // 1. Players enriched — the join landed, and it contributed a field or an id. Measured as a
+  // Sleeper identity match plus any new designation, rather than as a provider label on a field
+  // Sleeper may not have supplied.
   const enriched = shared.filter((k) => {
     const a = after.get(k) as Row;
     const b = before.get(k) as Row;
-    return (
-      (a.designation !== null && b.designation === null) ||
-      (a.statusProvider === 'sleeper' && b.statusProvider !== 'sleeper')
-    );
+    return (a.sleeperJoined && !b.sleeperJoined) || (a.designation !== null && b.designation === null);
   });
 
   // 2. inactive breakdown, before vs after.
@@ -273,6 +287,9 @@ function main(): void {
   console.log(`  ${report.confidenceMovement}`);
   console.log('');
   console.log('=== 6. AVAILABILITY PROVENANCE (enriched players) ===');
+  console.log('  Per-FIELD provenance: each field names the provider that actually supplied it.');
+  console.log('  A status attributed to nflverse on a Sleeper-joined player is CORRECT — a weekly');
+  console.log('  roster row outranks any identity export for status.');
   for (const [k, v] of Object.entries(report.availabilityProvenance)) console.log(`  ${String(v).padStart(4)}  ${k}`);
   if (Object.keys(report.availabilityProvenance).length === 0) {
     console.log('  none — Sleeper supplied nothing. If that was unexpected, run npm run verify:sleeper.');

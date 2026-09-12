@@ -25,13 +25,27 @@ export type QBRoleStatus =
   | "RECENTLY_BENCHED"
   | "BACKUP";
 
+/**
+ * QB availability states (Section 26.3, revised — see Section 28).
+ *
+ * `NOT_ROSTERED` was added because the enum previously had NO neutral non-injury state, which
+ * forced every canonically `inactive` quarterback to be reported as `OUT`. "Inactive" covers a
+ * practice-squad arm, a reserve, a free agent between contracts and a retired player as well as
+ * a genuinely hurt one, so `OUT` was a semantically false claim: PlayerTicker was issuing an
+ * injury diagnosis from the absence of a roster spot. 47 of 111 quarterbacks on the live board
+ * carried it.
+ *
+ * It is a ROSTER state, not an injury state, and it is only ever reached when no injury
+ * designation exists. An injury designation always wins.
+ */
 export type QBInjuryStatus =
   | "HEALTHY"
   | "QUESTIONABLE"
   | "DOUBTFUL"
   | "OUT"
   | "IR"
-  | "PUP";
+  | "PUP"
+  | "NOT_ROSTERED";
 
 export interface QBScoring {
   points_per_completion: number;

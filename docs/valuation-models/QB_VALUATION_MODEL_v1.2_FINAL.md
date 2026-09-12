@@ -4345,3 +4345,84 @@ showed barely 46 career starts and silently failed the §3.4 48-start `ESTABLISH
 threshold. A refresh may now acquire extra seasons of **game stats only** (`careerSeasons` in the
 source plan). Those seasons deepen the career of players the valuation window already selects;
 they never add players, and no other position reads them.
+
+---
+
+# Section 28 — Methodology revision: `NOT_ROSTERED` (§26.3 / §26.8.7)
+
+**Status:** binding. Revises the availability enum and four status-keyed tables. No weight,
+component formula, reference distribution or horizon blend changes.
+
+## 28.1 The defect
+
+`QBInjuryStatus` had six states — `HEALTHY`, `QUESTIONABLE`, `DOUBTFUL`, `OUT`, `IR`, `PUP` —
+and **no neutral non-injury state**. The canonical status `inactive` therefore had nowhere to go
+but `OUT`.
+
+`inactive` is not an injury. It covers a practice-squad arm, a reserve, a free agent between
+contracts, a retired player and a genuinely hurt one. Mapping it to `OUT` made the engine assert
+an injury diagnosis from the absence of a roster spot, with no medical evidence whatsoever.
+
+On the live 2023–25 board this affected **47 of 111 quarterbacks**, five of them inside the
+startable QB1–24 band.
+
+The three accessible models (RB, TE, WR) already modelled this correctly, scoring the same
+concept as `NOT_ROSTERED` and deliberately distinguishing it from `OUT`. The QB path was the
+outlier.
+
+## 28.2 The revision
+
+`QBInjuryStatus` gains `NOT_ROSTERED`. It is a **roster state, not an injury state**, and is only
+reachable when no injury designation exists. An injury designation always wins.
+
+Resolution order (§26.3-NR):
+
+1. **An injury designation exists** → use it: `QUESTIONABLE` / `DOUBTFUL` / `OUT` / `IR` / `PUP`.
+2. **Confirmed active, no designation** → `HEALTHY`.
+3. **Confirmed suspended** → `OUT`. A suspended quarterback is genuinely barred from playing.
+4. **Attested inactive / not rostered, no designation** → `NOT_ROSTERED`.
+5. **No status attested at all** → the metadata is incomplete and the player is reported
+   NOT_READY, exactly as before. `UNKNOWN` is not used here: roster absence is *positively
+   attested*, which is a different claim from having no attestation.
+
+## 28.3 Table values, and why
+
+| table | value | reasoning |
+|---|---|---|
+| `AV_INJURY_STATUS_SCORE` (§26.8.7) | **40** | The value the RB, TE and WR accessible models already use for this concept, so one idea has one meaning across PlayerTicker. Below `HEALTHY` (100) and above `OUT`/`IR`/`PUP` (0), as required; above `DOUBTFUL` (25) because a doubtful player has an injury against him and an unrostered one has only the absence of a job. |
+| `ACTIVE_PROBABILITY_BY_INJURY` (§26.5.8) | **0.40** | Zero would assert he cannot play — the injury claim this state exists to avoid. 0.99 would ignore that he has no job. 0.40 is the same 40:100 ratio against `HEALTHY` that the accessible score uses. |
+| `LIMITED_GAMES_CAP_BY_INJURY` (§26.5.9) | **0** | Limited games are games played while working back from an injury. There is no injury to work back from: if he signs he plays normally, if he does not he plays not at all. |
+| `LIMITED_WORKLOAD_FACTOR_BY_INJURY` (§26.10.6) | **1.0** | Unreachable, since the cap above is 0. Defined as no reduction, for the same reason. |
+| `INJURY_UNCERTAINTY_BY_INJURY` (§26.12.6) | **55** | Genuinely uncertain — whether he signs, and whether he starts if he does — but that is roster uncertainty, not a medical unknown. Above `HEALTHY` (5) and `QUESTIONABLE` (45), below the confirmed-injury band (60–75). |
+
+`NOT_ROSTERED` is deliberately **excluded** from `INACTIVE_INJURY_STATUSES`. Those three states
+are confirmed injuries, and the engine cross-validates that a player carrying one has zero
+activity probability. Including `NOT_ROSTERED` would re-import the exact claim the state exists
+to stop making, and would make every unrostered quarterback fail validation.
+
+## 28.4 Impact
+
+Only quarterbacks previously resolved to `OUT` via `inactive` change. For one of them the
+availability component moves from roughly 6 to roughly 42:
+
+```
+before  AV = 0.7·0     + 0.2·0   + 0.1·career_start_availability
+after   AV = 0.7·0.40  + 0.2·40  + 0.1·career_start_availability
+```
+
+At the published horizon weights (`AV` 0.12 weekly, 0.03 dynasty) that is about **+4.3 weekly**
+and **+1.1 dynasty** points on a 0–100 scale. No other position is affected, and no player who
+carried a real injury designation moves at all.
+
+The table values were chosen from the existing cross-position treatment of the same concept
+before any board was re-run, and no value was selected by reference to where it places any
+individual quarterback.
+
+## 28.5 Scope boundary
+
+The WR, RB and TE **frozen** engines keep their existing enums, which have no `NOT_ROSTERED`.
+`toSharedEngineInjuryStatus` collapses the state to `OUT` at their boundary, preserving their
+behaviour exactly. Extending those three would mean revising three specifications and their
+score, fallback and volatility tables — a methodology change for three positions — and would
+change nothing observable, because all three publish through the ACCESSIBLE tier, whose
+`toAccessibleAvailability` already models this correctly. Their FULL path is unreachable today.

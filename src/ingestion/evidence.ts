@@ -22,6 +22,7 @@ import type {
   GameStatRecord,
   InjuryRecord,
   IngestionProvider,
+  MergedFieldKey,
   OfficialStartRecord,
   ParticipationRecord,
   PlayerRecord,
@@ -183,6 +184,12 @@ interface PointInTimeFacts {
   readonly injuryDesignation: string | null;
   /** True when the identity export's own content is attested at or before the as-of. */
   readonly identityAttested: boolean;
+  /** The provider that supplied the surviving `status` — a roster row's, or the identity export's. */
+  readonly statusProvider: IngestionProvider;
+  /** The provider that supplied `injuryDesignation`. */
+  readonly designationProvider: IngestionProvider;
+  /** The provider that supplied the surviving `team`. */
+  readonly teamProvider: IngestionProvider;
   /**
    * When the source that actually supplied `team`/`status` attested them.
    *
@@ -212,20 +219,36 @@ function resolvePointInTime(
   canonicalId: string,
   asOf: string,
 ): PointInTimeFacts {
-  // Gated on the timestamp of the TIME-VARYING values, not the record's own. On a merged
-  // record those differ: biography is taken from the most authoritative provider and
-  // team/status/designation from the most recent one, so only the latter's stamp can say
-  // whether those values are evidence for this as-of.
-  const identityAttested = withinAsOf(asOf, rec.timeVaryingAttestedAt ?? rec.sourceTimestamp);
+  // Gated PER FIELD, on the timestamp of the source that actually supplied that field. On a
+  // merged record these differ: biography comes from the most authoritative provider and
+  // team/status/designation from the most recent one, so only the supplying source's own stamp
+  // can say whether a value is evidence for this as-of. Using the record's single timestamp
+  // either admits post-as-of evidence onto a historical board or withholds evidence valid for
+  // it, depending on which provider happened to win the merge.
+  const attestedFor = (field: 'status' | 'team' | 'injuryDesignation'): boolean =>
+    withinAsOf(asOf, rec.fieldSources?.[field]?.sourceTimestamp ?? rec.sourceTimestamp);
+  const statusAttested = attestedFor('status');
+  const teamAttested = attestedFor('team');
+  const designationAttested = attestedFor('injuryDesignation');
   const roster = latest(index.rostersByPlayer.get(canonicalId) ?? EMPTY, asOf);
   return {
-    team: roster?.team ?? (identityAttested ? rec.team : null),
-    status: roster ? ROSTER_TO_CANONICAL[roster.rosterStatus] : identityAttested ? (rec.status as CanonicalStatus | null) : null,
-    // An injury designation has no historical source here at all, so it is only ever used
-    // when the identity export itself is attested for the as-of.
-    injuryDesignation: identityAttested ? rec.injuryDesignation : null,
-    identityAttested,
-    attestedAt: roster?.sourceTimestamp ?? rec.sourceTimestamp,
+    team: roster?.team ?? (teamAttested ? rec.team : null),
+    status: roster ? ROSTER_TO_CANONICAL[roster.rosterStatus] : statusAttested ? (rec.status as CanonicalStatus | null) : null,
+    // An injury designation has no historical source here at all, so it is only ever used when
+    // the source that supplied it attested it at or before the as-of. A current designation must
+    // never leak backward onto a board whose as-of predates it.
+    injuryDesignation: designationAttested ? rec.injuryDesignation : null,
+    identityAttested: statusAttested,
+    attestedAt: roster?.sourceTimestamp ?? rec.fieldSources?.status?.sourceTimestamp ?? rec.sourceTimestamp,
+    // Whoever actually supplied the status that survived: an nflverse roster row when one
+    // exists, otherwise the identity export's own source.
+    statusProvider: roster
+      ? roster.freshness.provider
+      : rec.fieldSources?.status?.provider ?? rec.freshness.provider,
+    designationProvider: rec.fieldSources?.injuryDesignation?.provider ?? rec.freshness.provider,
+    teamProvider: roster
+      ? roster.freshness.provider
+      : rec.fieldSources?.team?.provider ?? rec.freshness.provider,
   };
 }
 
@@ -235,8 +258,25 @@ function buildCanonicalPlayer(
   asOf: string,
   pit: PointInTimeFacts,
 ): CanonicalPlayer {
-  const pid = toProviderId(rec.freshness.provider);
+  // PER-FIELD ATTRIBUTION. Every field is labelled with the provider that actually supplied it
+  // and the instant that provider attested it. A single record-level label was a false claim
+  // about most of a merged record: it reported a status as Sleeper's when the value had come
+  // from an nflverse weekly roster row, because Sleeper had won the merge and relabelled it.
+  //
+  // `CanonicalPlayer` already carries a `FieldState` per field with its own provider,
+  // provenance and timestamp — the contract was sufficient all along and only the construction
+  // below was collapsing it to one provider.
+  const recordPid = toProviderId(rec.freshness.provider);
   const ts = rec.sourceTimestamp;
+  /** The provider and timestamp for one merged biographical field. */
+  const src = (field: MergedFieldKey): { pid: ProviderId; at: string } => {
+    const fs = rec.fieldSources?.[field];
+    return fs ? { pid: toProviderId(fs.provider), at: fs.sourceTimestamp } : { pid: recordPid, at: ts };
+  };
+  const nameSrc = src('nameNormalized');
+  const ageSrc = src('age');
+  const seasonsSrc = src('nflSeasonsCompleted');
+  const draftSrc = src('draftRound');
   const status = pit.status;
   return {
     identity: {
@@ -250,22 +290,47 @@ function buildCanonicalPlayer(
       newly_created: false,
     },
     position,
-    full_name: present(rec.nameNormalized, pid, ts),
-    team: pit.team ? present(pit.team, pid, pit.attestedAt) : notProvided(),
-    age: rec.age !== null ? present(rec.age, pid, ts) : notProvided(),
+    full_name: present(rec.nameNormalized, nameSrc.pid, nameSrc.at),
+    // Team, status and injury designation are attributed to whoever actually supplied the value
+    // that survived point-in-time resolution — a weekly roster row when one exists, otherwise
+    // the identity export's own source.
+    team: pit.team ? present(pit.team, toProviderId(pit.teamProvider), pit.attestedAt) : notProvided(),
+    age: rec.age !== null ? present(rec.age, ageSrc.pid, ageSrc.at) : notProvided(),
     birth_date: notProvided(),
-    nfl_seasons_completed: rec.nflSeasonsCompleted !== null ? present(rec.nflSeasonsCompleted, pid, ts) : notProvided(),
+    nfl_seasons_completed:
+      rec.nflSeasonsCompleted !== null ? present(rec.nflSeasonsCompleted, seasonsSrc.pid, seasonsSrc.at) : notProvided(),
     rookie_year: notProvided(),
     draft_year: notProvided(),
-    draft_round: rec.draftRound !== null ? present(rec.draftRound, pid, ts) : notProvided(),
+    draft_round: rec.draftRound !== null ? present(rec.draftRound, draftSrc.pid, draftSrc.at) : notProvided(),
     draft_pick: notProvided(),
     height_inches: notProvided(),
     weight_pounds: notProvided(),
     jersey_number: notProvided(),
-    status: status ? present(status, pid, pit.attestedAt) : notProvided(),
-    injury_designation: pit.injuryDesignation ? present(pit.injuryDesignation, pid, ts) : notProvided(),
+    status: status ? present(status, toProviderId(pit.statusProvider), pit.attestedAt) : notProvided(),
+    injury_designation: pit.injuryDesignation
+      ? present(
+          pit.injuryDesignation,
+          toProviderId(pit.designationProvider),
+          rec.fieldSources?.injuryDesignation?.sourceTimestamp ?? ts,
+        )
+      : notProvided(),
     headshot_url: notProvided(),
-    provenance: { sources: [pid], generated_at: asOf },
+    // Every distinct provider that contributed a field to this record, canonically ordered.
+    // Listing one provider for a mixed-provider record understated the evidence behind it.
+    provenance: {
+      sources: [
+        ...new Set<ProviderId>([
+          nameSrc.pid,
+          ageSrc.pid,
+          seasonsSrc.pid,
+          draftSrc.pid,
+          toProviderId(pit.statusProvider),
+          toProviderId(pit.teamProvider),
+          ...(pit.injuryDesignation ? [toProviderId(pit.designationProvider)] : []),
+        ]),
+      ].sort(),
+      generated_at: asOf,
+    },
   };
 }
 

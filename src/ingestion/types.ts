@@ -99,17 +99,36 @@ export interface PlayerRecord extends NormalizedRecordBase {
   readonly status: NormalizedStatus | null;
   readonly injuryDesignation: string | null;
   /**
-   * When the source that supplied `team`/`status`/`injuryDesignation` attested them.
+   * WHICH PROVIDER SUPPLIED EACH FIELD, and when it attested it.
    *
-   * WHY THIS IS SEPARATE FROM `sourceTimestamp`. After a multi-provider merge, one record's
-   * fields no longer share one provider or one timestamp: biography comes from the most
-   * authoritative source and time-varying facts from the most recent one. A single
-   * `sourceTimestamp` therefore cannot gate both, and using the wrong one either admits
-   * post-as-of evidence onto a historical board or withholds evidence that was valid for it.
+   * After a multi-provider merge a record's fields no longer share one provider or one
+   * timestamp: biography comes from the most authoritative source and time-varying facts from
+   * the most recent one. A single record-level provider label is then a false claim about most
+   * of the record — it reported `status=DIRECT/sleeper` for 196 players whose status had come
+   * from an nflverse weekly roster row, because Sleeper had won the merge and relabelled it.
    *
-   * Absent on a single-provider record, where it is simply `sourceTimestamp`.
+   * A provider may not claim another provider's field. This map is how the canonical record
+   * knows the difference. Absent on a single-provider record, where every field trivially comes
+   * from that record's own provider and timestamp.
    */
-  readonly timeVaryingAttestedAt?: string;
+  readonly fieldSources?: Readonly<Partial<Record<MergedFieldKey, FieldSource>>>;
+}
+
+/** The merged scalar fields that carry independent provenance. */
+export type MergedFieldKey =
+  | 'nameNormalized'
+  | 'position'
+  | 'age'
+  | 'nflSeasonsCompleted'
+  | 'draftRound'
+  | 'team'
+  | 'status'
+  | 'injuryDesignation';
+
+/** Who supplied one field's value, and when they attested it. */
+export interface FieldSource {
+  readonly provider: IngestionProvider;
+  readonly sourceTimestamp: string;
 }
 
 /** One roster membership snapshot (per team, per season/week). */

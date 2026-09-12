@@ -173,7 +173,10 @@ describe('AUDIT: baseline parity', () => {
     // comparison attribute every difference to Sleeper.
     const { snapshot } = ingest([fourPositionNflverseSource()]);
     for (const p of snapshot.players) {
-      expect(p.timeVaryingAttestedAt ?? p.sourceTimestamp).toBe(p.sourceTimestamp);
+      for (const fs of Object.values(p.fieldSources ?? {})) {
+        expect(fs.provider).toBe('nflverse');
+        expect(fs.sourceTimestamp).toBe(p.sourceTimestamp);
+      }
       expect(p.freshness.provider).toBe('nflverse');
     }
     const board = boardOf([fourPositionNflverseSource()]);
