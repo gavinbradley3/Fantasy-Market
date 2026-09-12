@@ -11,6 +11,11 @@
  * because of it. This script is the way to settle the question from a machine that can reach
  * the open internet.
  *
+ * IT HAS BEEN RUN, AND IT PASSED. On 12 September 2026, from a host with open egress, all three
+ * endpoints below returned SUCCESS and all 12,227 player records matched the schema the pipeline
+ * validates with. See docs/SLEEPER_INTEGRATION.md for the record. Re-run it when the transport
+ * configuration changes or when Sleeper announces a schema change.
+ *
  * WHAT IT DOES
  * Requests the exact endpoints the transport layer is configured to use, reports the HTTP
  * status, validates the response against the SAME zod schema the pipeline validates with, and

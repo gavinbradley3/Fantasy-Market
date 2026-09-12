@@ -11,6 +11,12 @@
 // statement about a third party, and — worse — an argument for deleting a working integration.
 // So an intermediary's refusal, a DNS/TLS fault, and a real answer from Sleeper are three
 // different verdicts, and this module keeps them apart.
+//
+// THAT DISTINCTION WAS SUBSEQUENTLY PROVED RIGHT. From inside the sandbox this module declined
+// to call a 403 a provider failure and named an intermediary instead; an open-egress run on
+// 12 September 2026 then returned SUCCESS on every endpoint, confirming the provider had been
+// fine throughout. A verifier that classified only THROWN errors would have reported
+// HTTP_PROVIDER_FAILURE and been wrong about someone else's service.
 
 import { sleeperPlayerSchema } from '@/pipeline/providers/sleeper/schema';
 

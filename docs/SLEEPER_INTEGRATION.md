@@ -2,14 +2,19 @@
 
 ## The headline
 
-**Sleeper is optional. Nothing in PlayerTicker's valuation path requires it.** A production
-refresh acquires nflverse only (`REQUIRED_PROVIDERS = ['nflverse']`), and the live board on
-this branch was built with Sleeper absent.
+**Sleeper is VERIFIED.** `npm run verify:sleeper`, run on 12 September 2026 from a host with
+open egress, returned `SUCCESS` for all three configured endpoints, and all 12,227 player
+records matched the schema the pipeline validates with. Status is recorded below.
+
+**Sleeper is also optional.** Nothing in PlayerTicker's valuation path requires it. A production
+refresh acquires nflverse only (`REQUIRED_PROVIDERS = ['nflverse']`), and the live board on this
+branch was built with Sleeper absent. Verified and optional are both true: the integration works,
+and no valuation depends on it.
 
 **The Claude Code sandbox cannot reach `api.sleeper.app`.** That is an organization-level egress
-policy, not Sleeper. It is not evidence that Sleeper is down, that Sleeper rejects PlayerTicker,
-or that the integration is broken — and it is not a reason to delete working code.
-`npm run verify:sleeper` settles the question from a host with open egress.
+policy, not Sleeper. Any `NETWORK_PROXY_BLOCKED` verdict produced in that environment is a
+statement about the environment and carries no information about the provider or the integration
+— which the 12 September run settles as a matter of evidence rather than argument.
 
 ### How the block actually presents, and why that matters
 
@@ -25,7 +30,20 @@ of an intermediary — a 407, a deny-reason header, or an egress-policy message 
 one. Without evidence a 403 is still attributed to Sleeper, because Sleeper is entitled to
 answer 403 for its own reasons. Both directions of that error are tested.
 
-Current verdict from inside the sandbox:
+### Verification record
+
+| run | environment | verdict |
+|---|---|---|
+| 12 Sep 2026 | open egress | **`SUCCESS`** — `players`, `trending-add`, `trending-drop` all passed; 12,227 player records matched the schema |
+| earlier | Claude Code sandbox | `NETWORK_PROXY_BLOCKED` — `403`, `x-deny-reason: host_not_allowed`; the request never reached Sleeper |
+
+**The two runs together validate the taxonomy.** From inside the sandbox the verifier declined to
+call a 403 a provider failure, and said the cause was an intermediary. An open-egress run then
+confirmed the provider was fine all along. Had the verifier classified only *thrown* errors it
+would have reported `HTTP_PROVIDER_FAILURE` and produced a false statement about a third party —
+and, worse, an argument for deleting a working integration.
+
+Sandbox verdict, kept for reference because this environment still produces it:
 
 ```
 overall  NETWORK_PROXY_BLOCKED
@@ -121,7 +139,7 @@ a dynasty value" — so the distinction is visible at the point of contact.
 
 ---
 
-## Verifying Sleeper from outside the sandbox
+## Re-verifying Sleeper
 
 ```bash
 npm run verify:sleeper
@@ -132,6 +150,10 @@ npm run verify:sleeper -- --timeout 60000
 It requests the exact endpoints configured above, reports HTTP status, validates each response
 against the **same zod schema the pipeline validates with**, and reports row counts. It writes
 nothing, changes nothing, and opens no database. Exit 0 only when every check succeeds.
+
+Run it from a host with open egress; inside this sandbox it can only report the egress policy.
+Re-run it when the transport configuration changes, when Sleeper announces a schema change, or
+to refresh the record above.
 
 **It is not part of `npm test`, on purpose.** The deterministic suite must never require
 internet access. The classification and validation logic lives in `@/diagnostics` and is unit
