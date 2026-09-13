@@ -80,4 +80,18 @@ describe('PT-09 deployment data admission', () => {
     });
     expect(readFileSync(join(destination, 'market-latest.json'), 'utf8')).toBe(market);
   });
+
+  it('admits a status-only failure update without changing last-good board bytes', () => {
+    const source = tempDir();
+    const destination = tempDir();
+    const board = `${JSON.stringify(validBoard(), null, 2)}\n`;
+    const status = '{"board":{"lastAttempt":{"outcome":"failure"}}}\n';
+    writeFileSync(join(source, 'board.json'), board);
+    writeFileSync(join(source, 'status.json'), status);
+
+    const result = run(source, destination);
+    expect(result.status).toBe(0);
+    expect(readFileSync(join(destination, 'board.json'), 'utf8')).toBe(board);
+    expect(readFileSync(join(destination, 'status.json'), 'utf8')).toBe(status);
+  });
 });

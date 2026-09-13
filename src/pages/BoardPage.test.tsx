@@ -11,6 +11,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { ApiClient } from '@/services/api';
 import { PublicationProvider } from '@/services/publication';
+import { resolveSiteDataSource, type SiteDataSource } from '@/services/siteData';
 import BoardPage from './BoardPage';
 
 interface EntryOverrides {
@@ -127,10 +128,10 @@ function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 }
 
-function renderBoard(fetchFn: typeof fetch, route = '/board') {
+function renderBoard(fetchFn: typeof fetch, route = '/board', source?: SiteDataSource) {
   const client = new ApiClient({ baseUrl: '/api', fetchFn });
   return render(
-    <PublicationProvider client={client}>
+    <PublicationProvider client={client} source={source}>
       <MemoryRouter initialEntries={[route]}>
         <BoardPage />
       </MemoryRouter>
@@ -225,6 +226,42 @@ describe('The Board renders the real publication end to end', () => {
     renderBoard(spy as unknown as typeof fetch);
     await waitFor(() => expect(spy).toHaveBeenCalled());
     expect(String(spy.mock.calls[0][0])).toBe('/api/publication');
+  });
+
+  it('renders a failed refresh beside its matching last-good static publication', async () => {
+    const board = publication(FOUR_POSITIONS);
+    const now = Date.now();
+    board.publication.publishedAt = new Date(now - 24 * 3_600_000).toISOString();
+    const status = {
+      generatedAt: new Date(now - 3_600_000).toISOString(),
+      board: {
+        state: 'current', ageHours: 3, currentWithinHours: 12,
+        publishedAt: board.publication.publishedAt,
+        publicationId: board.publication.publicationId,
+        checksum: board.publication.boardChecksum,
+        entryCount: board.publication.entryCount,
+        lastAttempt: { attemptedAt: new Date(now - 3_600_000).toISOString(), outcome: 'failure' },
+      },
+      market: {
+        state: 'unknown', ageHours: null, currentWithinHours: 24,
+        capturedAt: null, sourceTimestamp: null, quoteCount: null,
+        historyAppended: false, lastAttempt: null,
+      },
+      overall: 'degraded',
+    };
+    const fetchFn = (async (input: RequestInfo | URL) => {
+      const path = String(input);
+      if (path.endsWith('/board.json')) return jsonResponse(board);
+      if (path.endsWith('/status.json')) return jsonResponse(status);
+      if (path.endsWith('/market-latest.json')) return jsonResponse({}, 404);
+      return jsonResponse({}, 404);
+    }) as unknown as typeof fetch;
+
+    renderBoard(fetchFn, '/board', resolveSiteDataSource({ VITE_PLAYERTICKER_DATA_URL: '/data' }));
+    expect((await rowsFor('Test Passer')).length).toBeGreaterThan(0);
+    expect(await screen.findByText(/latest refresh failed; this is the last published board/i)).toBeInTheDocument();
+    expect(screen.getByText('Board updated yesterday')).toBeInTheDocument();
+    expect(screen.getByText(/12-team Dynasty · Superflex · Full PPR/)).toBeInTheDocument();
   });
 
   it('displays published values and does not invent the ones the API omitted', async () => {

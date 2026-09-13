@@ -17,6 +17,10 @@ export const freshnessStates = ['current', 'stale', 'expired', 'unknown'] as con
 export type FreshnessState = (typeof freshnessStates)[number];
 
 const freshnessSchema = z.enum(freshnessStates);
+const refreshAttemptSchema = z.object({
+  attemptedAt: z.string(),
+  outcome: z.enum(['success', 'partial', 'failure']),
+});
 
 const datasetFreshnessSchema = z.object({
   state: freshnessSchema,
@@ -36,11 +40,16 @@ export const statusDocumentSchema = z
     board: datasetFreshnessSchema.extend({
       publishedAt: z.string().nullable().default(null),
       entryCount: z.number().nullable().default(null),
+      checksum: z.string().nullable().default(null),
+      publicationId: z.string().nullable().default(null),
+      lastAttempt: refreshAttemptSchema.nullable().default(null),
     }),
     market: datasetFreshnessSchema.extend({
       capturedAt: z.string().nullable().default(null),
       sourceTimestamp: z.string().nullable().default(null),
       quoteCount: z.number().nullable().default(null),
+      historyAppended: z.boolean().default(false),
+      lastAttempt: refreshAttemptSchema.nullable().default(null),
     }),
     overall: z.enum(['ok', 'degraded']).default('degraded'),
   })

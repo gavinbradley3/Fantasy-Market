@@ -28,12 +28,11 @@ on:
         required: false
         type: string
 
-# One board refresh at a time. A second run starting while the first is mid-publish could
-# interleave writes to the same branch and leave a board and a status document from different
-# runs. `cancel-in-progress: false` makes the newcomer WAIT rather than kill a run that may be
-# seconds from publishing.
+# One site-data writer at a time, shared with refresh-market. Both workflows update status.json
+# and can start together on Monday 06:20 UTC; serialization prevents either job rebasing over
+# and losing the other's durable dataset/status handoff.
 concurrency:
-  group: playerticker-refresh-board
+  group: playerticker-site-data-refresh
   cancel-in-progress: false
 
 jobs:
@@ -78,6 +77,8 @@ jobs:
           fi
 
       - name: Ingest nflverse (+ optional Sleeper enrichment)
+        id: ingest
+        continue-on-error: true
         env:
           # Above the 4,625 MB measured live heap, with room for the collector to move objects
           # rather than merely hold them. The ingest checks this limit BEFORE contacting any
@@ -99,16 +100,24 @@ jobs:
             --captures "$RUNNER_TEMP/captures"
 
       - name: Export static site data
+        id: export
+        if: always()
         run: |
+          ATTEMPT_ARGS=()
+          if [ "${{ steps.ingest.outcome }}" != "success" ]; then
+            ATTEMPT_ARGS=(--attempt-outcome failure --attempt-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)")
+          fi
           npm run export:site-data -- \
             --db "$RUNNER_TEMP/playerticker.db" \
-            --out ../site-data
+            --out ../site-data \
+            --dataset board \
+            "${ATTEMPT_ARGS[@]}"
 
-      # Commits ONLY when the ingest published a board and the export wrote one. A failed run
-      # leaves the branch exactly as it was, which is how the last known-good board survives a
-      # provider outage: nothing overwrites it.
+      # A successful run commits the new board and status together. A failed run commits only
+      # status evidence beside the untouched last-good board.
       - name: Commit site data
         id: commit
+        if: always() && steps.export.outcome == 'success'
         run: |
           cd ../site-data
           if [ ! -f board.json ]; then
@@ -117,7 +126,8 @@ jobs:
           fi
           git config user.name  "playerticker-bot"
           git config user.email "playerticker-bot@users.noreply.github.com"
-          git add -A
+          git add status.json
+          if [ -f board.json ]; then git add board.json; fi
           if git diff --cached --quiet; then
             echo "no change in exported data"
             echo "committed=false" >> "$GITHUB_OUTPUT"
@@ -136,6 +146,13 @@ jobs:
           done
           exit 1
 
+      # `continue-on-error` above exists only so failure evidence can be exported and committed.
+      # Restore the original failure after that durable handoff; reporting must never turn a
+      # failed refresh green.
+      - name: Preserve refresh failure outcome
+        if: always() && steps.ingest.outcome == 'failure'
+        run: exit 1
+
       - name: Report status
         if: always()
         run: cat ../site-data/status.json 2>/dev/null || echo "no status document produced"
@@ -146,7 +163,7 @@ jobs:
   # source does not cause a pointless deploy.
   deploy:
     needs: refresh
-    if: needs.refresh.outputs.committed == 'true'
+    if: always() && needs.refresh.outputs.committed == 'true'
     uses: ./.github/workflows/deploy.yml
     permissions:
       contents: read
