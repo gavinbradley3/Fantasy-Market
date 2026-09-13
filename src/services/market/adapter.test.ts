@@ -47,6 +47,7 @@ function response(over: Partial<ApiMarketResponse> = {}): ApiMarketResponse {
 
 function player(over: Partial<PublishedPlayer> = {}): PublishedPlayer {
   return {
+    dynastyContract: 'canonical',
     playerId: 'pt-josh',
     position: 'QB',
     name: 'Josh Allen',
@@ -209,6 +210,30 @@ describe('board comparisons', () => {
     const none = sides.find((s) => s.canonicalPlayerId === 'pt-none');
     expect(none?.overallRank).toBeNull();
     expect(none?.value).toBeNull();
+  });
+
+  it('does not present a legacy composite rank as canonical dynasty Market Edge', () => {
+    const legacy = player({ dynastyContract: 'legacy', dynastyValue: null, value: 77, overallRank: 1, positionRank: 1 });
+    const side = buildDynastyModelSide([legacy])[0];
+    expect(side).toMatchObject({ value: null, overallRank: null, positionRank: null });
+  });
+
+  it.each([
+    [10, 20, -10],
+    [20, 10, 10],
+    [10, 10, 0],
+  ])('keeps rank-difference arithmetic model %s minus market %s', (modelRank, marketRank, difference) => {
+    const boardPlayer = player({ overallRank: modelRank, positionRank: 7 });
+    const market = adaptMarket(response({
+      quotes: [{ ...response().quotes[0], overallRank: marketRank, positionRank: 9 }],
+    }));
+    const comparison = buildBoardComparisons([boardPlayer], market).get('pt-josh');
+    expect(comparison).toMatchObject({
+      modelRank,
+      modelPositionRank: 7,
+      marketRank,
+      overallRankDifference: difference,
+    });
   });
 
   it('agrees with the board rank the reader sees, for every player on a real board', () => {

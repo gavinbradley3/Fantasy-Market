@@ -25,8 +25,11 @@ export interface PublishedComposites {
  * full valuation, a clearly-labelled reduced one, or an honest "not enough data".
  */
 export type PublishedModelTier = 'FULL' | 'ACCESSIBLE' | 'INSUFFICIENT';
+export type PublishedDynastyContract = 'canonical' | 'legacy';
 
 export interface PublishedPlayer {
+  /** Explicitly distinguishes a current canonical publication from the supported legacy shape. */
+  readonly dynastyContract: PublishedDynastyContract;
   /**
    * PlayerTicker's CROSS-POSITION dynasty value, 0–100 on its own scale, and what the board
    * ranks on. Null when the backend published none — an older board, or a player the engines
@@ -59,8 +62,9 @@ export interface PublishedPlayer {
    */
   readonly value: number | null;
   readonly composites: PublishedComposites | null;
-  /** Ordering over `value`, 1-based. `null` for an unvalued player — an unranked player. */
+  /** Backend canonical overall rank (legacy boards retain their historical composite rank). */
   readonly overallRank: number | null;
+  /** Backend canonical dynasty positional rank (legacy boards retain their historical rank). */
   readonly positionRank: number | null;
   readonly confidenceScore: number | null;
   readonly confidenceLabel: string | null;
@@ -114,6 +118,7 @@ export interface RejectedRecord {
 }
 
 export interface PublishedMarket {
+  readonly dynastyContract: PublishedDynastyContract;
   readonly publicationId: string;
   readonly runId: string;
   readonly publishedAt: string;
@@ -123,7 +128,7 @@ export interface PublishedMarket {
   readonly horizon: PublishedHorizon;
   /** Admitted players, ordered by rank (valued first), then by id. */
   readonly players: readonly PublishedPlayer[];
-  /** How many admitted players carry a published value. */
+  /** How many admitted players carry the board's displayed value. */
   readonly valuedCount: number;
   /** Records the adapter refused. Surfaced, never swallowed. */
   readonly rejected: readonly RejectedRecord[];

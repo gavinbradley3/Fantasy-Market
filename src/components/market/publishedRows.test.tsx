@@ -11,6 +11,7 @@ import type { PublishedPlayer } from '@/services/publication';
 
 function player(over: Partial<PublishedPlayer> = {}): PublishedPlayer {
   return {
+    dynastyContract: 'canonical',
     dynastyValue: 61,
     dynastySurplus: null,
     dynastyDepth: null,
@@ -115,8 +116,8 @@ describe('PlayerTickerValue', () => {
 
   it('falls back to the composite for a board published before the shared value existed', () => {
     // The SAME fallback the ranking uses, so display and order cannot disagree.
-    expect(playerTickerValue(player({ dynastyValue: null, value: 55 }))).toBe(55);
-    render(<PlayerTickerValue player={player({ dynastyValue: null, value: 55 })} />);
+    expect(playerTickerValue(player({ dynastyContract: 'legacy', dynastyValue: null, value: 55 }))).toBe(55);
+    render(<PlayerTickerValue player={player({ dynastyContract: 'legacy', dynastyValue: null, value: 55 })} />);
     expect(screen.getByText('55.0')).toBeInTheDocument();
   });
 

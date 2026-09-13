@@ -68,15 +68,15 @@ const boardEntrySchema = z.object({
   inputsSubstituted: z.number().nullable().default(null),
   insufficientReason: z.string().nullable().default(null),
   provenance: provenanceSchema.nullable().default(null),
-  // Cross-position dynasty utility. Defaulted rather than required so a board published by an
-  // older backend still decodes — it simply carries no shared value, and the adapter falls
-  // back to the position composite with that limitation visible.
-  dynastyValue: z.number().nullable().default(null),
+  // These three fields define the current canonical shared-utility contract. They are optional
+  // only so a genuinely older payload in which all three are absent can still be identified.
+  // Do not default them: field absence and an explicit null have different meanings.
+  dynastyValue: z.number().nullable().optional(),
   dynastySurplus: z.number().nullable().default(null),
   dynastyDepth: z.number().nullable().default(null),
   dynastyValueSource: z.string().nullable().default(null),
-  dynastyPositionRank: z.number().nullable().default(null),
-  dynastyOverallRank: z.number().nullable().default(null),
+  dynastyPositionRank: z.number().int().positive().nullable().optional(),
+  dynastyOverallRank: z.number().int().positive().nullable().optional(),
   leagueSchemaId: z.string().nullable().default(null),
   productionCurveVersion: z.string().nullable().default(null),
 });
@@ -91,9 +91,79 @@ const publicationMetadataSchema = z.object({
   supersededPublicationId: z.string().nullable(),
 });
 
+const canonicalFields = ['dynastyValue', 'dynastyPositionRank', 'dynastyOverallRank'] as const;
+
+export type PublicationDynastyContract = 'canonical' | 'legacy';
+
+export interface PublicationContractAnalysis {
+  readonly contract: PublicationDynastyContract | 'ambiguous';
+  readonly issues: readonly string[];
+}
+
+/** Inspect field presence before compatibility defaults can erase legacy-vs-null semantics. */
+export function analyzePublicationContract(
+  entries: readonly Pick<ApiPublicationResponse['entries'][number], (typeof canonicalFields)[number] | 'canonicalId' | 'position'>[],
+): PublicationContractAnalysis {
+  const presence = entries.map((entry) =>
+    canonicalFields.map((field) => Object.prototype.hasOwnProperty.call(entry, field)),
+  );
+  const allAbsent = presence.every((fields) => fields.every((present) => !present));
+  if (allAbsent) return { contract: 'legacy', issues: [] };
+
+  const allPresent = presence.every((fields) => fields.every(Boolean));
+  if (!allPresent) {
+    return {
+      contract: 'ambiguous',
+      issues: ['canonical dynasty fields must be present on every entry or absent from every entry'],
+    };
+  }
+
+  const issues: string[] = [];
+  const overallRanks = new Map<number, string>();
+  const positionRanks = new Map<string, string>();
+  for (const entry of entries) {
+    const value = entry.dynastyValue;
+    const overallRank = entry.dynastyOverallRank;
+    const positionRank = entry.dynastyPositionRank;
+    const validValue = value === null || (typeof value === 'number' && Number.isFinite(value));
+    const validOverall = overallRank === null || (Number.isInteger(overallRank) && (overallRank as number) > 0);
+    const validPosition = positionRank === null || (Number.isInteger(positionRank) && (positionRank as number) > 0);
+    if (!validValue) issues.push(`${entry.canonicalId}: canonical dynasty value must be finite or null`);
+    if (!validOverall) issues.push(`${entry.canonicalId}: canonical overall rank must be a positive integer or null`);
+    if (!validPosition) issues.push(`${entry.canonicalId}: canonical position rank must be a positive integer or null`);
+    if (!validValue || !validOverall || !validPosition) continue;
+    const checkedOverall = overallRank as number | null;
+    const checkedPosition = positionRank as number | null;
+    const hasAllRanks = overallRank !== null && positionRank !== null;
+    const hasAnyRank = overallRank !== null || positionRank !== null;
+    if (value === null && hasAnyRank) {
+      issues.push(`${entry.canonicalId}: an unvalued entry cannot carry canonical ranks`);
+    } else if (value !== null && !hasAllRanks) {
+      issues.push(`${entry.canonicalId}: a valued entry must carry both canonical ranks`);
+    }
+    if (checkedOverall !== null) {
+      const prior = overallRanks.get(checkedOverall);
+      if (prior) issues.push(`duplicate canonical overall rank ${checkedOverall}: ${prior}, ${entry.canonicalId}`);
+      else overallRanks.set(checkedOverall, entry.canonicalId);
+    }
+    if (checkedPosition !== null) {
+      const key = `${entry.position}:${checkedPosition}`;
+      const prior = positionRanks.get(key);
+      if (prior) issues.push(`duplicate canonical ${entry.position} rank ${checkedPosition}: ${prior}, ${entry.canonicalId}`);
+      else positionRanks.set(key, entry.canonicalId);
+    }
+  }
+  return { contract: issues.length ? 'ambiguous' : 'canonical', issues };
+}
+
 export const publicationResponseSchema = z.object({
   publication: publicationMetadataSchema,
   entries: z.array(boardEntrySchema),
+}).superRefine((response, context) => {
+  const analysis = analyzePublicationContract(response.entries);
+  for (const message of analysis.issues) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['entries'], message });
+  }
 });
 
 /**
