@@ -5,14 +5,15 @@
 //
 //   1. NOTHING IS INVENTED. A field the API published as `null` stays `null`. There are no
 //      `?? 0` fallbacks, no synthesized prices, no derived "estimates". The only value this
-//      adapter computes is RANK, which is a pure ordering over the backend's own published
-//      value — presentation, not valuation. No valuation formula exists in the frontend.
+//      adapter computes is the explicitly supported LEGACY rank. Current publications keep the
+//      backend's canonical values and ranks verbatim. No valuation formula exists here.
 //   2. INVALID RECORDS ARE REJECTED, NOT REPAIRED. A record with no id, an unrecognized
 //      position, a non-finite value, or an id already seen is dropped into `rejected` with a
-//      reason. A structurally wrong RESPONSE (not a record) throws instead — that is an
-//      `invalidResponse` condition, not a partially-usable board.
+//      reason. Current publications carry backend-assigned canonical ranks; only an explicitly
+//      identified legacy publication retains the historical composite-ranking compatibility
+//      path. A structurally wrong RESPONSE throws instead.
 
-import type { ApiBoardEntry, ApiPublicationResponse } from '@/services/api';
+import { analyzePublicationContract, type ApiBoardEntry, type ApiPublicationResponse } from '@/services/api';
 import type { Position } from '@/types/market';
 import type {
   PublishedComposites,
@@ -84,42 +85,38 @@ function adaptComposites(composites: ApiBoardEntry['composites']): PublishedComp
 }
 
 /**
- * Rank the board. Valued players are ordered by descending value; ties and unvalued players
+ * Rank a legacy board. Valued players are ordered by descending value; ties and unvalued players
  * fall back to ascending canonical id, so the order is total and stable across renders.
  * Unvalued players are ranked `null` — they sit at the end of the list without a number.
  */
-function ranked(players: readonly Omit<PublishedPlayer, 'overallRank' | 'positionRank'>[]): PublishedPlayer[] {
-  // The board ranks on the SHARED cross-position value. Sorting the position engines' internal
-  // composites together — which is what this did — compared four numbers anchored in four
-  // different distributions, and put whichever position had the widest internal scale on top.
-  //
-  // A board published before the utility layer existed carries no shared value; those fall back
-  // to the composite, which keeps an older backend readable rather than blank.
-  const anyShared = players.some((p) => p.dynastyValue !== null);
-  const rankOn = (p: Omit<PublishedPlayer, 'overallRank' | 'positionRank'>) =>
-    anyShared ? p.dynastyValue : p.value;
-
+function legacyRanked(players: readonly Omit<PublishedPlayer, 'overallRank' | 'positionRank'>[]): PublishedPlayer[] {
   const ordered = [...players].sort((a, b) => {
-    const av = rankOn(a);
-    const bv = rankOn(b);
+    const av = a.value;
+    const bv = b.value;
     if (av !== null && bv !== null && av !== bv) return bv - av;
     if (av !== null && bv === null) return -1;
     if (av === null && bv !== null) return 1;
-    // The board no longer ties at zero in bulk — the depth term separates below-replacement
-    // players — but exact ties still occur where the measured curve has flattened to its floor.
-    // The position composite stands in there, so a tie breaks on something real, not a player id.
-    if (anyShared && a.value !== null && b.value !== null && a.value !== b.value) return b.value - a.value;
     return a.playerId.localeCompare(b.playerId);
   });
 
   let overall = 0;
   const positionCounters = new Map<Position, number>();
   return ordered.map((p) => {
-    if (rankOn(p) === null) return { ...p, overallRank: null, positionRank: null };
+    if (p.value === null) return { ...p, overallRank: null, positionRank: null };
     overall += 1;
     const positionRank = (positionCounters.get(p.position) ?? 0) + 1;
     positionCounters.set(p.position, positionRank);
     return { ...p, overallRank: overall, positionRank };
+  });
+}
+
+/** Current boards carry their already-assigned backend ranks; this only restores response order. */
+function canonicalOrdered(players: readonly PublishedPlayer[]): PublishedPlayer[] {
+  return [...players].sort((a, b) => {
+    if (a.overallRank !== null && b.overallRank !== null) return a.overallRank - b.overallRank;
+    if (a.overallRank !== null) return -1;
+    if (b.overallRank !== null) return 1;
+    return a.playerId.localeCompare(b.playerId);
   });
 }
 
@@ -141,10 +138,15 @@ export function adaptPublication(
   if (!Array.isArray(response.entries)) {
     throw new PublicationAdapterError('publication response carries no entries array');
   }
+  const contractAnalysis = analyzePublicationContract(response.entries);
+  if (contractAnalysis.contract === 'ambiguous') {
+    throw new PublicationAdapterError(`invalid dynasty publication contract: ${contractAnalysis.issues.join('; ')}`);
+  }
+  const dynastyContract = contractAnalysis.contract;
 
   const rejected: RejectedRecord[] = [];
   const seen = new Set<string>();
-  const admitted: Omit<PublishedPlayer, 'overallRank' | 'positionRank'>[] = [];
+  const admitted: PublishedPlayer[] = [];
 
   for (const entry of response.entries) {
     const canonicalId = typeof entry.canonicalId === 'string' ? entry.canonicalId.trim() : '';
@@ -179,13 +181,17 @@ export function adaptPublication(
     seen.add(canonicalId);
     admitted.push({
       playerId: canonicalId,
+      dynastyContract,
+      overallRank: dynastyContract === 'canonical' ? (entry.dynastyOverallRank ?? null) : null,
+      positionRank: dynastyContract === 'canonical' ? (entry.dynastyPositionRank ?? null) : null,
       position: entry.position,
       name: entry.name,
       team: entry.team,
       age: finiteOrNull(entry.age),
       value: composites ? composites[horizon] : null,
       composites,
-      // The board's cross-position value, carried through verbatim.
+      // The board's cross-position value, carried through verbatim. Undefined occurs only on a
+      // publication explicitly classified as legacy by field presence above.
       dynastyValue: finiteOrNull(entry.dynastyValue),
       dynastySurplus: finiteOrNull(entry.dynastySurplus),
       dynastyDepth: finiteOrNull(entry.dynastyDepth),
@@ -221,8 +227,9 @@ export function adaptPublication(
     });
   }
 
-  const players = ranked(admitted);
+  const players = dynastyContract === 'canonical' ? canonicalOrdered(admitted) : legacyRanked(admitted);
   return {
+    dynastyContract,
     publicationId: meta.publicationId,
     runId: meta.runId,
     publishedAt: meta.publishedAt,
@@ -230,7 +237,7 @@ export function adaptPublication(
     entryCount: meta.entryCount,
     horizon,
     players,
-    valuedCount: players.filter((p) => p.value !== null).length,
+    valuedCount: players.filter((p) => dynastyContract === 'canonical' ? p.dynastyValue !== null : p.value !== null).length,
     rejected,
   };
 }

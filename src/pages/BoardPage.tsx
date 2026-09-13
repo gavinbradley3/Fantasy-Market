@@ -92,6 +92,9 @@ const SCHEMA_LABELS: Readonly<Record<string, string>> = {
 };
 
 export function boardSubtitle(players: readonly PublishedPlayer[]): string {
+  if (players.some((player) => player.dynastyContract === 'legacy')) {
+    return 'Legacy composite board · canonical dynasty values unavailable';
+  }
   const base = 'Ranked by projected dynasty value over replacement';
   const ids = new Set(players.map((p) => p.leagueSchemaId).filter((id): id is string => id !== null));
   // More than one schema on one board would mean two formats were mixed, which is a backend

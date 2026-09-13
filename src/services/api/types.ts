@@ -81,12 +81,15 @@ export interface ApiProvenance {
 
 /** Cross-position dynasty utility, as the board publishes it. */
 export interface ApiDynastyUtility {
-  readonly dynastyValue: number | null;
+  /** Absent only on publications predating the canonical shared-utility contract. */
+  readonly dynastyValue?: number | null;
   readonly dynastySurplus: number | null;
   readonly dynastyDepth: number | null;
   readonly dynastyValueSource: string | null;
-  readonly dynastyPositionRank: number | null;
-  readonly dynastyOverallRank: number | null;
+  /** Absent only on publications predating the canonical shared-utility contract. */
+  readonly dynastyPositionRank?: number | null;
+  /** Absent only on publications predating the canonical shared-utility contract. */
+  readonly dynastyOverallRank?: number | null;
   readonly leagueSchemaId: string | null;
   readonly productionCurveVersion: string | null;
 }

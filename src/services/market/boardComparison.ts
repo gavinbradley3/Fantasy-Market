@@ -47,21 +47,19 @@ export const COMPARISON_HORIZON = 'dynasty' as const;
  *
  * `value` carries `dynastyValue`, the quantity the ranking is over, so a consumer reading the
  * model's value and its rank sees one number and its own ordering rather than two unrelated
- * ones. It falls back to the position composite only for a board published before the shared
- * utility layer existed, which carries no `dynastyValue` — the same fallback the adapter's
- * ranking uses, so the two never diverge.
+ * ones. A legacy composite board is deliberately not presented as canonical dynasty Market
+ * Edge: its model-side value and ranks remain absent here.
  *
  * A player the board ranked `null` (no published value) stays `null` here: "unvalued" and
  * "worst" are different claims, and only one of them is true.
  */
 export function buildDynastyModelSide(players: readonly PublishedPlayer[]): ModelSide[] {
-  const anyShared = players.some((p) => p.dynastyValue !== null);
   return players.map((p) => ({
     canonicalPlayerId: p.playerId,
     position: p.position,
-    value: anyShared ? p.dynastyValue : (p.composites?.dynasty ?? null),
-    overallRank: p.overallRank,
-    positionRank: p.positionRank,
+    value: p.dynastyContract === 'legacy' ? null : p.dynastyValue,
+    overallRank: p.dynastyContract === 'legacy' ? null : p.overallRank,
+    positionRank: p.dynastyContract === 'legacy' ? null : p.positionRank,
     modelVersion: p.modelVersion,
     updatedAt: p.asOf,
   }));

@@ -31,6 +31,8 @@ interface EntryOverrides {
   explanation?: string | null;
   materialMissingInputs?: string[];
   dynastyValue?: number | null;
+  dynastyOverallRank?: number | null;
+  dynastyPositionRank?: number | null;
   leagueSchemaId?: string | null;
 }
 
@@ -76,6 +78,8 @@ function apiEntry(o: EntryOverrides) {
     // apart from the composite deliberately, which is the only way to catch a display or a
     // ranking that has quietly re-pointed at the position-internal number.
     dynastyValue: o.dynastyValue !== undefined ? o.dynastyValue : o.weekly,
+    dynastyOverallRank: o.dynastyOverallRank,
+    dynastyPositionRank: o.dynastyPositionRank,
     leagueSchemaId: o.leagueSchemaId !== undefined ? o.leagueSchemaId : 'dynasty-superflex-12',
   };
 }
@@ -89,17 +93,33 @@ const FOUR_POSITIONS = [
 ];
 
 function publication(entries: ReturnType<typeof apiEntry>[]) {
+  const ranked = [...entries]
+    .filter((entry) => entry.dynastyValue !== null)
+    .sort((a, b) => (b.dynastyValue ?? 0) - (a.dynastyValue ?? 0) || a.canonicalId.localeCompare(b.canonicalId));
+  const overall = new Map(ranked.map((entry, index) => [entry.canonicalId, index + 1]));
+  const positions = new Map<string, number>();
+  const positionRanks = new Map<string, number>();
+  for (const entry of ranked) {
+    const rank = (positions.get(entry.position) ?? 0) + 1;
+    positions.set(entry.position, rank);
+    positionRanks.set(entry.canonicalId, rank);
+  }
+  const canonicalEntries = entries.map((entry) => ({
+    ...entry,
+    dynastyOverallRank: entry.dynastyOverallRank ?? overall.get(entry.canonicalId) ?? null,
+    dynastyPositionRank: entry.dynastyPositionRank ?? positionRanks.get(entry.canonicalId) ?? null,
+  }));
   return {
     publication: {
       publicationId: 'pub-1',
       runId: 'run-1',
       snapshotId: 'snap-1',
       boardChecksum: 'chk',
-      entryCount: entries.length,
+      entryCount: canonicalEntries.length,
       publishedAt: '2026-01-01T00:00:00.000Z',
       supersededPublicationId: null,
     },
-    entries,
+    entries: canonicalEntries,
   };
 }
 
@@ -557,6 +577,55 @@ describe('external market context on the board', () => {
 // ---------------------------------------------------------------------------
 
 describe('The Board — one ranking, one number', () => {
+  it('renders backend rank/value on desktop and mobile when equal values oppose the old tie-breaker', async () => {
+    const opposedTie = [
+      apiEntry({ canonicalId: 'pt-second', position: 'WR', name: 'Composite Favorite', weekly: 99,
+        dynastyValue: 70, dynastyOverallRank: 2, dynastyPositionRank: 2 }),
+      apiEntry({ canonicalId: 'pt-first', position: 'WR', name: 'Canonical First', weekly: 1,
+        dynastyValue: 70, dynastyOverallRank: 1, dynastyPositionRank: 1 }),
+    ];
+    renderBoard(respondWith(publication(opposedTie)));
+    const names = await screen.findAllByText('Canonical First');
+    expect(names).toHaveLength(2); // desktop row and mobile card
+
+    const desktop = names[0].closest('tr')!;
+    expect(within(desktop).getByText('1')).toBeInTheDocument();
+    expect(within(desktop).getByText('70.0')).toBeInTheDocument();
+    const rows = screen.getAllByRole('row').slice(1);
+    expect(rows[0].textContent).toContain('Canonical First');
+    expect(rows[1].textContent).toContain('Composite Favorite');
+    expect(screen.getAllByText('70.0')).toHaveLength(4); // both values in both layouts
+    expect(screen.queryByText('99.0')).not.toBeInTheDocument();
+  });
+
+  it('keeps canonical labels and Market Edge fixed under alternative sorting', async () => {
+    renderBoard(
+      routed(
+        publication([
+          apiEntry({ canonicalId: 'pt-z', position: 'QB', name: 'Zulu', weekly: 90,
+            dynastyOverallRank: 1, dynastyPositionRank: 1 }),
+          apiEntry({ canonicalId: 'pt-a', position: 'RB', name: 'Alpha', weekly: 80,
+            dynastyOverallRank: 2, dynastyPositionRank: 1 }),
+        ]),
+        marketResponse([{ canonicalPlayerId: 'pt-z', value: 10000, overallRank: 3 }]),
+      ),
+    );
+    await screen.findAllByText('Zulu');
+    await userEvent.selectOptions(screen.getByLabelText('Sort by'), 'name');
+    const zulu = (await screen.findAllByText('Zulu'))[0].closest('tr')!;
+    expect(within(zulu).getByText('1')).toBeInTheDocument();
+    await waitFor(() => expect(within(zulu).getByText('+2')).toBeInTheDocument());
+  });
+
+  it('does not display a diagnostic composite for an explicitly unvalued current entry', async () => {
+    const diagnostic = apiEntry({ canonicalId: 'pt-null', position: 'WR', name: 'Diagnostic Only', weekly: 55,
+      dynastyValue: null, dynastyOverallRank: null, dynastyPositionRank: null });
+    renderBoard(respondWith(publication([diagnostic])));
+    expect(await screen.findAllByText('Diagnostic Only')).toHaveLength(2);
+    expect(screen.queryByText('55.0')).not.toBeInTheDocument();
+    expect(screen.getAllByLabelText('no value published for this player')).toHaveLength(2);
+  });
+
   it('displays the value it RANKS on, not the position engine’s weekly composite', async () => {
     // THE DEFECT. The board ordered rows by `dynastyValue` and printed `value` — the position
     // engine's internal composite for the displayed horizon. So rank 1 could carry a smaller

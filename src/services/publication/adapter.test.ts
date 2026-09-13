@@ -9,14 +9,11 @@ import type { ApiBoardEntry, ApiPublicationResponse } from '@/services/api';
 
 function entry(over: Partial<ApiBoardEntry> = {}): ApiBoardEntry {
   return {
-    // Default to NO shared value, so the existing cases keep exercising the composite
-    // fallback path an older board takes; the utility cases below set it explicitly.
-    dynastyValue: null,
+    // The canonical value/rank trio is absent by default, so these cases exercise the explicit
+    // legacy compatibility path. Canonical cases below supply all three fields together.
     dynastySurplus: null,
     dynastyDepth: null,
     dynastyValueSource: null,
-    dynastyPositionRank: null,
-    dynastyOverallRank: null,
     leagueSchemaId: null,
     productionCurveVersion: null,
     canonicalId: 'pt-wr',
@@ -320,18 +317,20 @@ describe('the board ranks on the SHARED cross-position value', () => {
 
   const withUtility = (over: Partial<ApiBoardEntry>, dynastyValue: number, composite: number) =>
     entry({
-      ...over,
       dynastyValue,
+      dynastyOverallRank: 1,
+      dynastyPositionRank: 1,
       leagueSchemaId: 'dynasty-superflex-12',
       composites: { weekly: composite, ros: composite, oneYear: composite, threeYear: composite, dynasty: composite },
+      ...over,
     });
 
   it('orders by the shared value even when the composites disagree', () => {
     const market = adaptPublication(
       response([
         // A tight end whose internal composite towers over the quarterback's.
-        withUtility({ canonicalId: 'pt-te', position: 'TE', name: 'Big Scale TE' }, 30, 92),
-        withUtility({ canonicalId: 'pt-qb', position: 'QB', name: 'Superflex QB' }, 100, 56),
+        withUtility({ canonicalId: 'pt-te', position: 'TE', name: 'Big Scale TE', dynastyOverallRank: 2 }, 30, 92),
+        withUtility({ canonicalId: 'pt-qb', position: 'QB', name: 'Superflex QB', dynastyOverallRank: 1 }, 100, 56),
       ]),
       { horizon: 'dynasty' },
     );
@@ -367,7 +366,8 @@ describe('the board ranks on the SHARED cross-position value', () => {
     const market = adaptPublication(
       response([
         withUtility({ canonicalId: 'pt-qb', position: 'QB' }, 100, 56),
-        entry({ canonicalId: 'pt-none', position: 'WR', composites: { weekly: 50, ros: 50, oneYear: 50, threeYear: 50, dynasty: 50 } }),
+        entry({ canonicalId: 'pt-none', position: 'WR', dynastyValue: null, dynastyOverallRank: null,
+          dynastyPositionRank: null, composites: { weekly: 50, ros: 50, oneYear: 50, threeYear: 50, dynasty: 50 } }),
       ]),
       { horizon: 'dynasty' },
     );

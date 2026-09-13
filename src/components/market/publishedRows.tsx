@@ -151,12 +151,12 @@ export function CoverageBadge({ player }: { player: PublishedPlayer }) {
  * because the two were measured on different scales over different horizons. Nothing was wrong
  * with either number; putting the wrong one in the ranked column was the defect.
  *
- * A board published before the shared utility layer existed carries no `dynastyValue`. Those
- * fall back to the composite — the SAME fallback the ranking uses, so display and order still
- * agree — rather than blanking an older board.
+ * A genuinely legacy board is explicitly identified by field absence at the response boundary
+ * and retains its historical composite display. On a current board, an explicit canonical null
+ * remains absent even when diagnostic composites exist.
  */
 export function playerTickerValue(player: PublishedPlayer): number | null {
-  return player.dynastyValue ?? player.value;
+  return player.dynastyContract === 'legacy' ? player.value : player.dynastyValue;
 }
 
 /** The value cell, with the units and the league it is measured in on hover. */

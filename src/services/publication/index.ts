@@ -19,6 +19,7 @@ export {
 } from './PublicationProvider';
 export type {
   PublishedComposites,
+  PublishedDynastyContract,
   PublishedHorizon,
   PublishedMarket,
   PublishedPlayer,
