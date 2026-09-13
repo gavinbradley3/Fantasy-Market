@@ -157,7 +157,7 @@ export default function BoardPage() {
       />
 
       {/* Controls stay mounted across states so the layout does not jump on load. */}
-      {/* When the board was last refreshed. Renders nothing when no status document exists. */}
+      {/* Publication age comes from the loaded board; status adds matching attempt evidence. */}
       <FreshnessNote dataset="board" className="mb-3" />
 
       {market.market && resolvePublicationFormat(market.market).kind === 'conflict' && (
