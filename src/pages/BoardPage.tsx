@@ -10,9 +10,9 @@
 
 import { useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { usePublishedMarket } from '@/services/publication';
+import { resolvePublicationFormat, usePublishedMarket } from '@/services/publication';
 import { FreshnessNote } from '@/components/data/FreshnessNote';
-import type { PublishedPlayer } from '@/services/publication';
+import type { PublishedMarket, PublishedPlayer } from '@/services/publication';
 import {
   buildBoardComparisons,
   countCovered,
@@ -80,28 +80,17 @@ function sortPlayers(players: readonly PublishedPlayer[], sort: SortKey): Publis
   }
 }
 
-/**
- * What the board is ranked by, said on the page rather than left to be inferred.
- *
- * The league format is not asserted as a constant — it is read from the schema the backend
- * actually valued this board under, so the subtitle cannot outlive a format change. An older
- * board that published no schema id says only what it ranks on.
- */
-const SCHEMA_LABELS: Readonly<Record<string, string>> = {
-  'dynasty-superflex-12': '12-team Superflex',
-};
-
-export function boardSubtitle(players: readonly PublishedPlayer[]): string {
-  if (players.some((player) => player.dynastyContract === 'legacy')) {
+/** What the complete loaded publication is ranked by and the format it actually represents. */
+export function boardSubtitle(market: PublishedMarket | undefined, loading = false): string {
+  if (!market) {
+    return loading ? 'Loading published market…' : 'Published format unavailable';
+  }
+  const format = resolvePublicationFormat(market);
+  if (format.kind === 'legacy') {
     return 'Legacy composite board · canonical dynasty values unavailable';
   }
   const base = 'Ranked by projected dynasty value over replacement';
-  const ids = new Set(players.map((p) => p.leagueSchemaId).filter((id): id is string => id !== null));
-  // More than one schema on one board would mean two formats were mixed, which is a backend
-  // fault; naming neither is the honest reading rather than picking one arbitrarily.
-  if (ids.size !== 1) return base;
-  const id = [...ids][0];
-  return `${base} · ${SCHEMA_LABELS[id] ?? id}`;
+  return `${base} · ${format.label}`;
 }
 
 function matchesQuery(player: PublishedPlayer, query: string): boolean {
@@ -159,7 +148,7 @@ export default function BoardPage() {
     <div>
       <PageHeader
         title="The Board"
-        subtitle={boardSubtitle(players)}
+        subtitle={boardSubtitle(market.market, market.status === 'loading')}
         actions={
           <Button onClick={market.retry} disabled={market.isFetching}>
             {market.isFetching ? 'Refreshing…' : 'Refresh Market'}
@@ -170,6 +159,15 @@ export default function BoardPage() {
       {/* Controls stay mounted across states so the layout does not jump on load. */}
       {/* When the board was last refreshed. Renders nothing when no status document exists. */}
       <FreshnessNote dataset="board" className="mb-3" />
+
+      {market.market && resolvePublicationFormat(market.market).kind === 'conflict' && (
+        <p
+          role="alert"
+          className="mb-3 rounded-control border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-text-secondary"
+        >
+          Published format metadata is inconsistent, so no league or scoring format is shown.
+        </p>
+      )}
 
       <div className="mb-5 flex flex-wrap items-center gap-2 border-y border-border-default py-3">
         <div className="relative min-w-[200px] flex-1">

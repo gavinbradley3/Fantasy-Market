@@ -206,6 +206,8 @@ describe('The Board renders the real publication end to end', () => {
     const never = (() => new Promise<Response>(() => {})) as unknown as typeof fetch;
     renderBoard(never);
     expect(screen.getByLabelText('Loading published market')).toBeInTheDocument();
+    expect(screen.getByText('Loading published market…')).toBeInTheDocument();
+    expect(screen.queryByText(/12-team Dynasty|Full PPR/)).not.toBeInTheDocument();
   });
 
   it('renders QB, RB, WR and TE from one published board', async () => {
@@ -282,6 +284,7 @@ describe('The Board — search, filters and sorting over published data', () => 
     await screen.findAllByText('Test Receiver');
     await userEvent.click(screen.getByRole('button', { name: 'QB' }));
     expect(await screen.findByText(/no published players match these filters/i)).toBeInTheDocument();
+    expect(screen.getByText(/12-team Dynasty · Superflex · Full PPR/)).toBeInTheDocument();
     // Distinct from "nothing is published" — the board itself is still there.
     expect(screen.queryByText(/No market publication is available yet/i)).not.toBeInTheDocument();
   });
@@ -671,11 +674,52 @@ describe('The Board — one ranking, one number', () => {
     renderBoard(respondWith(publication(FOUR_POSITIONS)));
     await screen.findAllByText('Test Passer');
     expect(
-      screen.getByText(/Ranked by projected dynasty value over replacement · 12-team Superflex/),
+      screen.getByText(/Ranked by projected dynasty value over replacement · 12-team Dynasty · Superflex · Full PPR/),
     ).toBeInTheDocument();
     // Desktop column header and mobile card label both name it.
     expect(screen.getAllByText('PlayerTicker Value').length).toBeGreaterThan(0);
     expect(screen.getByText('Rank')).toBeInTheDocument();
+  });
+
+  it('does not guess scoring for missing or unknown schema metadata', async () => {
+    const { unmount } = renderBoard(respondWith(publication([
+      apiEntry({ canonicalId: 'pt-missing', position: 'WR', name: 'Missing Format', weekly: 70, leagueSchemaId: null }),
+    ])));
+    await screen.findAllByText('Missing Format');
+    expect(screen.getByText(/Published format unavailable/)).toBeInTheDocument();
+    expect(screen.queryByText(/Full PPR|12-team Superflex/)).not.toBeInTheDocument();
+    unmount();
+
+    renderBoard(respondWith(publication([
+      apiEntry({ canonicalId: 'pt-unknown', position: 'WR', name: 'Unknown Format', weekly: 70, leagueSchemaId: 'future-schema' }),
+    ])));
+    await screen.findAllByText('Unknown Format');
+    expect(screen.getByText(/Published format unrecognized/)).toBeInTheDocument();
+    expect(screen.queryByText(/Full PPR|12-team Superflex/)).not.toBeInTheDocument();
+  });
+
+  it('warns on conflicting schema metadata and never selects the first entry', async () => {
+    renderBoard(respondWith(publication([
+      apiEntry({ canonicalId: 'pt-known', position: 'WR', name: 'Known Schema', weekly: 70 }),
+      apiEntry({ canonicalId: 'pt-conflict', position: 'QB', name: 'Other Schema', weekly: 60, leagueSchemaId: 'future-schema' }),
+    ])));
+    await screen.findAllByText('Known Schema');
+    expect(screen.getByText(/Published format inconsistent/)).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(/format metadata is inconsistent/i);
+    expect(screen.queryByText(/12-team Dynasty · Superflex · Full PPR/)).not.toBeInTheDocument();
+  });
+
+  it('preserves the legacy disclosure without inventing a scoring format', async () => {
+    const current = apiEntry({ canonicalId: 'pt-legacy', position: 'WR', name: 'Legacy Player', weekly: 70 });
+    const { dynastyValue: _value, dynastyOverallRank: _overall, dynastyPositionRank: _position, ...legacy } = current;
+    renderBoard(respondWith({
+      publication: { publicationId: 'legacy', runId: 'run', snapshotId: 'snap', boardChecksum: 'checksum',
+        entryCount: 1, publishedAt: '2026-09-12T00:00:00Z', supersededPublicationId: null },
+      entries: [legacy],
+    }));
+    await screen.findAllByText('Legacy Player');
+    expect(screen.getByText(/Legacy composite board · canonical dynasty values unavailable/)).toBeInTheDocument();
+    expect(screen.queryByText(/Full PPR|12-team Superflex/)).not.toBeInTheDocument();
   });
 
   it('keeps the OVERALL rank visible under a position filter', async () => {
