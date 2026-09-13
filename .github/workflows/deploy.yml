@@ -56,15 +56,16 @@ jobs:
 
       - run: npm ci
 
-      # The published data. `continue-on-error` is deliberate: a FIRST deploy happens before any
-      # refresh has run, and the app must still build and serve — it renders an honest "no
-      # board" state rather than failing the deploy.
+      # Fetch exactly one immutable data revision. Failure here is not evidence that this is a
+      # first deployment: without a verified board the existing site must remain untouched.
       - name: Fetch published site data
         id: sitedata
-        continue-on-error: true
         run: |
           git fetch origin site-data --depth=1
-          git worktree add ../site-data origin/site-data
+          DATA_SHA="$(git rev-parse FETCH_HEAD)"
+          git worktree add --detach ../site-data "$DATA_SHA"
+          echo "commit=$DATA_SHA" >> "$GITHUB_OUTPUT"
+          echo "::notice::deploying site-data commit $DATA_SHA"
 
       - name: Build
         env:
@@ -73,18 +74,11 @@ jobs:
           PLAYERTICKER_BASE_PATH: /${{ github.event.repository.name }}/
         run: npm run build
 
-      - name: Copy published data into the build
+      # This is the deployment admission boundary. It validates board.json from the checkout
+      # above and copies those same bytes; any failure ends this job before artifact upload.
+      - name: Validate and copy published data into the build
         run: |
-          mkdir -p dist/data
-          if [ -f ../site-data/board.json ]; then
-            cp ../site-data/board.json          dist/data/
-            echo "board.json copied ($(du -h ../site-data/board.json | cut -f1))"
-          else
-            echo "::warning::no board.json on site-data — the site will render its no-board state"
-          fi
-          for f in status.json market-latest.json; do
-            if [ -f "../site-data/$f" ]; then cp "../site-data/$f" dist/data/; else echo "::warning::no $f yet"; fi
-          done
+          npm run prepare:site-data -- --source ../site-data --destination dist/data
           # market-history.jsonl is deliberately NOT copied. Nothing in the UI reads it, it is
           # the archive rather than a serving document, and it grows without bound.
           ls -la dist/data/
