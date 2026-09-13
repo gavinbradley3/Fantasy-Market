@@ -92,7 +92,7 @@ describe('canonical publication contract across runtime validation and adaptatio
     const market = adaptPublication(parsed);
     expect(market.dynastyContract).toBe('legacy');
     expect(playerTickerValue(market.players[0])).toBe(42);
-    expect(boardSubtitle(market.players)).toMatch(/Legacy composite board/);
+    expect(boardSubtitle(market)).toMatch(/Legacy composite board/);
     expect(buildDynastyModelSide(market.players)[0]).toMatchObject({
       value: null, overallRank: null, positionRank: null,
     });
