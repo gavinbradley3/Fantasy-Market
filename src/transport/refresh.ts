@@ -393,7 +393,13 @@ export async function refreshSources(input: RefreshInput, deps: RefreshDeps): Pr
   }
 
   const summary = summarize(orderedSources, diagnostics, snapshot, input.policy);
-  const status = deriveStatus(orderedSources, summary, input.policy);
+  const sourceStatus = deriveStatus(orderedSources, summary, input.policy);
+  // A selected build is part of the board contract. `INSUFFICIENT` is still a successful
+  // result (an intentionally unvalued entry); only a missing/failed inference outcome makes
+  // the refresh incomplete. Mark that attempt failed so no later boundary can mistake the
+  // surviving subset for a replacement board.
+  const inferenceComplete = inference.every((outcome) => outcome.ok && outcome.result != null);
+  const status: RefreshStatus = inferenceComplete ? sourceStatus : 'failure';
 
   return { status, sources: orderedSources, snapshot, diagnostics, inference, summary };
 }

@@ -161,7 +161,12 @@ describe('G. atomic current board under injected failure', () => {
   async function prepareBoardB(s: PersistenceStore) {
     const b = await mockedSuccessfulRefresh();
     // WR-only board → a distinct board id from A.
-    return persistRefreshResult(s, { result: b.result, inferenceBuilds: [b.builds[0]], runId: 'run-B', ...META });
+    return persistRefreshResult(s, {
+      result: { ...b.result, inference: [b.result.inference[0]] },
+      inferenceBuilds: [b.builds[0]],
+      runId: 'run-B',
+      ...META,
+    });
   }
 
   it('failure BEFORE the publication insert leaves board A current', async () => {
