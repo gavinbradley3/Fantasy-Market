@@ -25,6 +25,7 @@
     "generate:production-curves": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/generate-production-curves.ts",
     "ingest": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/ingest-nflverse.ts",
     "ingest:verify": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/ingest-nflverse.ts --verify-replay",
+    "evaluate:in-season-experiment": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/evaluate-in-season-experiment.ts",
     "ingest:market": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/ingest-market.ts",
     "seed:market-history": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/seed-market-history.ts",
     "export:site-data": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/export-site-data.ts",
