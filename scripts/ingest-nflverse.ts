@@ -41,6 +41,7 @@
 
 import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { composeApi } from '@/api';
 import { FilePayloadStore } from '@/transport/fileStore';
 import { createLivePipeline } from '@/runtime';
@@ -48,6 +49,7 @@ import type { PersistenceStore } from '@/persistence';
 import type { TransportConfigDescriptor } from '@/application';
 import { describeSeasonSelection, isPlausibleSeason, resolveSeasons, type SeasonSource } from '@/ingestion/season';
 import { checkHeap } from '@/ops/heapGuard';
+import { reportSourceFailures } from '@/ops/sourceFailureDiagnostics';
 
 const DEFAULT_DB = '.local/playerticker.db';
 const DEFAULT_CAPTURES = '.local/captures';
@@ -187,8 +189,11 @@ async function runOnce(args: ResolvedArgs, mode: 'live' | 'replay'): Promise<Run
 
   try {
     const ack = await composed.api.handle({ method: 'POST', path: '/refresh', query: {} });
-    const body = ack.body as { published?: boolean; publicationId?: string | null; failure?: unknown };
-    if (body.failure) console.error('[ingest] refresh failure:', JSON.stringify(body.failure));
+    const body = ack.body as { runId?: unknown; published?: boolean; publicationId?: string | null };
+    // A required-source failure can be a normal partial/nonpublishable result rather than a
+    // thrown scheduler failure. Read the exact persisted run so that evidence is not lost with
+    // the ephemeral production database. The reporter is bounded and never changes the result.
+    await reportSourceFailures(composed.api, body.runId);
 
     const res = await composed.api.handle({ method: 'GET', path: '/publication', query: {} });
     if (res.status !== 200) {
@@ -257,8 +262,13 @@ function render(summary: RunSummary): string {
   return lines.join('\n');
 }
 
-async function main(): Promise<number> {
-  const parsed = parseArgs(process.argv.slice(2));
+interface MainOptions {
+  /** Test seam only: production uses the real preflight guard. */
+  readonly heapCheck?: typeof checkHeap;
+}
+
+export async function main(argv: string[] = process.argv.slice(2), options: MainOptions = {}): Promise<number> {
+  const parsed = parseArgs(argv);
 
   // Resolve the season list ONCE, here, and say out loud where it came from. An unsupplied
   // list is derived from the clock, so a checkout that sits unused cannot keep ingesting the
@@ -272,7 +282,7 @@ async function main(): Promise<number> {
   // Checked BEFORE any provider is contacted. Without this the process spends two minutes
   // fetching and parsing every payload and is then killed mid-computation, which reads like a
   // provider or pipeline fault and is neither.
-  const heap = checkHeap({
+  const heap = (options.heapCheck ?? checkHeap)({
     seasonCount: args.seasons.length,
     careerSeasonCount: args.careerSeasons?.length ?? 0,
   });
@@ -302,9 +312,11 @@ async function main(): Promise<number> {
   return first.published && first.entryCount > 0 ? 0 : 1;
 }
 
-main()
-  .then((code) => process.exit(code))
-  .catch((err) => {
-    console.error(err instanceof Error ? (err.stack ?? err.message) : String(err));
-    process.exit(1);
-  });
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main()
+    .then((code) => process.exit(code))
+    .catch((err) => {
+      console.error(err instanceof Error ? (err.stack ?? err.message) : String(err));
+      process.exit(1);
+    });
+}
