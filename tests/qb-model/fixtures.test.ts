@@ -177,8 +177,15 @@ describe("fixture relational assertions (26.16.6)", () => {
   });
   it("QB-G12", () => {
     const o = out["QB-G12"];
+    // A fallback-heavy evaluation is still reported as one — through `status` and the
+    // `fallback_log`, which names every substituted input. What it is no longer is a confidence
+    // deduction: the substituted set is a COVERAGE fact, identical for every quarterback in the
+    // production pipeline, and a constant tells a reader nothing about this player's evidence.
     expect(o.status).toBe("FALLBACK_HEAVY");
-    expect(o.confidence.penalty_codes).toContain("FALLBACK_8_PLUS");
+    expect(o.fallback_log.length).toBeGreaterThanOrEqual(8);
+    expect(o.confidence.penalty_codes).not.toContain("FALLBACK_8_PLUS");
+    // Every code that survives names something about THIS quarterback.
+    expect(o.confidence.penalty_codes).toContain("ROLE_COMPETITION");
     expect(o.fallback_log).toEqual([...new Set(o.fallback_log)].sort());
     for (const v of Object.values(o.components)) expect(Number.isFinite(v)).toBe(true);
   });

@@ -83,6 +83,7 @@ describe('staleness thresholds are derived from the cadence', () => {
   });
 
   it('escalates to expired rather than staying stale forever', () => {
+    expect(classifyFreshness(hoursAgo(24 * 7), NOW, STALENESS.boardCurrentHours, STALENESS.boardExpiredHours)).toBe('stale');
     expect(classifyFreshness(hoursAgo(24 * 8), NOW, STALENESS.boardCurrentHours, STALENESS.boardExpiredHours)).toBe('expired');
   });
 
@@ -96,6 +97,11 @@ describe('staleness thresholds are derived from the cadence', () => {
   it('treats an unparseable timestamp as unknown rather than throwing', () => {
     expect(classifyFreshness('not a date', NOW, 12, 168)).toBe('unknown');
   });
+
+  it('treats a future timestamp as inconsistent rather than fresh', () => {
+    expect(classifyFreshness('2026-09-12T12:00:01.000Z', NOW, 12, 168)).toBe('unknown');
+    expect(ageHours('2026-09-12T12:00:01.000Z', NOW)).toBeNull();
+  });
 });
 
 describe('the status document answers the operational questions', () => {
@@ -106,6 +112,7 @@ describe('the status document answers the operational questions', () => {
     expect(s.board.entryCount).toBe(867);
     expect(s.lastRun.playerCount).toBe(867);
     expect(s.lastRun.servingLastKnownGood).toBe(false);
+    expect(s.board.lastAttempt?.outcome).toBe('success');
   });
 
   it('publishes the threshold it judged against, so a label can be audited', () => {
@@ -125,6 +132,7 @@ describe('the status document answers the operational questions', () => {
     expect(s.providers.sleeper.lastAttemptSucceeded).toBe(false);
     expect(s.providers.nflverse.lastAttemptSucceeded).toBe(true);
     expect(s.lastRun.status).toBe('partial');
+    expect(s.board.lastAttempt?.outcome).toBe('partial');
   });
 
   it('a required-provider failure IS degraded, and says the board is last-known-good', () => {
@@ -138,6 +146,22 @@ describe('the status document answers the operational questions', () => {
     expect(s.lastRun.requiredProviderFailure).toBe(true);
     expect(s.lastRun.servingLastKnownGood).toBe(true);
     expect(s.board.state).toBe('stale');
+    expect(s.board.lastAttempt).toEqual({ attemptedAt: hoursAgo(1), outcome: 'failure' });
+  });
+
+  it('a failed incomplete-inference attempt retains and identifies the last-good board', () => {
+    const s = buildStatus(inputs({ runs: [run({ at: hoursAgo(0.5), status: 'failure', players: 1 })] }));
+    expect(s.board.lastAttempt?.outcome).toBe('failure');
+    expect(s.lastRun.servingLastKnownGood).toBe(true);
+    expect(s.overall).toBe('degraded');
+  });
+
+  it('does not accept a future-dated attempt as observed failure evidence', () => {
+    const s = buildStatus(inputs({
+      boardAttempt: { attemptedAt: '2026-09-12T12:00:01.000Z', outcome: 'failure' },
+    }));
+    expect(s.board.lastAttempt?.outcome).toBe('failure');
+    expect(s.overall).toBe('ok');
   });
 
   it('distinguishes Sleeper never attempted from Sleeper attempted and failed', () => {

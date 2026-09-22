@@ -35,6 +35,7 @@ import {
   fetchCsv,
 } from '@/market';
 import type { DynastyProcessIdRow, DynastyProcessValueRow, MarketFormat } from '@/market';
+import { MARKET_DATA_DISABLED, MARKET_DATA_DISABLED_REASON } from '@/config/release';
 
 const DEFAULT_DB = '.local/playerticker.db';
 
@@ -79,6 +80,9 @@ function parseArgs(argv: string[]): Args {
 }
 
 async function main(): Promise<number> {
+  // Reject before any request or database access, including --dry-run. Private retained
+  // history remains readable; this release does not acquire more uncleared market data.
+  if (MARKET_DATA_DISABLED) throw new Error(MARKET_DATA_DISABLED_REASON);
   const args = parseArgs(process.argv.slice(2));
   const ingestedAt = new Date().toISOString();
 

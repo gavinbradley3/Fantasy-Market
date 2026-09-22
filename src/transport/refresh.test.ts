@@ -73,6 +73,21 @@ describe('refresh — live → snapshot → inference', () => {
     // Official starts flowed through to D2.
     expect(inf.inference[1].result?.d2Diagnostics?.startsOfficial).toBe(true);
   });
+
+  it('marks the refresh failed when a selected inference build has no successful result', async () => {
+    const result = await refreshSources(
+      { sources: ALL_LIVE, inference: [
+        { canonicalId: 'pt-missing-player', position: 'WR', asOf: AS_OF, engineVersion: 'wr-mvp-1.0' },
+      ] },
+      deps(defaultRoutes()),
+    );
+
+    expect(result.summary.failures).toBe(0);
+    expect(result.inference).toEqual([
+      { canonicalId: 'pt-missing-player', position: 'WR', ok: false, error: 'no evidence for player' },
+    ]);
+    expect(result.status).toBe('failure');
+  });
 });
 
 describe('refresh — replay determinism (no network)', () => {

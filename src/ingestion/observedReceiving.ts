@@ -23,6 +23,7 @@
 
 import { roleWindowGames } from './observedProduction';
 import type { GameStatRecord } from './types';
+import { betaTargetShare, hasUnobservedColumn, type AggregationOptions } from './aggregationPolicy';
 
 /** The window both rates are measured over: the player's CURRENT role. */
 export { roleWindowGames };
@@ -53,7 +54,7 @@ function finite(v: number | null): number | null {
  * `games` must already be filtered to the player and to the as-of by the caller — this
  * function only picks the window, so it cannot reach past the as-of.
  */
-export function observedReceivingRates(games: readonly GameStatRecord[]): ObservedReceivingRates {
+export function observedReceivingRates(games: readonly GameStatRecord[], options?: AggregationOptions): ObservedReceivingRates {
   const window = roleWindowGames(games);
   const out: { target_share?: number; average_depth_of_target?: number } = {};
   if (window.length === 0) return out;
@@ -73,6 +74,11 @@ export function observedReceivingRates(games: readonly GameStatRecord[]): Observ
     shareGames += 1;
   }
   if (shareGames > 0 && teamTargets > 0) out.target_share = playerTargets / teamTargets;
+  if (options) {
+    delete out.target_share;
+    const share = betaTargetShare(window, options).value;
+    if (share !== null) out.target_share = share;
+  }
 
   // --- average depth of target ---
   let airYards = 0;
@@ -87,6 +93,9 @@ export function observedReceivingRates(games: readonly GameStatRecord[]): Observ
     aDotGames += 1;
   }
   if (aDotGames > 0 && aDotTargets > 0) out.average_depth_of_target = airYards / aDotTargets;
+  if (options && (hasUnobservedColumn(window, 'targets') || hasUnobservedColumn(window, 'receivingAirYards'))) {
+    delete out.average_depth_of_target;
+  }
 
   return out;
 }

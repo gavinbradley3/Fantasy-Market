@@ -3,11 +3,12 @@
 // The property these protect: production NEVER silently substitutes demo data for a failed
 // production read, and old data is never labelled current.
 
-import { describe, expect, it } from 'vitest';
-import { ApiClient, ApiError, isApiError } from '@/services/api';
+import { describe, expect, it, vi } from 'vitest';
+import { ApiClient, ApiError, fetchMarket, isApiError } from '@/services/api';
 import { resolveSiteDataSource } from './source';
 import { fetchMarketDocument, fetchStatusDocument } from './documents';
 import { describeAge, describeFreshness } from './freshness';
+import { marketResponseSchema } from '@/services/api/market';
 
 const okJson = (body: unknown) =>
   new ApiClient({
@@ -24,7 +25,7 @@ describe('data source resolution', () => {
     expect(s.kind).toBe('static');
     expect(s.publicationPath).toBe('/board.json');
     expect(s.statusPath).toBe('/status.json');
-    expect(s.marketPath).toBe('/market-latest.json');
+    expect(s.marketPath).toBeNull();
   });
 
   it('honours the deployed base path, so a project page and a custom domain both work', () => {
@@ -98,7 +99,7 @@ describe('document validation', () => {
     ).rejects.toBeInstanceOf(ApiError);
   });
 
-  it('reads market quotes and keeps attribution', async () => {
+  it('does not read retained market quotes in the public release', async () => {
     const doc = await fetchMarketDocument(
       okJson({
         source: 'dynastyprocess',
@@ -110,9 +111,7 @@ describe('document validation', () => {
       }),
       STATIC,
     );
-    expect(doc?.quotes).toHaveLength(1);
-    // Attribution is rendered, not stripped: the licensing position is unchanged by deployment.
-    expect(doc?.attribution).toEqual({ name: 'DynastyProcess', licence: 'provisional' });
+    expect(doc).toBeNull();
   });
 
   it('returns null — not an error — when the source publishes no such document', async () => {
@@ -167,3 +166,68 @@ describe('freshness wording', () => {
     expect(describeAge(null)).toBeNull();
   });
 });
+
+describe('public market exclusion', () => {
+  it.each([
+    {}, { DEV: true }, { VITE_PLAYERTICKER_API_URL: 'http://localhost:8787' },
+    { VITE_PLAYERTICKER_DATA_URL: 'https://example.test/data' },
+  ])('cannot be activated through a data-source environment choice: %j', (env) => {
+    expect(resolveSiteDataSource(env).marketPath).toBeNull();
+  });
+
+  it.each(['/market', '/market-latest.json', '/market-history.jsonl'])(
+    'rejects explicit browser requests to %s without sending a request', async (path) => {
+      const getJson = vi.fn().mockResolvedValue(marketBody());
+      const client = { getJson } as unknown as ApiClient;
+      await expect(fetchMarket(client, { format: 'dynasty_superflex' }, path)).rejects.toThrow('public usage rights');
+      expect(getJson).not.toHaveBeenCalled();
+    },
+  );
+
+  it('blocks even an injected legacy source from the document reader', async () => {
+    const getJson = vi.fn().mockResolvedValue(marketBody());
+    const client = { getJson } as unknown as ApiClient;
+    expect(await fetchMarketDocument(client, { ...STATIC, marketPath: '/market-latest.json' })).toBeNull();
+    expect(getJson).not.toHaveBeenCalled();
+  });
+
+  it('preserves the offline private-history schema and attribution without fetching data', () => {
+    const parsed = marketResponseSchema.parse(marketBody());
+    expect(parsed.quotes[0].canonicalPlayerId).toBe('pt-1');
+    expect(parsed.attribution.publisher).toBe('DynastyProcess');
+  });
+});
+
+function marketBody() {
+  return {
+    source: 'dynastyprocess',
+    format: 'dynasty_superflex',
+    attribution: {
+      publisher: 'DynastyProcess',
+      url: 'https://example.test',
+      licence: 'MIT',
+      derivedFrom: null,
+      refreshCadence: 'weekly',
+      usage: 'comparison only',
+    },
+    sourceTimestamp: '2026-09-11T00:00:00.000Z',
+    sourceVersion: null,
+    capturedAt: '2026-09-11T21:33:45.639Z',
+    captureCount: 2,
+    quoteCount: 1,
+    quotes: [
+      {
+        canonicalPlayerId: 'pt-1',
+        source: 'dynastyprocess',
+        format: 'dynasty_superflex',
+        value: 10256,
+        overallRank: 1,
+        positionRank: 1,
+        sourceTimestamp: '2026-09-11T00:00:00.000Z',
+        ingestedAt: '2026-09-11T21:33:45.639Z',
+        freshness: 'fresh',
+        provenance: 'external',
+      },
+    ],
+  };
+}

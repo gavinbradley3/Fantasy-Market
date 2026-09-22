@@ -18,7 +18,8 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: playerticker-refresh-market
+  # Shared with refresh-board because both jobs own part of status.json on the site-data branch.
+  group: playerticker-site-data-refresh
   cancel-in-progress: false
 
 jobs:
@@ -60,19 +61,27 @@ jobs:
             --history ../site-data/market-history.jsonl
 
       - name: Ingest DynastyProcess market snapshot
+        id: ingest
+        continue-on-error: true
         run: npm run ingest:market -- --db "$RUNNER_TEMP/market.db"
 
       - name: Export static site data
+        id: export
+        if: always()
         run: |
           npm run export:site-data -- \
             --db "$RUNNER_TEMP/market.db" \
-            --out ../site-data
+            --out ../site-data \
+            --dataset market \
+            --attempt-outcome "${{ steps.ingest.outcome }}" \
+            --attempt-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
       # Only the market files are committed here. The board belongs to the board workflow, and
       # a market-only database has no publication — committing its (absent) board would delete a
       # good one.
       - name: Commit market data
         id: commit
+        if: always() && steps.export.outcome == 'success'
         run: |
           cd ../site-data
           if [ ! -f market-latest.json ]; then
@@ -81,7 +90,9 @@ jobs:
           fi
           git config user.name  "playerticker-bot"
           git config user.email "playerticker-bot@users.noreply.github.com"
-          git add market-latest.json market-history.jsonl
+          git add status.json
+          if [ -f market-latest.json ]; then git add market-latest.json; fi
+          if [ -f market-history.jsonl ]; then git add market-history.jsonl; fi
           if git diff --cached --quiet; then
             echo "no change in market data"
             echo "committed=false" >> "$GITHUB_OUTPUT"
@@ -98,13 +109,17 @@ jobs:
           done
           exit 1
 
+      - name: Preserve refresh failure outcome
+        if: always() && steps.ingest.outcome == 'failure'
+        run: exit 1
+
   # A refresh that published new data deploys it. This is the step that makes a scheduled
   # refresh visible to users with no human involvement: data lands on `site-data`, the deploy
   # copies it into the site, Pages serves it. Skipped when nothing changed, so an unchanged
   # source does not cause a pointless deploy.
   deploy:
     needs: market
-    if: needs.market.outputs.committed == 'true'
+    if: always() && needs.market.outputs.committed == 'true'
     uses: ./.github/workflows/deploy.yml
     permissions:
       contents: read

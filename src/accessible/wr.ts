@@ -56,7 +56,6 @@ import {
   isUnavailable,
   shrunkPerGameRate,
   TIER_WIDE_MISSING_INPUTS,
-  TIER_WIDE_PENALTIES,
   trajectoryScore,
   type ConfidencePenaltyCode,
 } from './common';
@@ -356,7 +355,10 @@ export function evaluateAccessibleWR(input: AccessibleInput): AccessibleResult {
   };
 
   const role = classifyWRRole(targetsPerGame, shareValue, adot);
-  const confidence = buildConfidence(collectPenalties(input, TR, AG, shareValue, measuredShare, role$));
+  const confidence = buildConfidence(
+    collectPenalties(input, TR, AG, shareValue, measuredShare, role$),
+    p.career.games,
+  );
   const factors = buildFactors({
     input,
     components,
@@ -500,10 +502,12 @@ function collectPenalties(
   measuredShare: number | null,
   roleWindow: AccessibleInput['production']['roleWindow'],
 ): ConfidencePenaltyCode[] {
-  const codes: ConfidencePenaltyCode[] = [...TIER_WIDE_PENALTIES];
+  // Player-specific evidence gaps only. Sample size is not here: it sets the BASE the score
+  // starts from (`sampleEvidenceScore`), because every other number the model produces rests
+  // on it. The tier's constant coverage gaps are not here either — they are reported through
+  // `materialMissingInputs` and the model tier, not subtracted from every player's confidence.
+  const codes: ConfidencePenaltyCode[] = [];
   const p = input.production;
-  if (p.career.games < 4) codes.push('MINIMAL_CAREER_SAMPLE');
-  if (p.career.games < 8) codes.push('SPARSE_CAREER_SAMPLE');
   if (trajectory === null) codes.push('NO_TRAJECTORY');
   // A RECONSTRUCTED share is a bound rather than a measurement, so it costs the same as having
   // no share at all would cost a model that leant on it less heavily than this one does.

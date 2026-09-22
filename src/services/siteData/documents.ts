@@ -11,12 +11,17 @@
 import { z } from 'zod';
 import { ApiClient, ApiError, type RequestOptions } from '@/services/api';
 import type { SiteDataSource } from './source';
+import { MARKET_DATA_DISABLED } from '@/config/release';
 
 /** Freshness states the refresh emits. Mirrors `src/ops/staleness.ts`. */
 export const freshnessStates = ['current', 'stale', 'expired', 'unknown'] as const;
 export type FreshnessState = (typeof freshnessStates)[number];
 
 const freshnessSchema = z.enum(freshnessStates);
+const refreshAttemptSchema = z.object({
+  attemptedAt: z.string(),
+  outcome: z.enum(['success', 'partial', 'failure']),
+});
 
 const datasetFreshnessSchema = z.object({
   state: freshnessSchema,
@@ -36,11 +41,16 @@ export const statusDocumentSchema = z
     board: datasetFreshnessSchema.extend({
       publishedAt: z.string().nullable().default(null),
       entryCount: z.number().nullable().default(null),
+      checksum: z.string().nullable().default(null),
+      publicationId: z.string().nullable().default(null),
+      lastAttempt: refreshAttemptSchema.nullable().default(null),
     }),
     market: datasetFreshnessSchema.extend({
       capturedAt: z.string().nullable().default(null),
       sourceTimestamp: z.string().nullable().default(null),
       quoteCount: z.number().nullable().default(null),
+      historyAppended: z.boolean().default(false),
+      lastAttempt: refreshAttemptSchema.nullable().default(null),
     }),
     overall: z.enum(['ok', 'degraded']).default('degraded'),
   })
@@ -103,7 +113,7 @@ export async function fetchMarketDocument(
   source: SiteDataSource,
   options: RequestOptions = {},
 ): Promise<MarketDocument | null> {
-  if (source.marketPath === null) return null;
+  if (MARKET_DATA_DISABLED || source.marketPath === null) return null;
   const body = await client.getJson<unknown>(source.marketPath, options);
   const parsed = marketDocumentSchema.safeParse(body);
   if (!parsed.success) {

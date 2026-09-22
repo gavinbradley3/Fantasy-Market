@@ -11,12 +11,14 @@
 
 import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
 import type { QueryState } from '@/services/query/QueryClient';
-import { fetchMarket, isApiError } from '@/services/api';
+import { ApiError, fetchMarket, isApiError } from '@/services/api';
 import { usePublicationContext } from '@/services/publication';
 import { adaptMarket } from './adapter';
 import type { ExternalMarket } from './types';
+import { MARKET_DATA_DISABLED } from '@/config/release';
 
 export interface UseExternalMarketResult {
+  readonly disabled: boolean;
   /** The market, or undefined while loading or after a failure. */
   readonly market: ExternalMarket | undefined;
   readonly isFetching: boolean;
@@ -28,13 +30,20 @@ export interface UseExternalMarketResult {
 }
 
 export function useExternalMarket(): UseExternalMarketResult {
-  const { client, query, getSignal } = usePublicationContext();
-  const key = JSON.stringify(['market', 'dynasty_superflex']);
+  const { client, query, getSignal, source } = usePublicationContext();
+  // The path is part of the cache key, exactly as it is for the publication read: a provider
+  // swapped between the static export and the dev API must not serve one's answer for the other.
+  const path = source.marketPath;
+  const key = JSON.stringify(['market', 'dynasty_superflex', path]);
 
   const fetcher = useCallback(async (): Promise<ExternalMarket> => {
+    if (MARKET_DATA_DISABLED) throw new ApiError('invalidResponse', 'external market data is disabled');
     const signal = getSignal();
-    return adaptMarket(await fetchMarket(client, { signal }));
-  }, [client, getSignal]);
+    // A source that publishes no market (none does today) is a market with nothing in it,
+    // which the board already renders honestly — not an error to put on screen.
+    if (path === null) throw new ApiError('invalidResponse', 'this data source publishes no market document');
+    return adaptMarket(await fetchMarket(client, { signal }, path));
+  }, [client, getSignal, path]);
 
   const fetcherRef = useRef(fetcher);
   fetcherRef.current = fetcher;
@@ -44,18 +53,20 @@ export function useExternalMarket(): UseExternalMarketResult {
   const state = useSyncExternalStore(subscribe, getSnapshot, getSnapshot) as QueryState<ExternalMarket>;
 
   useEffect(() => {
+    if (MARKET_DATA_DISABLED || path === null) return;
     if (state.isFetching) return;
     // A settled error stays settled. Without this the error transition would re-trigger the
     // effect and refetch forever — the same request-storm the publication read guards against.
     if (state.status === 'error') return;
     if (state.updatedAt === 0) void query.ensure(key, () => fetcherRef.current());
-  }, [query, key, state]);
+  }, [query, key, state, path]);
 
   return {
-    market: state.status === 'success' ? state.data : undefined,
-    isFetching: state.isFetching,
+    disabled: MARKET_DATA_DISABLED,
+    market: !MARKET_DATA_DISABLED && state.status === 'success' ? state.data : undefined,
+    isFetching: !MARKET_DATA_DISABLED && state.isFetching,
     // A cancelled read is the provider unmounting, not a market outage, so it is not reported
     // as one; the next mount simply reads again.
-    unavailable: state.status === 'error' && !(isApiError(state.error) && state.error.kind === 'cancelled'),
+    unavailable: !MARKET_DATA_DISABLED && state.status === 'error' && !(isApiError(state.error) && state.error.kind === 'cancelled'),
   };
 }

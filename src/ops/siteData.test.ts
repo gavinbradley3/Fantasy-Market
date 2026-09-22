@@ -7,6 +7,8 @@ import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { PersistenceStore } from '@/persistence';
+import { persistRefreshResult } from '@/persistence/persistRefreshResult';
+import { mockedFailedRefresh, mockedSuccessfulRefresh } from '@/persistence/__fixtures';
 import type { MarketSnapshot } from '@/market';
 
 const NOW = '2026-09-12T18:00:00.000Z';
@@ -16,7 +18,7 @@ function tempDir(): string {
 }
 
 function run(script: string, args: readonly string[]): string {
-  return execFileSync('npx', ['tsx', script, ...args], {
+  return execFileSync(process.execPath, ['--import', 'tsx', script, ...args], {
     encoding: 'utf8',
     env: { ...process.env, TSX_TSCONFIG_PATH: './tsconfig.app.json' },
   });
@@ -44,6 +46,160 @@ function quote(id: string, over: Partial<MarketSnapshot> = {}): MarketSnapshot {
 }
 
 describe('static export', () => {
+  it('persists a failed attempt beside byte-identical last-good board, then clears it on retry', async () => {
+    const dir = tempDir();
+    const out = tempDir();
+    const dbPath = join(dir, 'board.db');
+    const store = PersistenceStore.open(dbPath, () => '2026-09-12T12:00:00.000Z');
+    const complete = await mockedSuccessfulRefresh();
+    const good = persistRefreshResult(store, {
+      result: complete.result, inferenceBuilds: complete.builds, requiredProviders: ['nflverse'],
+      runId: 'run-good', startedAt: '2026-09-12T11:59:00.000Z', completedAt: '2026-09-12T12:00:00.000Z',
+    });
+    const publication = store.publishBoard({ runId: good.runId });
+    store.close();
+
+    run('scripts/export-site-data.ts', ['--db', dbPath, '--out', out, '--now', NOW, '--dataset', 'board']);
+    const before = readFileSync(join(out, 'board.json'));
+
+    const failedDbPath = join(dir, 'failed.db');
+    const failedStore = PersistenceStore.open(failedDbPath);
+    const failed = await mockedFailedRefresh();
+    persistRefreshResult(failedStore, {
+      result: failed.result, requiredProviders: ['nflverse'], runId: 'run-failed',
+      startedAt: '2026-09-12T17:00:00.000Z', completedAt: '2026-09-12T17:01:00.000Z',
+    });
+    failedStore.close();
+    run('scripts/export-site-data.ts', [
+      '--db', failedDbPath, '--out', out, '--now', NOW, '--dataset', 'board',
+      '--attempt-outcome', 'failure', '--attempt-at', '2026-09-12T17:01:00.000Z',
+    ]);
+    expect(readFileSync(join(out, 'board.json'))).toEqual(before);
+    const failedStatus = JSON.parse(readFileSync(join(out, 'status.json'), 'utf8'));
+    expect(failedStatus.board).toMatchObject({
+      publicationId: publication.publicationId, checksum: publication.boardChecksum,
+      publishedAt: publication.publishedAt,
+      lastAttempt: { attemptedAt: '2026-09-12T17:01:00.000Z', outcome: 'failure' },
+    });
+    expect(failedStatus.lastRun.servingLastKnownGood).toBe(true);
+
+    const retryDbPath = join(dir, 'retry.db');
+    const retryStore = PersistenceStore.open(retryDbPath, () => '2026-09-12T17:31:00.000Z');
+    persistRefreshResult(retryStore, {
+      result: complete.result, inferenceBuilds: complete.builds, requiredProviders: ['nflverse'],
+      runId: 'run-retry', startedAt: '2026-09-12T17:30:00.000Z', completedAt: '2026-09-12T17:31:00.000Z',
+    });
+    retryStore.publishBoard({ runId: 'run-retry' });
+    retryStore.close();
+    run('scripts/export-site-data.ts', ['--db', retryDbPath, '--out', out, '--now', NOW, '--dataset', 'board']);
+    const retryStatus = JSON.parse(readFileSync(join(out, 'status.json'), 'utf8'));
+    expect(retryStatus.board.lastAttempt.outcome).toBe('success');
+    // Content-addressed publication ids can remain stable when a retry republishes identical
+    // values; the newer publication timestamp and success attempt are the replacement evidence.
+    expect(retryStatus.board.publicationId).toBe(publication.publicationId);
+    expect(retryStatus.board.publishedAt).toBe('2026-09-12T17:31:00.000Z');
+    expect(readFileSync(join(out, 'board.json'))).not.toEqual(before);
+  });
+
+  it('does not revive private market status in a public board export', () => {
+    const dir = tempDir();
+    const out = tempDir();
+    writeFileSync(join(out, 'status.json'), JSON.stringify({
+      generatedAt: '2026-09-12T17:00:00.000Z',
+      board: { state: 'unknown', publishedAt: null, ageHours: null, entryCount: null, checksum: null, currentWithinHours: 12 },
+      market: { state: 'current', capturedAt: '2026-09-12T16:00:00.000Z', sourceTimestamp: '2026-09-12T00:00:00.000Z', ageHours: 1, quoteCount: 439, historyAppended: true, currentWithinHours: 336 },
+      providers: {}, lastRun: {}, overall: 'degraded',
+    }));
+    const store = PersistenceStore.open(join(dir, 'board-only.db'));
+    store.close();
+
+    run('scripts/export-site-data.ts', [
+      '--db', join(dir, 'board-only.db'), '--out', out, '--now', NOW, '--dataset', 'board',
+    ]);
+    const status = JSON.parse(readFileSync(join(out, 'status.json'), 'utf8'));
+    expect(status.market.capturedAt).toBeNull();
+    expect(status.market.quoteCount).toBe(0);
+    expect(status.marketPolicy.enabled).toBe(false);
+  });
+
+  it('marks last-good service when failure happens before a temporary database records a run', async () => {
+    const dir = tempDir();
+    const out = tempDir();
+    const boardDb = join(dir, 'board.db');
+    const boardStore = PersistenceStore.open(boardDb, () => '2026-09-12T12:00:00.000Z');
+    const complete = await mockedSuccessfulRefresh();
+    const persisted = persistRefreshResult(boardStore, {
+      result: complete.result, inferenceBuilds: complete.builds, requiredProviders: ['nflverse'],
+      runId: 'run-board', startedAt: '2026-09-12T11:59:00.000Z', completedAt: '2026-09-12T12:00:00.000Z',
+    });
+    boardStore.publishBoard({ runId: persisted.runId });
+    boardStore.close();
+    run('scripts/export-site-data.ts', ['--db', boardDb, '--out', out, '--now', NOW, '--dataset', 'board']);
+
+    const emptyDb = join(dir, 'failed-before-run.db');
+    PersistenceStore.open(emptyDb).close();
+    run('scripts/export-site-data.ts', [
+      '--db', emptyDb, '--out', out, '--now', NOW, '--dataset', 'board',
+      '--attempt-outcome', 'failure', '--attempt-at', NOW,
+    ]);
+    const status = JSON.parse(readFileSync(join(out, 'status.json'), 'utf8'));
+    expect(status.board.lastAttempt).toEqual({ attemptedAt: NOW, outcome: 'failure' });
+    expect(status.lastRun).toMatchObject({ completedAt: NOW, status: 'failure', servingLastKnownGood: true });
+  });
+
+  it('rejects a market-only export before changing the last-good board, status or private history', async () => {
+    const dir = tempDir();
+    const out = tempDir();
+    const boardDb = join(dir, 'board.db');
+    const boardStore = PersistenceStore.open(boardDb, () => '2026-09-12T12:00:00.000Z');
+    const complete = await mockedSuccessfulRefresh();
+    const persisted = persistRefreshResult(boardStore, {
+      result: complete.result, inferenceBuilds: complete.builds, requiredProviders: ['nflverse'],
+      runId: 'run-board', startedAt: '2026-09-12T11:59:00.000Z', completedAt: '2026-09-12T12:00:00.000Z',
+    });
+    boardStore.publishBoard({ runId: persisted.runId });
+    boardStore.close();
+    run('scripts/export-site-data.ts', ['--db', boardDb, '--out', out, '--now', NOW, '--dataset', 'board']);
+    const boardBytes = readFileSync(join(out, 'board.json'));
+    const statusBytes = readFileSync(join(out, 'status.json'));
+    const history = '{"retained":"private history"}\n';
+    writeFileSync(join(out, 'market-history.jsonl'), history);
+    const unopenedDb = join(dir, 'must-not-be-created.db');
+    expect(() => run('scripts/export-site-data.ts', [
+      '--db', unopenedDb, '--out', out, '--now', NOW, '--dataset', 'market',
+      '--attempt-outcome', 'success', '--attempt-at', NOW,
+    ])).toThrow(/public usage rights remain unresolved/);
+    expect(existsSync(unopenedDb)).toBe(false);
+    expect(readFileSync(join(out, 'board.json'))).toEqual(boardBytes);
+    expect(readFileSync(join(out, 'status.json'))).toEqual(statusBytes);
+    expect(readFileSync(join(out, 'market-history.jsonl'), 'utf8')).toBe(history);
+  });
+
+  it('does not rebind a mismatched prior failure to a durable board during a board-only retry', async () => {
+    const dir = tempDir();
+    const out = tempDir();
+    const boardDb = join(dir, 'board.db');
+    const store = PersistenceStore.open(boardDb, () => '2026-09-12T12:00:00.000Z');
+    const complete = await mockedSuccessfulRefresh();
+    const persisted = persistRefreshResult(store, {
+      result: complete.result, inferenceBuilds: complete.builds, requiredProviders: ['nflverse'],
+      runId: 'run-board', startedAt: '2026-09-12T11:59:00.000Z', completedAt: '2026-09-12T12:00:00.000Z',
+    });
+    const publication = store.publishBoard({ runId: persisted.runId });
+    store.close();
+    run('scripts/export-site-data.ts', ['--db', boardDb, '--out', out, '--now', NOW]);
+    const mismatched = JSON.parse(readFileSync(join(out, 'status.json'), 'utf8'));
+    mismatched.board.publicationId = 'different-publication';
+    mismatched.board.lastAttempt = { attemptedAt: NOW, outcome: 'failure' };
+    writeFileSync(join(out, 'status.json'), JSON.stringify(mismatched));
+    const emptyDb = join(dir, 'empty.db');
+    PersistenceStore.open(emptyDb).close();
+    run('scripts/export-site-data.ts', ['--db', emptyDb, '--out', out, '--now', NOW]);
+    const regenerated = JSON.parse(readFileSync(join(out, 'status.json'), 'utf8'));
+    expect(regenerated.board.publicationId).toBe(publication.publicationId);
+    expect(regenerated.board.lastAttempt).toBeNull();
+  });
+
   it('writes NO board and says so when nothing is published, leaving a previous export intact', () => {
     // The last-known-good guarantee at the export layer: a database with no publication must not
     // produce an empty board that would overwrite a good one.
@@ -66,25 +222,33 @@ describe('static export', () => {
     expect(status.market.quoteCount).toBe(0);
   });
 
-  it('appends one market history line per capture and never duplicates one', () => {
+  it.each([{ args: [] }, { args: ['--dataset', 'all'] }, { args: ['--dataset', 'board'] }])(
+    'never exports private market snapshots even when the database contains them ($args)', ({ args }) => {
+      const dir = tempDir();
+      const out = tempDir();
+      const dbPath = join(dir, 'market.db');
+      const store = PersistenceStore.open(dbPath);
+      store.appendMarketSnapshots([quote('pt-a'), quote('pt-b', { overallRank: 2, positionRank: 2, value: 4000 })]);
+      store.close();
+      run('scripts/export-site-data.ts', ['--db', dbPath, '--out', out, '--now', NOW, ...args]);
+      expect(existsSync(join(out, 'market-latest.json'))).toBe(false);
+      expect(existsSync(join(out, 'market-history.jsonl'))).toBe(false);
+      const status = JSON.parse(readFileSync(join(out, 'status.json'), 'utf8'));
+      expect(status.market.quoteCount).toBe(0);
+      expect(status.marketPolicy.enabled).toBe(false);
+      const retained = PersistenceStore.open(dbPath);
+      try { expect(retained.getLatestMarketSnapshots('dynastyprocess', 'dynasty_superflex')).toHaveLength(2); }
+      finally { retained.close(); }
+    },
+  );
+
+  it('rejects market acquisition before opening a database, including dry runs', () => {
     const dir = tempDir();
-    const out = tempDir();
-    const dbPath = join(dir, 'market.db');
-    const store = PersistenceStore.open(dbPath);
-    store.appendMarketSnapshots([quote('pt-a'), quote('pt-b', { overallRank: 2, positionRank: 2, value: 4000 })]);
-    store.close();
-
-    run('scripts/export-site-data.ts', ['--db', dbPath, '--out', out, '--now', NOW]);
-    const historyPath = join(out, 'market-history.jsonl');
-    expect(existsSync(historyPath)).toBe(true);
-    const afterFirst = readFileSync(historyPath, 'utf8').trim().split('\n');
-    expect(afterFirst).toHaveLength(1);
-
-    // Re-exporting the SAME capture must not add a line. Re-running a job is safe.
-    const second = run('scripts/export-site-data.ts', ['--db', dbPath, '--out', out, '--now', NOW]);
-    expect(second).toContain('already recorded');
-    expect(readFileSync(historyPath, 'utf8').trim().split('\n')).toHaveLength(1);
+    const db = join(dir, 'must-not-be-created.db');
+    expect(() => run('scripts/ingest-market.ts', ['--db', db, '--dry-run'])).toThrow(/public usage rights remain unresolved/);
+    expect(existsSync(db)).toBe(false);
   });
+
 });
 
 describe('market history seed', () => {
@@ -92,12 +256,11 @@ describe('market history seed', () => {
     const dir = tempDir();
     const out = tempDir();
 
-    // Capture one, exported and "committed".
-    const firstDb = join(dir, 'first.db');
-    const s1 = PersistenceStore.open(firstDb);
-    s1.appendMarketSnapshots([quote('pt-a', { ingestedAt: '2026-09-01T00:00:00.000Z' })]);
-    s1.close();
-    run('scripts/export-site-data.ts', ['--db', firstDb, '--out', out, '--now', NOW]);
+    // Synthetic retained PRIVATE capture: the public exporter no longer writes this file.
+    writeFileSync(join(out, 'market-history.jsonl'), JSON.stringify({
+      source: 'dynastyprocess', format: 'dynasty_superflex', capturedAt: '2026-09-01T00:00:00.000Z',
+      quotes: [quote('pt-a', { ingestedAt: '2026-09-01T00:00:00.000Z' })],
+    }) + '\n');
 
     // A NEW runner, a NEW empty database — as a scheduled job actually starts.
     const secondDb = join(dir, 'second.db');

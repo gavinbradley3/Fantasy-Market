@@ -221,13 +221,23 @@ function finalize(args: FinalizeArgs): ProductionResult {
     engineConfidence01: invocation.engineConfidence01 ?? undefined,
   });
 
-  // When the ACCESSIBLE tier produced the value, its own confidence governs what is
-  // published. The AIL's public confidence describes the completeness of the FULL model's
-  // input set, which is by definition incomplete here — publishing it would either understate
-  // a sound reduced valuation or, worse, overstate one. The accessible model's ceiling (never
-  // HIGH) is applied as a cap so the published number can only move downward.
+  // When the ACCESSIBLE tier produced the value, its own confidence IS what is published.
+  //
+  // It used to be published as `min(AIL public confidence, accessible confidence)`. That cap
+  // was wrong in exactly the way the tier system exists to prevent. The AIL's public confidence
+  // measures how complete the FULL model's input set was — for an accessible player it is
+  // incomplete BY DEFINITION, which is why the accessible tier ran at all. On WR the effect was
+  // not theoretical: the frozen engine still runs before being stood down for want of real
+  // route evidence, so `engineConfidence01` is present and small (the engine's own confidence
+  // came out at or below 10 for every receiver), and the min pulled every accessible receiver's
+  // published confidence down to a number describing a model that did not produce his value.
+  //
+  // Coverage and confidence are separate questions (see `@/accessible/common`). Coverage is
+  // published as the model tier and the material missing inputs; confidence describes how well
+  // evidenced THIS player is for what the model that valued him actually asks. Capping one with
+  // the other charged the player twice for the same fact.
   const publishedConfidence01 = accessibleOutput
-    ? Math.min(publicConfidence.publicConfidence ?? accessibleOutput.confidence.score, accessibleOutput.confidence.score)
+    ? accessibleOutput.confidence.score
     : publicConfidence.publicConfidence;
   const publishedConfidenceLabel = accessibleOutput
     ? accessibleOutput.confidence.label
@@ -236,12 +246,43 @@ function finalize(args: FinalizeArgs): ProductionResult {
   const ailCritical = fields.filter((f) => critical.includes(f.field));
   const allCriticalOfficial = !anyCriticalOmitted && ailCritical.every((f) => isOfficial(f.provenance));
   const anyCriticalFallback = ailCritical.some((f) => f.provenance === 'FALLBACK');
-  const honesty: HonestyState = honestyState({
+  const fullModelHonesty: HonestyState = honestyState({
     playerConfidence: playerConfidence.score,
     anyCriticalOmitted,
     allCriticalOfficial,
     anyCriticalFallback,
   });
+
+  // HONESTY DESCRIBES THE MODEL THAT PRODUCED THE VALUE.
+  //
+  // `honestyState` is a verdict about the FULL model's input set: its first rule maps
+  // `anyCriticalOmitted` (readiness !== READY) to UNAVAILABLE. On the accessible tier that
+  // condition is true by construction — the full model was blocked, which is the precondition
+  // for the fallback running — so every accessible player was published as UNAVAILABLE while
+  // carrying a complete, box-score-derived valuation. Measured on the live board: all 272
+  // accessible players read UNAVAILABLE, next to a position value, a role, an explanation and
+  // a confidence score. "Unavailable" was a statement about a model the reader never saw.
+  //
+  // A valuation the accessible model produced is an ESTIMATE from observed football: every
+  // input it consumed was a measured count, and none of the premium inputs it lacks were
+  // guessed at. So it reports ESTIMATED, or LIMITED when the model's own player-specific
+  // confidence is LOW. It can never report VERIFIED or ESTIMATED_HIGH_CONFIDENCE, because both
+  // assert something about the FULL critical input set that is not true here, and it can never
+  // report UNAVAILABLE, because a value was published.
+  //
+  // AND WHERE NO MODEL VALUED HIM, UNAVAILABLE IS EXACTLY RIGHT — including the case the
+  // full-model verdict gets wrong in the other direction. A receiver who played but was never
+  // targeted passes readiness (nothing is missing; the counts are real zeros), so the frozen
+  // engine runs and `fullModelHonesty` reports LIMITED — but the accessible model declares him
+  // INSUFFICIENT and the projection therefore publishes no composites for him. LIMITED next to
+  // an empty row claims a valuation exists. Measured on the live board: 4 players.
+  const honesty: HonestyState = accessibleOutput
+    ? accessibleOutput.confidence.label === 'LOW'
+      ? 'LIMITED'
+      : 'ESTIMATED'
+    : tierDecision.tier === 'INSUFFICIENT'
+      ? 'UNAVAILABLE'
+      : fullModelHonesty;
 
   // Explanations & limitations (deterministic; structural fragments).
   const limitations = [...new Set(fields.flatMap((f) => f.limitations))].sort(compareStrings) as LimitationCode[];

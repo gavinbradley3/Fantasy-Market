@@ -1,4 +1,5 @@
-import { Route, Routes } from 'react-router-dom';
+import { Route, Routes, useLocation, matchPath } from 'react-router-dom';
+import ControlledBetaPage from '@/pages/ControlledBetaPage';
 import { AppShell } from '@/components/chrome/AppShell';
 import LandingPage from '@/pages/LandingPage';
 import MarketPage from '@/pages/MarketPage';
@@ -13,6 +14,9 @@ import PlayerModelPage from '@/pages/player-model/PlayerModelPage';
 import NotFoundPage from '@/pages/NotFoundPage';
 
 export default function App() {
+  const {pathname}=useLocation();
+  // No production/demo providers are queried by this private diagnostic route.
+  if(matchPath({path:'/controlled-beta',end:true},pathname)) return <ControlledBetaPage/>;
   return (
     <AppShell>
       <Routes>

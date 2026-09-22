@@ -8,8 +8,8 @@
 // describe — yields `null` rather than an error. That is an absence, not a failure.
 //
 // A FAILURE TO READ STATUS IS NOT A FAILURE OF THE BOARD. The board is fetched separately and
-// may be perfectly good; losing this document only means the age cannot be stated. So the strip
-// that consumes it says nothing rather than claiming freshness it cannot verify.
+// may be perfectly good. Board age remains independently provable from the loaded publication;
+// losing status only removes refresh-attempt evidence.
 
 import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
 import { isApiError } from '@/services/api';

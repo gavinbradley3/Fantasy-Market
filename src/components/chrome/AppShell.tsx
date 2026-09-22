@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Link, NavLink, useLocation } from 'react-router-dom';
+import { Link, matchPath, NavLink, useLocation } from 'react-router-dom';
 import { FormatRibbon } from '@/components/chrome/FormatRibbon';
 import { SearchOverlay } from '@/components/chrome/SearchOverlay';
 import { DataModeBanner } from '@/components/chrome/Honesty';
@@ -7,6 +7,7 @@ import { Logo } from '@/components/chrome/Logo';
 import { ActivityIcon, PieIcon, RowsIcon, SearchIcon, StarIcon } from '@/components/ui/icons';
 import { useMarketStatus } from '@/hooks/useMarketData';
 import { cn } from '@/lib/ui';
+import { resolvePublicationFormat, usePublishedMarket } from '@/services/publication';
 
 const NAV = [
   { to: '/market', label: 'Market' },
@@ -25,17 +26,35 @@ const MOBILE_NAV = [
   { to: '/portfolio', label: 'Portfolio', Icon: PieIcon },
 ] as const;
 
-/**
- * Routes that render PUBLISHED production data rather than the Demo Market.
- *
- * Kept as an explicit set rather than a prop so adding a real surface is one line here and
- * cannot be forgotten at a call site.
- */
-const REAL_DATA_ROUTES = new Set<string>(['/board']);
+/** The board's noninteractive format evidence, sourced only from its loaded publication. */
+function PublishedBoardFormat() {
+  const publication = usePublishedMarket();
+  const format = resolvePublicationFormat(publication.market);
+  const fullLabel = publication.market
+    ? format.label
+    : publication.status === 'loading'
+      ? 'Loading published format…'
+      : 'Published format unavailable';
+  const compactLabel = format.kind === 'recognized' ? format.compactLabel : fullLabel;
+
+  return (
+    <div
+      aria-label="Published board format"
+      title={fullLabel}
+      className="max-w-[146px] truncate rounded-control border border-border-default bg-surface px-2.5 py-1.5 text-[13px] text-text-secondary sm:max-w-none"
+    >
+      <span className="hidden lg:inline">{fullLabel}</span>
+      <span className="lg:hidden">{compactLabel}</span>
+    </div>
+  );
+}
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const { pathname } = useLocation();
+  // Use the router's matching semantics so route variants such as `/board/` cannot restore
+  // demo-only chrome over a published board.
+  const isPublishedBoard = matchPath({ path: '/board', end: true }, pathname) !== null;
   // Honesty layer: banner mode comes from the active service, not a prop.
   const { data: marketStatus } = useMarketStatus();
 
@@ -61,11 +80,11 @@ export function AppShell({ children }: { children: ReactNode }) {
           one genuinely live surface is simulated, which is the same kind of mislabel as the
           reverse and just as misleading. The Board states its own provenance through its
           freshness note and its per-player tier and confidence. */}
-      {!REAL_DATA_ROUTES.has(pathname) && <DataModeBanner status={marketStatus} />}
+      {!isPublishedBoard && <DataModeBanner status={marketStatus} />}
 
       {/* Desktop / top nav */}
       <header className="sticky top-0 z-30 border-b border-border-default bg-canvas/90 backdrop-blur-md">
-        <div className="mx-auto flex max-w-app items-center gap-5 px-5 md:px-8">
+        <div className="mx-auto flex max-w-app items-center gap-3 px-3 sm:gap-5 sm:px-5 md:px-8">
           <Link
             to="/"
             className="shrink-0 py-3.5 transition-opacity duration-standard hover:opacity-80"
@@ -100,7 +119,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="ml-auto flex shrink-0 items-center gap-2">
             <button
               onClick={() => setSearchOpen(true)}
-              className="flex items-center gap-2 rounded-control border border-border-default bg-surface px-2.5 py-1.5 text-[13px] text-text-muted transition-colors duration-standard hover:border-border-strong hover:text-text-secondary"
+              className="hidden items-center gap-2 rounded-control border border-border-default bg-surface px-2.5 py-1.5 text-[13px] text-text-muted transition-colors duration-standard hover:border-border-strong hover:text-text-secondary min-[375px]:flex"
               aria-label="Search players"
             >
               <SearchIcon size={15} />
@@ -109,7 +128,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 /
               </kbd>
             </button>
-            <FormatRibbon compact />
+            {isPublishedBoard ? <PublishedBoardFormat /> : <FormatRibbon compact />}
           </div>
         </div>
       </header>

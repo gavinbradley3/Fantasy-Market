@@ -5,7 +5,7 @@
 // return league constants, target share must lead, and the frozen engine must stay reactivatable.
 
 import { describe, expect, it } from 'vitest';
-import { ACCESSIBLE_CONFIDENCE_CEILING, WR_AGE_ANCHORS, RB_AGE_ANCHORS, TE_AGE_ANCHORS } from './common';
+import { sampleEvidenceScore, WR_AGE_ANCHORS, RB_AGE_ANCHORS, TE_AGE_ANCHORS } from './common';
 import { classifyWRRole, draftCapitalScore, evaluateAccessibleWR, WR_ACCESSIBLE_VERSION } from './wr';
 import { scaleFrom, score100 } from './scale';
 import type { CountingWindow, ObservedProduction } from './production';
@@ -128,10 +128,17 @@ describe('the model runs on observed football and orders receivers by it', () =>
     expect(JSON.stringify(evaluateAccessibleWR(ALPHA()))).toBe(JSON.stringify(evaluateAccessibleWR(ALPHA())));
   });
 
-  it('never reaches HIGH confidence, because the role-confirming inputs are absent for everyone', () => {
+  it('scores confidence from this receiver\'s own evidence, not from the tier\'s coverage gaps', () => {
     const out = ok(evaluateAccessibleWR(ALPHA()));
-    expect(out.confidence.score).toBeLessThanOrEqual(ACCESSIBLE_CONFIDENCE_CEILING);
-    expect(out.confidence.label).not.toBe('HIGH');
+    expect(out.confidence.score).toBeLessThanOrEqual(
+      Math.round(sampleEvidenceScore(out.confidence.gamesObserved)),
+    );
+    // The role-confirming inputs the tier lacks are the same for every receiver, so they are
+    // reported as missing inputs rather than deducted from each receiver's confidence.
+    expect(out.materialMissingInputs.join(' ')).toMatch(/Route participation/);
+    for (const code of out.confidence.penaltyCodes) {
+      expect(code).not.toMatch(/PARTICIPATION|HIGH_VALUE_USAGE|TEAM_CONTEXT/);
+    }
   });
 });
 
@@ -328,8 +335,9 @@ describe('small samples cannot saturate a component', () => {
     const career = ok(evaluateAccessibleWR(ALPHA()));
     expect(oneGame.components.OP).toBeLessThan(career.components.OP);
     expect(oneGame.components.PR).toBeLessThan(career.components.PR);
-    expect(oneGame.confidence.penaltyCodes).toContain('MINIMAL_CAREER_SAMPLE');
+    expect(oneGame.confidence.sampleScore).toBe(25);
     expect(oneGame.confidence.score).toBeLessThan(career.confidence.score);
+    expect(oneGame.confidence.label).toBe('LOW');
   });
 });
 

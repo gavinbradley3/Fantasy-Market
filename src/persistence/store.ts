@@ -510,7 +510,8 @@ export class PersistenceStore {
   /**
    * Publish the COMPLETE board produced by one complete refresh run — atomically.
    * The board is the full, deterministically-ordered set of the run's player inference
-   * associations (from `run_inference`). Rejects failed runs, runs where a REQUIRED provider
+   * associations (from `run_inference`). Rejects failed runs (including inference-incomplete
+   * attempts), runs where a REQUIRED provider
    * failed, runs with no snapshot, runs with zero associations, and any incomplete/mismatched/
    * corrupt artifact. Idempotent: the deterministic board publication id means re-publishing
    * the same board reuses one row and one pointer; a different board content yields a
@@ -534,6 +535,9 @@ export class PersistenceStore {
     const view = this.getRefreshRun(params.runId);
     if (!view) throw new PersistenceError('ARTIFACT_NOT_FOUND', `run ${params.runId} not found`, { stage: 'publication', detail: params.runId });
     if (view.run.status === 'failure') {
+      // `persistRefreshResult` records any failed/missing selected inference outcome as a
+      // failed run. Re-read that durable decision here; callers cannot bypass it by ignoring
+      // the persist step's `publishable` return value and invoking publication directly.
       throw new PersistenceError('PUBLICATION_NOT_ALLOWED', `run status ${view.run.status} is not publishable`, { stage: 'publication', detail: view.run.status });
     }
     if (view.run.requiredFailure) {

@@ -10,17 +10,9 @@
 
 import { useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { usePublishedMarket } from '@/services/publication';
+import { resolvePublicationFormat, usePublishedMarket } from '@/services/publication';
 import { FreshnessNote } from '@/components/data/FreshnessNote';
-import type { PublishedPlayer } from '@/services/publication';
-import {
-  buildBoardComparisons,
-  countCovered,
-  formatLabel,
-  marketUpdatedLabel,
-  useExternalMarket,
-  type ExternalMarket,
-} from '@/services/market';
+import type { PublishedMarket, PublishedPlayer } from '@/services/publication';
 import {
   PUBLISHED_COLUMNS,
   PublishedPlayerCard,
@@ -37,11 +29,15 @@ import type { Position } from '@/types/market';
 
 const POSITIONS: Position[] = ['QB', 'RB', 'WR', 'TE'];
 
-type SortKey = 'rank' | 'value' | 'confidence' | 'volatility' | 'name';
+type SortKey = 'rank' | 'confidence' | 'volatility' | 'name';
 
+// There is no separate "Model value" sort any more. It ordered the board by the position
+// engine's internal composite for the displayed horizon, which is a DIFFERENT ordering from the
+// rank in the first column — two sort options that claimed to be the same thing and were not.
+// PlayerTicker Rank is the ordering over PlayerTicker Value, so sorting by one IS sorting by
+// the other.
 const SORTS: { key: SortKey; label: string }[] = [
-  { key: 'rank', label: 'Published rank' },
-  { key: 'value', label: 'Model value' },
+  { key: 'rank', label: 'PlayerTicker Rank' },
   { key: 'confidence', label: 'Confidence' },
   { key: 'volatility', label: 'Volatility' },
   { key: 'name', label: 'Name (A–Z)' },
@@ -58,8 +54,6 @@ function byNumberDesc(a: number | null, b: number | null): number {
 function sortPlayers(players: readonly PublishedPlayer[], sort: SortKey): PublishedPlayer[] {
   const s = [...players];
   switch (sort) {
-    case 'value':
-      return s.sort((a, b) => byNumberDesc(a.value, b.value) || a.playerId.localeCompare(b.playerId));
     case 'confidence':
       return s.sort(
         (a, b) => byNumberDesc(a.confidenceScore, b.confidenceScore) || a.playerId.localeCompare(b.playerId),
@@ -72,9 +66,23 @@ function sortPlayers(players: readonly PublishedPlayer[], sort: SortKey): Publis
       return s.sort((a, b) => (a.name ?? a.playerId).localeCompare(b.name ?? b.playerId));
     case 'rank':
     default:
-      // The adapter already ordered the board by published value with unvalued players last.
+      // The adapter already ordered the board by PlayerTicker Value — the shared
+      // cross-position dynasty value over replacement — with unvalued players last.
       return s;
   }
+}
+
+/** What the complete loaded publication is ranked by and the format it actually represents. */
+export function boardSubtitle(market: PublishedMarket | undefined, loading = false): string {
+  if (!market) {
+    return loading ? 'Loading published market…' : 'Published format unavailable';
+  }
+  const format = resolvePublicationFormat(market);
+  if (format.kind === 'legacy') {
+    return 'Legacy composite board · canonical dynasty values unavailable';
+  }
+  const base = 'Ranked by projected dynasty value over replacement';
+  return `${base} · ${format.label}`;
 }
 
 function matchesQuery(player: PublishedPlayer, query: string): boolean {
@@ -86,22 +94,12 @@ function matchesQuery(player: PublishedPlayer, query: string): boolean {
 export default function BoardPage() {
   const [params, setParams] = useSearchParams();
   const market = usePublishedMarket();
-  // Supplementary, and read independently: if the external market is unavailable the board
-  // still renders PlayerTicker's own valuations, with the market columns showing absence.
-  const external = useExternalMarket();
 
   const pos = params.getAll('pos').filter((p): p is Position => (POSITIONS as string[]).includes(p));
   const sort = (SORTS.find((s) => s.key === params.get('sort'))?.key ?? 'rank') as SortKey;
   const query = params.get('q') ?? '';
 
   const players = useMemo(() => market.market?.players ?? [], [market.market]);
-  // Built from the WHOLE board rather than the filtered rows: percentile denominators depend
-  // on how many players each side ranks, and a player's standing must not shift because the
-  // reader typed in the search box.
-  const comparisons = useMemo(
-    () => buildBoardComparisons(players, external.market),
-    [players, external.market],
-  );
   const filtered = useMemo(() => {
     let rows = players;
     if (pos.length) rows = rows.filter((p) => pos.includes(p.position));
@@ -132,17 +130,26 @@ export default function BoardPage() {
     <div>
       <PageHeader
         title="The Board"
-        subtitle="The current published market"
+        subtitle={boardSubtitle(market.market, market.status === 'loading')}
         actions={
           <Button onClick={market.retry} disabled={market.isFetching}>
-            {market.isFetching ? 'Refreshing…' : 'Refresh Market'}
+            {market.isFetching ? 'Refreshing…' : 'Reload Board'}
           </Button>
         }
       />
 
       {/* Controls stay mounted across states so the layout does not jump on load. */}
-      {/* When the board was last refreshed. Renders nothing when no status document exists. */}
+      {/* Publication age comes from the loaded board; status adds matching attempt evidence. */}
       <FreshnessNote dataset="board" className="mb-3" />
+
+      {market.market && resolvePublicationFormat(market.market).kind === 'conflict' && (
+        <p
+          role="alert"
+          className="mb-3 rounded-control border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-text-secondary"
+        >
+          Published format metadata is inconsistent, so no league or scoring format is shown.
+        </p>
+      )}
 
       <div className="mb-5 flex flex-wrap items-center gap-2 border-y border-border-default py-3">
         <div className="relative min-w-[200px] flex-1">
@@ -237,9 +244,6 @@ export default function BoardPage() {
           <PublicationProvenance
             market={market.market}
             shown={filtered.length}
-            external={external.market}
-            externalUnavailable={external.unavailable}
-            covered={countCovered(comparisons)}
           />
 
           {filtered.length === 0 ? (
@@ -276,7 +280,6 @@ export default function BoardPage() {
                       <PublishedPlayerRow
                         key={p.playerId}
                         player={p}
-                        comparison={comparisons.get(p.playerId)}
                       />
                     ))}
                   </tbody>
@@ -289,7 +292,6 @@ export default function BoardPage() {
                   <PublishedPlayerCard
                     key={p.playerId}
                     player={p}
-                    comparison={comparisons.get(p.playerId)}
                   />
                 ))}
               </div>
@@ -310,15 +312,9 @@ export default function BoardPage() {
 function PublicationProvenance({
   market,
   shown,
-  external,
-  externalUnavailable,
-  covered,
 }: {
   market: NonNullable<ReturnType<typeof usePublishedMarket>['market']>;
   shown: number;
-  external: ExternalMarket | undefined;
-  externalUnavailable: boolean;
-  covered: number;
 }) {
   const unvalued = market.players.length - market.valuedCount;
   const limited = market.players.filter((p) => p.modelTier === 'ACCESSIBLE').length;
@@ -336,9 +332,13 @@ function PublicationProvenance({
         <p className="max-w-4xl">
           <span className="data">{limited}</span> of these players{' '}
           {limited === 1 ? 'is' : 'are'} valued by the <strong>accessible-data model</strong> and
-          marked “Limited data”. That is a deliberately reduced model built only on the data we
-          can obtain for them — box-score production, team shares and age — without route,
-          snap or red-zone data. Those valuations are never shown as high confidence.
+          marked <strong>Coverage: Standard</strong>. That is a deliberately reduced model built
+          only on the data we can obtain for them — box-score production, team shares and age —
+          without route, snap or red-zone data. <strong>Coverage is not confidence.</strong> It
+          describes which inputs existed, and it is the same for all {limited} of them;
+          confidence describes how well evidenced each player is for what the model asks, and is
+          scored per player. A player can legitimately read Standard coverage and high
+          confidence.
         </p>
       )}
       {unvalued > 0 && (
@@ -349,6 +349,15 @@ function PublicationProvenance({
           as “—” rather than estimated.
         </p>
       )}
+      {/* PlayerTicker's own movement. The board publishes a single current snapshot, so there is
+          no prior PlayerTicker value to difference against and no movement column exists. Saying
+          so beats leaving the reader to wonder whether movement is zero or simply absent — and
+          it is the one honest thing to say, because the alternative is a 0.0 that would read as
+          "unchanged" when nothing has been measured. */}
+      <p>
+        Movement in PlayerTicker Value appears once multiple PlayerTicker snapshots have been
+        collected; this board shows the current one, so no PlayerTicker movement is displayed.
+      </p>
       {market.rejected.length > 0 && (
         <p>
           <span className="data">{market.rejected.length}</span> published record
@@ -356,73 +365,7 @@ function PublicationProvenance({
           {market.rejected.length === 1 ? 'was' : 'were'} left out rather than guessed.
         </p>
       )}
-      <MarketProvenance
-        external={external}
-        unavailable={externalUnavailable}
-        covered={covered}
-        boardSize={market.players.length}
-      />
+      <p>External market comparisons are disabled for this release. PlayerTicker valuations are independent of external market prices.</p>
     </div>
-  );
-}
-
-/**
- * Where the market columns come from, and what they do not cover.
- *
- * Three things have to be said here and none of them are decoration: whose numbers these are,
- * how current they actually are, and how many board players the source has never heard of.
- * The wording stays restrained — "Market updated Sep 11", not "live" — because the source
- * publishes weekly and any stronger word would outrun the data.
- */
-function MarketProvenance({
-  external,
-  unavailable,
-  covered,
-  boardSize,
-}: {
-  external: ExternalMarket | undefined;
-  unavailable: boolean;
-  covered: number;
-  boardSize: number;
-}) {
-  if (unavailable) {
-    return (
-      <p>
-        External market context is unavailable right now, so the market columns show “—”. The
-        PlayerTicker valuations above are unaffected.
-      </p>
-    );
-  }
-  if (!external) return null;
-  if (external.quoteCount === 0) {
-    return <p>No external market data has been ingested yet, so the market columns show “—”.</p>;
-  }
-
-  const updated = marketUpdatedLabel(external.sourceTimestamp);
-  const uncovered = boardSize - covered;
-  return (
-    <p className="max-w-4xl">
-      Market columns show <strong>{external.attribution.publisher}</strong> dynasty{' '}
-      {formatLabel(external.format)} ranks, compared against PlayerTicker’s{' '}
-      <strong>dynasty</strong> value — not against the rank column above, which follows the
-      horizon the board is showing
-      {updated ? <> · market updated <span className="data">{updated}</span></> : null} ·{' '}
-      {external.attribution.refreshCadence} · external comparison source, not a PlayerTicker
-      valuation.
-      {uncovered > 0 && (
-        <>
-          {' '}
-          <span className="data">{uncovered}</span> of these players{' '}
-          {uncovered === 1 ? 'is' : 'are'} not covered by it and show “—” rather than a zero.
-        </>
-      )}
-      {!external.movementAvailable && (
-        <>
-          {' '}
-          Only {external.captureCount === 1 ? 'one capture is' : `${external.captureCount} captures are`} stored, so
-          no market movement is shown.
-        </>
-      )}
-    </p>
   );
 }

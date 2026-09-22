@@ -11,6 +11,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { ApiClient } from '@/services/api';
 import { PublicationProvider } from '@/services/publication';
+import { resolveSiteDataSource, type SiteDataSource } from '@/services/siteData';
 import BoardPage from './BoardPage';
 
 interface EntryOverrides {
@@ -30,6 +31,10 @@ interface EntryOverrides {
   role?: string | null;
   explanation?: string | null;
   materialMissingInputs?: string[];
+  dynastyValue?: number | null;
+  dynastyOverallRank?: number | null;
+  dynastyPositionRank?: number | null;
+  leagueSchemaId?: string | null;
 }
 
 function apiEntry(o: EntryOverrides) {
@@ -69,6 +74,14 @@ function apiEntry(o: EntryOverrides) {
     materialMissingInputs: o.materialMissingInputs ?? [],
     insufficientReason: valued ? null : 'Not enough information to value this player.',
     provenance: null,
+    // The shared cross-position value the board ranks on AND displays. Defaulted to the
+    // composite so the existing fixtures keep their numbers; the trust-pass tests below set it
+    // apart from the composite deliberately, which is the only way to catch a display or a
+    // ranking that has quietly re-pointed at the position-internal number.
+    dynastyValue: o.dynastyValue !== undefined ? o.dynastyValue : o.weekly,
+    dynastyOverallRank: o.dynastyOverallRank,
+    dynastyPositionRank: o.dynastyPositionRank,
+    leagueSchemaId: o.leagueSchemaId !== undefined ? o.leagueSchemaId : 'dynasty-superflex-12',
   };
 }
 
@@ -81,17 +94,33 @@ const FOUR_POSITIONS = [
 ];
 
 function publication(entries: ReturnType<typeof apiEntry>[]) {
+  const ranked = [...entries]
+    .filter((entry) => entry.dynastyValue !== null)
+    .sort((a, b) => (b.dynastyValue ?? 0) - (a.dynastyValue ?? 0) || a.canonicalId.localeCompare(b.canonicalId));
+  const overall = new Map(ranked.map((entry, index) => [entry.canonicalId, index + 1]));
+  const positions = new Map<string, number>();
+  const positionRanks = new Map<string, number>();
+  for (const entry of ranked) {
+    const rank = (positions.get(entry.position) ?? 0) + 1;
+    positions.set(entry.position, rank);
+    positionRanks.set(entry.canonicalId, rank);
+  }
+  const canonicalEntries = entries.map((entry) => ({
+    ...entry,
+    dynastyOverallRank: entry.dynastyOverallRank ?? overall.get(entry.canonicalId) ?? null,
+    dynastyPositionRank: entry.dynastyPositionRank ?? positionRanks.get(entry.canonicalId) ?? null,
+  }));
   return {
     publication: {
       publicationId: 'pub-1',
       runId: 'run-1',
       snapshotId: 'snap-1',
       boardChecksum: 'chk',
-      entryCount: entries.length,
+      entryCount: canonicalEntries.length,
       publishedAt: '2026-01-01T00:00:00.000Z',
       supersededPublicationId: null,
     },
-    entries,
+    entries: canonicalEntries,
   };
 }
 
@@ -99,10 +128,10 @@ function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 }
 
-function renderBoard(fetchFn: typeof fetch, route = '/board') {
-  const client = new ApiClient({ baseUrl: '/api', fetchFn });
+function renderBoard(fetchFn: typeof fetch, route = '/board', source?: SiteDataSource) {
+  const client = new ApiClient({ baseUrl: source?.baseUrl ?? '/api', fetchFn });
   return render(
-    <PublicationProvider client={client}>
+    <PublicationProvider client={client} source={source}>
       <MemoryRouter initialEntries={[route]}>
         <BoardPage />
       </MemoryRouter>
@@ -150,7 +179,7 @@ function marketResponse(
   };
 }
 
-/** Route by path so the board's two independent reads can be answered differently. */
+/** Make market data available to catch any accidental request by the release board. */
 function routed(publicationBody: unknown, marketBody: unknown, marketStatus = 200): typeof fetch {
   return (async (input: RequestInfo | URL) =>
     String(input).includes('/market')
@@ -178,6 +207,8 @@ describe('The Board renders the real publication end to end', () => {
     const never = (() => new Promise<Response>(() => {})) as unknown as typeof fetch;
     renderBoard(never);
     expect(screen.getByLabelText('Loading published market')).toBeInTheDocument();
+    expect(screen.getByText('Loading published market…')).toBeInTheDocument();
+    expect(screen.queryByText(/12-team Dynasty|Full PPR/)).not.toBeInTheDocument();
   });
 
   it('renders QB, RB, WR and TE from one published board', async () => {
@@ -197,6 +228,42 @@ describe('The Board renders the real publication end to end', () => {
     expect(String(spy.mock.calls[0][0])).toBe('/api/publication');
   });
 
+  it('renders a failed refresh beside its matching last-good static publication', async () => {
+    const board = publication(FOUR_POSITIONS);
+    const now = Date.now();
+    board.publication.publishedAt = new Date(now - 24 * 3_600_000).toISOString();
+    const status = {
+      generatedAt: new Date(now - 3_600_000).toISOString(),
+      board: {
+        state: 'current', ageHours: 3, currentWithinHours: 12,
+        publishedAt: board.publication.publishedAt,
+        publicationId: board.publication.publicationId,
+        checksum: board.publication.boardChecksum,
+        entryCount: board.publication.entryCount,
+        lastAttempt: { attemptedAt: new Date(now - 3_600_000).toISOString(), outcome: 'failure' },
+      },
+      market: {
+        state: 'unknown', ageHours: null, currentWithinHours: 24,
+        capturedAt: null, sourceTimestamp: null, quoteCount: null,
+        historyAppended: false, lastAttempt: null,
+      },
+      overall: 'degraded',
+    };
+    const fetchFn = (async (input: RequestInfo | URL) => {
+      const path = String(input);
+      if (path.endsWith('/board.json')) return jsonResponse(board);
+      if (path.endsWith('/status.json')) return jsonResponse(status);
+      if (path.endsWith('/market-latest.json')) return jsonResponse({}, 404);
+      return jsonResponse({}, 404);
+    }) as unknown as typeof fetch;
+
+    renderBoard(fetchFn, '/board', resolveSiteDataSource({ VITE_PLAYERTICKER_DATA_URL: '/data' }));
+    expect((await rowsFor('Test Passer')).length).toBeGreaterThan(0);
+    expect(await screen.findByText(/latest refresh failed; this is the last published board/i)).toBeInTheDocument();
+    expect(screen.getByText('Board updated yesterday')).toBeInTheDocument();
+    expect(screen.getByText(/12-team Dynasty · Superflex · Full PPR/)).toBeInTheDocument();
+  });
+
   it('displays published values and does not invent the ones the API omitted', async () => {
     const mixed = [
       apiEntry({ canonicalId: 'pt-valued', position: 'WR', name: 'Valued Player', weekly: 70 }),
@@ -213,8 +280,8 @@ describe('The Board renders the real publication end to end', () => {
     expect(within(unvaluedRow).queryByText('0.0')).not.toBeInTheDocument();
     expect(within(unvaluedRow).getAllByText('—').length).toBeGreaterThan(0);
     // The tier badge names the state in product language rather than an internal status code.
-    expect(within(unvaluedRow).getByText('No value')).toBeInTheDocument();
-    expect(within(valuedRow).getByText('Full model')).toBeInTheDocument();
+    expect(within(unvaluedRow).getByText('Limited')).toBeInTheDocument();
+    expect(within(valuedRow).getByText('Full')).toBeInTheDocument();
     // And the page says so in words, next to the count.
     await waitFor(() =>
       expect(provenanceText()).toMatch(/1 of these players has no published value/i),
@@ -254,6 +321,7 @@ describe('The Board — search, filters and sorting over published data', () => 
     await screen.findAllByText('Test Receiver');
     await userEvent.click(screen.getByRole('button', { name: 'QB' }));
     expect(await screen.findByText(/no published players match these filters/i)).toBeInTheDocument();
+    expect(screen.getByText(/12-team Dynasty · Superflex · Full PPR/)).toBeInTheDocument();
     // Distinct from "nothing is published" — the board itself is still there.
     expect(screen.queryByText(/No market publication is available yet/i)).not.toBeInTheDocument();
   });
@@ -273,7 +341,10 @@ describe('The Board — search, filters and sorting over published data', () => 
     expect(screen.getAllByText('Test End').length).toBeGreaterThan(0);
   });
 
-  it('sorts by published value, keeping unvalued players last', async () => {
+  it('offers ONE PlayerTicker ordering, and it keeps unvalued players last', async () => {
+    // There is no separate "Model value" sort. It ordered on the position engines' internal
+    // composite for the displayed horizon — a different ordering from the rank in the first
+    // column, offered beside it as though the two were the same thing.
     const mixed = [
       apiEntry({ canonicalId: 'a', position: 'WR', name: 'Low Value', weekly: 10 }),
       apiEntry({ canonicalId: 'b', position: 'WR', name: 'No Value', weekly: null }),
@@ -282,7 +353,10 @@ describe('The Board — search, filters and sorting over published data', () => 
     renderBoard(respondWith(publication(mixed)));
     await screen.findAllByText('High Value');
 
-    await userEvent.selectOptions(screen.getByLabelText('Sort by'), 'value');
+    const sort = screen.getByLabelText('Sort by') as HTMLSelectElement;
+    expect([...sort.options].map((o) => o.value)).not.toContain('value');
+    expect([...sort.options].map((o) => o.textContent)).toContain('PlayerTicker Rank');
+
     await waitFor(() => {
       const names = screen
         .getAllByRole('row')
@@ -305,10 +379,10 @@ describe('The Board — search, filters and sorting over published data', () => 
   });
 
   it('honors position and sort from the URL', async () => {
-    renderBoard(respondWith(publication(FOUR_POSITIONS)), '/board?pos=RB&sort=value');
+    renderBoard(respondWith(publication(FOUR_POSITIONS)), '/board?pos=RB&sort=name');
     await waitFor(() => expect(boardCount()).toMatch(/1 of 4 published players/));
     expect(screen.getAllByText('Test Runner').length).toBeGreaterThan(0);
-    expect((screen.getByLabelText('Sort by') as HTMLSelectElement).value).toBe('value');
+    expect((screen.getByLabelText('Sort by') as HTMLSelectElement).value).toBe('name');
   });
 });
 
@@ -358,16 +432,14 @@ describe('The Board — empty, error and retry states', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
-  it('re-reads the market from the "Refresh Market" button and never posts a rebuild', async () => {
+  it('re-reads publication from "Reload Board" and never posts a rebuild or acquires market data', async () => {
     const spy = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
       jsonResponse(publication(FOUR_POSITIONS)),
     );
     renderBoard(spy as unknown as typeof fetch);
     await screen.findAllByText('Test Passer');
 
-    await userEvent.click(screen.getByRole('button', { name: 'Refresh Market' }));
-    // Counted per endpoint: the page also reads the external market on mount, and this test
-    // is about the publication read the button re-runs.
+    await userEvent.click(screen.getByRole('button', { name: 'Reload Board' }));
     const publicationCalls = () => spy.mock.calls.filter((c) => String(c[0]).includes('/publication')).length;
     await waitFor(() => expect(publicationCalls()).toBe(2));
     // Refreshing the browser's data is a READ. Triggering a backend rebuild is a different
@@ -375,6 +447,7 @@ describe('The Board — empty, error and retry states', () => {
     for (const call of spy.mock.calls) {
       expect(call[1]?.method ?? 'GET').toBe('GET');
       expect(String(call[0])).not.toContain('/refresh');
+      expect(String(call[0])).not.toContain('/market');
     }
   });
 
@@ -410,9 +483,10 @@ describe('The Board — model tier is visible to the user', () => {
     const accRow = (await screen.findAllByText('Limited Data Player'))[0].closest('tr')!;
     const noneRow = (await screen.findAllByText('No Value Player'))[0].closest('tr')!;
 
-    expect(within(fullRow).getByText('Full model')).toBeInTheDocument();
-    expect(within(accRow).getByText('Limited data')).toBeInTheDocument();
-    expect(within(noneRow).getByText('No value')).toBeInTheDocument();
+    // COVERAGE, in three words that describe the INPUT SET rather than the answer's quality.
+    expect(within(fullRow).getByText('Full')).toBeInTheDocument();
+    expect(within(accRow).getByText('Standard')).toBeInTheDocument();
+    expect(within(noneRow).getByText('Limited')).toBeInTheDocument();
 
     // The accessible-tier player still carries a real value — the tier is a label, not a gap.
     expect(within(accRow).getByText('64.0')).toBeInTheDocument();
@@ -428,104 +502,333 @@ describe('The Board — model tier is visible to the user', () => {
   });
 });
 
-describe('external market context on the board', () => {
-  // The market's numbers belong to somebody else and cover fewer players than the board. Both
-  // facts have to survive all the way to the DOM: an uncovered player must read as uncovered,
-  // and the source must be named. These tests fail if either quietly stops being true.
-
-  const boardWithMarket = (
-    quotes: Parameters<typeof marketResponse>[0],
-    over: Record<string, unknown> = {},
-  ) => routed(publication(FOUR_POSITIONS), marketResponse(quotes, over));
-
-  it('shows the market rank beside the model rank', async () => {
-    renderBoard(
-      boardWithMarket([
-        { canonicalPlayerId: 'pt-qb', value: 10256, overallRank: 3 },
-        { canonicalPlayerId: 'pt-rb', value: 7000, overallRank: 1 },
-      ]),
-    );
-    await screen.findAllByText('Test Passer');
-    await waitFor(() => expect(screen.getAllByTitle(/Dynasty Superflex market value 10,256/).length).toBeGreaterThan(0));
-  });
-
-  it('states the disagreement in places, with PlayerTicker-higher as a positive number', async () => {
-    // The board ranks the QB 1st (weekly 90 is the best value); the market has them 3rd.
-    renderBoard(
-      boardWithMarket([
-        { canonicalPlayerId: 'pt-qb', value: 10256, overallRank: 3 },
-        { canonicalPlayerId: 'pt-rb', value: 9000, overallRank: 1 },
-        { canonicalPlayerId: 'pt-wr', value: 8000, overallRank: 2 },
-      ]),
-    );
-    await screen.findAllByText('Test Passer');
-    // The tooltip names BOTH ranks, because the visible Rank column follows the board's
-    // displayed horizon (weekly) while the delta is measured on dynasty.
-    await waitFor(() =>
-      expect(
-        screen.getAllByTitle(/On dynasty value: PlayerTicker #1, market #3 — 2 places higher/).length,
-      ).toBeGreaterThan(0),
-    );
-  });
-
-  it('renders an UNCOVERED player as absent — never as zero or last place', async () => {
-    renderBoard(boardWithMarket([{ canonicalPlayerId: 'pt-qb', value: 10256, overallRank: 1 }]));
-    await screen.findAllByText('Test Passer');
-    await waitFor(() =>
-      expect(screen.getAllByLabelText('not covered by this market source').length).toBeGreaterThan(0),
-    );
-    // Nothing on the page claims a zero-valued market quote for the uncovered players.
-    expect(provenanceText()).toContain('rather than a zero');
-  });
-
-  it('names the publisher and says these are not PlayerTicker valuations', async () => {
-    renderBoard(boardWithMarket([{ canonicalPlayerId: 'pt-qb', value: 10256, overallRank: 1 }]));
-    await screen.findAllByText('Test Passer');
-    await waitFor(() => expect(provenanceText()).toContain('DynastyProcess'));
-    expect(provenanceText()).toContain('not a PlayerTicker');
-    expect(provenanceText()).toContain('Superflex');
-  });
-
-  it('describes weekly data in weekly language — never "live" or "real-time"', async () => {
-    renderBoard(boardWithMarket([{ canonicalPlayerId: 'pt-qb', value: 10256, overallRank: 1 }]));
-    await screen.findAllByText('Test Passer');
-    await waitFor(() => expect(provenanceText()).toContain('market updated Sep 11'));
-    expect(provenanceText()).toContain('weekly');
-    expect(provenanceText()).not.toMatch(/live|real[- ]?time|24H|1H/i);
-  });
-
-  it('says no movement is shown while only one capture is stored', async () => {
-    renderBoard(boardWithMarket([{ canonicalPlayerId: 'pt-qb', value: 10256, overallRank: 1 }]));
-    await screen.findAllByText('Test Passer');
-    await waitFor(() => expect(provenanceText()).toContain('no market movement is shown'));
-  });
-
-  it('an unavailable market degrades to "—" and leaves the board standing', async () => {
-    renderBoard(routed(publication(FOUR_POSITIONS), { error: { code: 'X', message: 'down' } }, 503));
-    // The valuations are all still there — a third party's outage is not a board outage.
+describe('public release excludes external market data', () => {
+  it('never requests or renders an available market response, while preserving canonical values', async () => {
+    const response = marketResponse([
+      { canonicalPlayerId: 'pt-qb', value: 10256, overallRank: 3 },
+      { canonicalPlayerId: 'pt-rb', value: 7000, overallRank: 1 },
+    ]);
+    const spy = vi.fn(routed(publication(FOUR_POSITIONS), response));
+    renderBoard(spy as unknown as typeof fetch);
     for (const name of ['Test Passer', 'Test Runner', 'Test Receiver', 'Test End']) {
       expect((await rowsFor(name)).length).toBeGreaterThan(0);
     }
-    await waitFor(() => expect(provenanceText()).toContain('External market context is unavailable'));
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(spy.mock.calls.length).toBeGreaterThan(0);
+    expect(spy.mock.calls.every((call) => !String(call[0]).match(/market|dynastyprocess|fantasypros/i))).toBe(true);
+    const row = (await screen.findAllByText('Test Passer'))[0].closest('tr')!;
+    expect(within(row).getByText('90.0')).toBeInTheDocument();
+    expect(within(row).getByText('1')).toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: /Market|Edge/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/DynastyProcess|FantasyPros|Market Edge/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/10,?256/)).not.toBeInTheDocument();
+    expect(screen.queryByTitle(/market value|market #/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/not covered by this market source/i)).not.toBeInTheDocument();
   });
 
-  it('an empty market says so instead of showing zeroes', async () => {
-    renderBoard(boardWithMarket([], { quoteCount: 0, captureCount: 0, sourceTimestamp: null }));
+  it('never fetches static market values, history or comparisons even when the server would serve them', async () => {
+    const board = publication(FOUR_POSITIONS);
+    const spy = vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input);
+      if (path.endsWith('/board.json')) return jsonResponse(board);
+      if (path.endsWith('/status.json')) return jsonResponse({}, 404);
+      // Deliberately available, not protected by the test server returning an error.
+      return jsonResponse(marketResponse([{ canonicalPlayerId: 'pt-qb', value: 10256, overallRank: 1 }]));
+    });
+    renderBoard(spy as unknown as typeof fetch, '/board', resolveSiteDataSource({ VITE_PLAYERTICKER_DATA_URL: '/data' }));
+    await screen.findAllByText('Test Passer');
+    await userEvent.click(screen.getByRole('button', { name: 'Reload Board' }));
+    await waitFor(() => expect(spy.mock.calls.filter(([input]) => String(input).endsWith('/board.json'))).toHaveLength(2));
+    const paths = spy.mock.calls.map(([input]) => new URL(String(input), 'https://preview.invalid').pathname);
+    expect(paths.every((path) => ['/data/board.json', '/data/status.json'].includes(path))).toBe(true);
+    expect(paths.some((path) => /market|history|comparison|dynastyprocess|fantasypros/i.test(path))).toBe(false);
+    expect(screen.queryByText(/DynastyProcess|FantasyPros|Market Edge|10,?256/)).not.toBeInTheDocument();
+  });
+
+  it.each([200, 503])('an external market status %s is irrelevant because no request is made', async (status) => {
+    const spy = vi.fn(routed(publication(FOUR_POSITIONS), marketResponse([]), status));
+    renderBoard(spy as unknown as typeof fetch);
+    await waitFor(() => expect(boardCount()).toMatch(/4 of 4 published players/));
+    expect(spy.mock.calls.some((call) => String(call[0]).includes('/market'))).toBe(false);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.queryByText(/external market context|external market data/i)).not.toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The core-product trust pass
+//
+// One ranking, displayed as the number it is over; coverage and confidence as two independent
+// dimensions; and an honest word for a player a reduced model valued. Each test here pins a
+// specific defect that shipped, so a reversion fails loudly rather than quietly.
+// ---------------------------------------------------------------------------
+
+describe('The Board — one ranking, one number', () => {
+  it('renders backend rank/value on desktop and mobile when equal values oppose the old tie-breaker', async () => {
+    const opposedTie = [
+      apiEntry({ canonicalId: 'pt-second', position: 'WR', name: 'Composite Favorite', weekly: 99,
+        dynastyValue: 70, dynastyOverallRank: 2, dynastyPositionRank: 2 }),
+      apiEntry({ canonicalId: 'pt-first', position: 'WR', name: 'Canonical First', weekly: 1,
+        dynastyValue: 70, dynastyOverallRank: 1, dynastyPositionRank: 1 }),
+    ];
+    renderBoard(respondWith(publication(opposedTie)));
+    const names = await screen.findAllByText('Canonical First');
+    expect(names).toHaveLength(2); // desktop row and mobile card
+
+    const desktop = names[0].closest('tr')!;
+    expect(within(desktop).getByText('1')).toBeInTheDocument();
+    expect(within(desktop).getByText('70.0')).toBeInTheDocument();
+    const rows = screen.getAllByRole('row').slice(1);
+    expect(rows[0].textContent).toContain('Canonical First');
+    expect(rows[1].textContent).toContain('Composite Favorite');
+    expect(screen.getAllByText('70.0')).toHaveLength(4); // both values in both layouts
+    expect(screen.queryByText('99.0')).not.toBeInTheDocument();
+  });
+
+  it('keeps canonical ranks fixed under alternative sorting without a Market Edge comparison', async () => {
+    renderBoard(
+      routed(
+        publication([
+          apiEntry({ canonicalId: 'pt-z', position: 'QB', name: 'Zulu', weekly: 90,
+            dynastyOverallRank: 1, dynastyPositionRank: 1 }),
+          apiEntry({ canonicalId: 'pt-a', position: 'RB', name: 'Alpha', weekly: 80,
+            dynastyOverallRank: 2, dynastyPositionRank: 1 }),
+        ]),
+        marketResponse([{ canonicalPlayerId: 'pt-z', value: 10000, overallRank: 3 }]),
+      ),
+    );
+    await screen.findAllByText('Zulu');
+    await userEvent.selectOptions(screen.getByLabelText('Sort by'), 'name');
+    const zulu = (await screen.findAllByText('Zulu'))[0].closest('tr')!;
+    expect(within(zulu).getByText('1')).toBeInTheDocument();
+    expect(within(zulu).getByText('90.0')).toBeInTheDocument();
+    expect(within(zulu).queryByText('+2')).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: /Market|Edge/i })).not.toBeInTheDocument();
+  });
+
+  it('does not display a diagnostic composite for an explicitly unvalued current entry', async () => {
+    const diagnostic = apiEntry({ canonicalId: 'pt-null', position: 'WR', name: 'Diagnostic Only', weekly: 55,
+      dynastyValue: null, dynastyOverallRank: null, dynastyPositionRank: null });
+    renderBoard(respondWith(publication([diagnostic])));
+    expect(await screen.findAllByText('Diagnostic Only')).toHaveLength(2);
+    expect(screen.queryByText('55.0')).not.toBeInTheDocument();
+    expect(screen.getAllByLabelText('no value published for this player')).toHaveLength(2);
+  });
+
+  it('displays the value it RANKS on, not the position engine’s weekly composite', async () => {
+    // THE DEFECT. The board ordered rows by `dynastyValue` and printed `value` — the position
+    // engine's internal composite for the displayed horizon. So rank 1 could carry a smaller
+    // printed number than rank 3, because the column and the ordering were different
+    // quantities on different scales. Here the two are deliberately opposed: the weekly
+    // composites descend 90/80/70 while the dynasty values ascend 40/60/95.
+    const opposed = [
+      apiEntry({ canonicalId: 'pt-a', position: 'QB', name: 'Weekly Leader', weekly: 90, dynastyValue: 40 }),
+      apiEntry({ canonicalId: 'pt-b', position: 'RB', name: 'Middle', weekly: 80, dynastyValue: 60 }),
+      apiEntry({ canonicalId: 'pt-c', position: 'WR', name: 'Dynasty Leader', weekly: 70, dynastyValue: 95 }),
+    ];
+    renderBoard(respondWith(publication(opposed)));
+    await screen.findAllByText('Dynasty Leader');
+
+    const rows = screen.getAllByRole('row').slice(1);
+    expect(rows[0].textContent).toContain('Dynasty Leader');
+    expect(rows[0].textContent).toContain('95.0');
+    expect(rows[2].textContent).toContain('Weekly Leader');
+    expect(rows[2].textContent).toContain('40.0');
+    // The weekly composites are not on the board at all now.
+    expect(screen.queryByText('90.0')).not.toBeInTheDocument();
+  });
+
+  it('reads down the value column monotonically, because rank IS that ordering', async () => {
+    renderBoard(
+      respondWith(
+        publication([
+          apiEntry({ canonicalId: 'pt-a', position: 'QB', name: 'One', weekly: 10, dynastyValue: 88 }),
+          apiEntry({ canonicalId: 'pt-b', position: 'TE', name: 'Two', weekly: 99, dynastyValue: 54 }),
+          apiEntry({ canonicalId: 'pt-c', position: 'WR', name: 'Three', weekly: 50, dynastyValue: 21 }),
+        ]),
+      ),
+    );
+    await screen.findAllByText('One');
+    const values = screen
+      .getAllByRole('row')
+      .slice(1)
+      .map((r) => Number(/(\d+\.\d)/.exec(r.textContent ?? '')?.[1] ?? NaN));
+    expect(values).toEqual([...values].sort((a, b) => b - a));
+  });
+
+  it('names what the board is ranked by, and the league it is ranked for', async () => {
+    renderBoard(respondWith(publication(FOUR_POSITIONS)));
+    await screen.findAllByText('Test Passer');
+    expect(
+      screen.getByText(/Ranked by projected dynasty value over replacement · 12-team Dynasty · Superflex · Full PPR/),
+    ).toBeInTheDocument();
+    // Desktop column header and mobile card label both name it.
+    expect(screen.getAllByText('PlayerTicker Value').length).toBeGreaterThan(0);
+    expect(screen.getByText('Rank')).toBeInTheDocument();
+  });
+
+  it('does not guess scoring for missing or unknown schema metadata', async () => {
+    const { unmount } = renderBoard(respondWith(publication([
+      apiEntry({ canonicalId: 'pt-missing', position: 'WR', name: 'Missing Format', weekly: 70, leagueSchemaId: null }),
+    ])));
+    await screen.findAllByText('Missing Format');
+    expect(screen.getByText(/Published format unavailable/)).toBeInTheDocument();
+    expect(screen.queryByText(/Full PPR|12-team Superflex/)).not.toBeInTheDocument();
+    unmount();
+
+    renderBoard(respondWith(publication([
+      apiEntry({ canonicalId: 'pt-unknown', position: 'WR', name: 'Unknown Format', weekly: 70, leagueSchemaId: 'future-schema' }),
+    ])));
+    await screen.findAllByText('Unknown Format');
+    expect(screen.getByText(/Published format unrecognized/)).toBeInTheDocument();
+    expect(screen.queryByText(/Full PPR|12-team Superflex/)).not.toBeInTheDocument();
+  });
+
+  it('warns on conflicting schema metadata and never selects the first entry', async () => {
+    renderBoard(respondWith(publication([
+      apiEntry({ canonicalId: 'pt-known', position: 'WR', name: 'Known Schema', weekly: 70 }),
+      apiEntry({ canonicalId: 'pt-conflict', position: 'QB', name: 'Other Schema', weekly: 60, leagueSchemaId: 'future-schema' }),
+    ])));
+    await screen.findAllByText('Known Schema');
+    expect(screen.getByText(/Published format inconsistent/)).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(/format metadata is inconsistent/i);
+    expect(screen.queryByText(/12-team Dynasty · Superflex · Full PPR/)).not.toBeInTheDocument();
+  });
+
+  it('preserves the legacy disclosure without inventing a scoring format', async () => {
+    const current = apiEntry({ canonicalId: 'pt-legacy', position: 'WR', name: 'Legacy Player', weekly: 70 });
+    const { dynastyValue: _value, dynastyOverallRank: _overall, dynastyPositionRank: _position, ...legacy } = current;
+    renderBoard(respondWith({
+      publication: { publicationId: 'legacy', runId: 'run', snapshotId: 'snap', boardChecksum: 'checksum',
+        entryCount: 1, publishedAt: '2026-09-12T00:00:00Z', supersededPublicationId: null },
+      entries: [legacy],
+    }));
+    await screen.findAllByText('Legacy Player');
+    expect(screen.getByText(/Legacy composite board · canonical dynasty values unavailable/)).toBeInTheDocument();
+    expect(screen.queryByText(/Full PPR|12-team Superflex/)).not.toBeInTheDocument();
+  });
+
+  it('keeps the OVERALL rank visible under a position filter', async () => {
+    // A filter narrows what is shown; it does not renumber the board. A tight end who is 4th
+    // overall is 4th overall while the TE filter is on — showing "1" there would invent a
+    // second ranking out of a view state.
+    renderBoard(respondWith(publication(FOUR_POSITIONS)), '/board?pos=TE');
+    await waitFor(() => expect(boardCount()).toMatch(/1 of 4 published players/));
+    const row = (await screen.findAllByText('Test End'))[0].closest('tr')!;
+    expect(within(row).getByText('4')).toBeInTheDocument();
+    expect(within(row).queryByText('1')).not.toBeInTheDocument();
+  });
+});
+
+describe('The Board — coverage and confidence are independent', () => {
+  const mixed = [
+    apiEntry({
+      canonicalId: 'pt-acc-high',
+      position: 'WR',
+      name: 'Well Evidenced Receiver',
+      weekly: 64,
+      dynastyValue: 64,
+      modelTier: 'ACCESSIBLE',
+      honestyState: 'ESTIMATED',
+      readiness: 'NOT_READY',
+      confidenceScore: 83,
+      confidenceLabel: 'HIGH',
+      materialMissingInputs: ['Route participation (no approved RB/TE method for converting it to career routes)'],
+    }),
+    apiEntry({
+      canonicalId: 'pt-full-low',
+      position: 'QB',
+      name: 'Thin Full Model Passer',
+      weekly: 70,
+      dynastyValue: 70,
+      confidenceScore: 22,
+      confidenceLabel: 'LOW',
+      // Distinct from the confidence label, so the assertions below cannot pass on the wrong cell.
+      volatilityLabel: 'HIGH',
+    }),
+  ];
+
+  it('shows Standard coverage WITH high confidence — the combination that used to be impossible', async () => {
+    // Confidence used to start from a ceiling of 74 and then subtract the same 21 points of
+    // tier-wide coverage gaps from every accessible player, so 53 was the highest score any of
+    // them could reach and HIGH was unreachable for 82% of the board. Coverage says which
+    // inputs existed; confidence says how well evidenced this player is within them.
+    renderBoard(respondWith(publication(mixed)));
+    const row = (await screen.findAllByText('Well Evidenced Receiver'))[0].closest('tr')!;
+    expect(within(row).getByText('Standard')).toBeInTheDocument();
+    expect(within(row).getByText('HIGH')).toBeInTheDocument();
+    expect(within(row).getByText('83')).toBeInTheDocument();
+  });
+
+  it('shows Full coverage WITH low confidence — the same independence in the other direction', async () => {
+    renderBoard(respondWith(publication(mixed)));
+    const row = (await screen.findAllByText('Thin Full Model Passer'))[0].closest('tr')!;
+    expect(within(row).getByText('Full')).toBeInTheDocument();
+    expect(within(row).getByText('LOW')).toBeInTheDocument();
+    expect(within(row).getByText('22')).toBeInTheDocument();
+  });
+
+  it('says in words that coverage is not confidence', async () => {
+    renderBoard(respondWith(publication(mixed)));
+    await screen.findAllByText('Well Evidenced Receiver');
+    await waitFor(() => expect(provenanceText()).toContain('Coverage is not confidence'));
+  });
+
+  it('gives Coverage and Confidence their own columns', async () => {
+    renderBoard(respondWith(publication(mixed)));
+    await screen.findAllByText('Well Evidenced Receiver');
+    expect(screen.getByText('Coverage')).toBeInTheDocument();
+    expect(screen.getAllByText(/^Confidence/).length).toBeGreaterThan(0);
+    // The old single "Model" column, which conflated the two, is gone.
+    expect(screen.queryByText('Model')).not.toBeInTheDocument();
+  });
+});
+
+describe('The Board — honest absence', () => {
+  it('publishes an accessible valuation as valued, not as unavailable', async () => {
+    // The backend used to publish honesty UNAVAILABLE for every accessible player, because
+    // `honestyState` read the FULL model's readiness — NOT_READY on this tier by construction.
+    // All 272 accessible players on the live board carried it, beside a complete valuation.
+    const entries = [
+      apiEntry({
+        canonicalId: 'pt-acc',
+        position: 'RB',
+        name: 'Accessible Back',
+        weekly: 61,
+        dynastyValue: 61,
+        modelTier: 'ACCESSIBLE',
+        honestyState: 'ESTIMATED',
+        readiness: 'NOT_READY',
+      }),
+    ];
+    renderBoard(respondWith(publication(entries)));
+    const row = (await screen.findAllByText('Accessible Back'))[0].closest('tr')!;
+    expect(within(row).queryByText('UNAVAILABLE')).not.toBeInTheDocument();
+    expect(within(row).getByText('61.0')).toBeInTheDocument();
+    expect(within(row).getByText('Standard')).toBeInTheDocument();
+  });
+
+  it('is honest that PlayerTicker movement needs more than one snapshot', async () => {
+    renderBoard(respondWith(publication(FOUR_POSITIONS)));
     await screen.findAllByText('Test Passer');
     await waitFor(() =>
-      expect(provenanceText()).toContain('No external market data has been ingested yet'),
+      expect(provenanceText()).toMatch(
+        /Movement in PlayerTicker Value appears once multiple PlayerTicker snapshots have been collected/,
+      ),
     );
   });
 
-  it('never lets a market value into the model Value column', async () => {
-    renderBoard(boardWithMarket([{ canonicalPlayerId: 'pt-qb', value: 10256, overallRank: 1 }]));
-    await screen.findAllByText('Test Passer');
-    await waitFor(() => expect(screen.getAllByTitle(/Dynasty Superflex market value 10,256/).length).toBeGreaterThan(0));
-    // The model value for the QB is 90.0. The market's 10,256 appears only as a tooltip on the
-    // market column — never rendered as the player's value.
-    expect(screen.getAllByText('90.0').length).toBeGreaterThan(0);
-    expect(screen.queryByText('10256')).not.toBeInTheDocument();
-    expect(screen.queryByText('10,256')).not.toBeInTheDocument();
+  it('does not turn excluded market comparisons into zeroes or agreement claims', async () => {
+    renderBoard(
+      routed(
+        publication(FOUR_POSITIONS),
+        marketResponse([{ canonicalPlayerId: 'pt-qb', value: 10256, overallRank: 1 }]),
+      ),
+    );
+    const row = (await screen.findAllByText('Test Receiver'))[0].closest('tr')!;
+    expect(within(row).queryByLabelText('not covered by this market source')).not.toBeInTheDocument();
+    expect(within(row).queryByLabelText('no comparison available')).not.toBeInTheDocument();
+    // Not a zero, and not "="; "=" would assert the two sides agree, which is a claim.
+    expect(within(row).queryByText('0')).not.toBeInTheDocument();
+    expect(within(row).queryByText('=')).not.toBeInTheDocument();
   });
 });

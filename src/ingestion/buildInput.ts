@@ -15,6 +15,7 @@ import { IdentityResolver } from './identity';
 import { buildSnapshot, mergeCollections, type NormalizedCollections, type NormalizedSnapshot } from './snapshot';
 import { buildEvidenceFor } from './evidence';
 import { compareOrdinal } from './ordering';
+import type { AggregationPolicy } from './aggregationPolicy';
 
 /** A provider's already-fetched raw payloads, keyed by capability. */
 export interface ProviderSource {
@@ -117,6 +118,8 @@ export interface BuildInputOptions {
   readonly engineVersion: string;
   /** Seasons non-QB positions are valued over; QB always reads the full ingested history. */
   readonly valuationSeasons?: readonly number[];
+  /** Explicit beta version only; absent keeps original production and v1/v2 replay inputs. */
+  readonly aggregationPolicy?: AggregationPolicy;
 }
 
 /** Assemble the `NormalizedInferenceInput` for one player from a snapshot. */
@@ -126,6 +129,7 @@ export function buildNormalizedInferenceInput(
 ): NormalizedInferenceInput | null {
   const built = buildEvidenceFor(snapshot, options.canonicalId, options.position, options.asOf, {
     ...(options.valuationSeasons ? { valuationSeasons: options.valuationSeasons } : {}),
+    ...(options.aggregationPolicy ? { aggregationPolicy: options.aggregationPolicy } : {}),
   });
   if (!built) return null;
   return {

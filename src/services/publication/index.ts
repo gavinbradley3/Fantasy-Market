@@ -17,8 +17,11 @@ export {
   type UsePublishedMarketOptions,
   type UsePublishedMarketResult,
 } from './PublicationProvider';
+export { RECOGNIZED_PUBLICATION_FORMATS, resolvePublicationFormat } from './format';
+export type { PublicationFormatResolution } from './format';
 export type {
   PublishedComposites,
+  PublishedDynastyContract,
   PublishedHorizon,
   PublishedMarket,
   PublishedPlayer,

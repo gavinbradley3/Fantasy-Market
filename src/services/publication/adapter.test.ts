@@ -5,18 +5,15 @@
 
 import { describe, expect, it } from 'vitest';
 import { adaptPublication, PublicationAdapterError } from './adapter';
-import type { ApiBoardEntry, ApiPublicationResponse } from '@/services/api';
+import { publicationResponseSchema, type ApiBoardEntry, type ApiPublicationResponse } from '@/services/api';
 
 function entry(over: Partial<ApiBoardEntry> = {}): ApiBoardEntry {
   return {
-    // Default to NO shared value, so the existing cases keep exercising the composite
-    // fallback path an older board takes; the utility cases below set it explicitly.
-    dynastyValue: null,
+    // The canonical value/rank trio is absent by default, so these cases exercise the explicit
+    // legacy compatibility path. Canonical cases below supply all three fields together.
     dynastySurplus: null,
     dynastyDepth: null,
     dynastyValueSource: null,
-    dynastyPositionRank: null,
-    dynastyOverallRank: null,
     leagueSchemaId: null,
     productionCurveVersion: null,
     canonicalId: 'pt-wr',
@@ -145,6 +142,73 @@ describe('adaptPublication — all four positions', () => {
 });
 
 describe('adaptPublication — missing and invalid data', () => {
+  const rejectedHeadlines: Partial<ApiBoardEntry> = {
+    positionValue: 99, positionalRank: 1, role: 'Unsupported current lead', explanation: 'Rejected conclusion',
+    positiveFactors: ['Rejected positive'], negativeFactors: ['Rejected negative'],
+    materialMissingInputs: ['Rejected-model diagnostic'], inputsSubstituted: 16,
+    provenance: { gamesObserved: 100, seasonsObserved: 7, teamSharesDerived: true,
+      observedFields: ['routes'], derivedFields: [], unavailableFields: [] },
+  };
+
+  it.each(['INSUFFICIENT', 'UNKNOWN'])('withholds diagnostic claims and legacy numbers under %s', (tier) => {
+    const market = adaptPublication(response([entry({ ...rejectedHeadlines, modelTier: tier as never,
+      insufficientReason: 'No supported result' })]));
+    expect(market.players[0]).toMatchObject({
+      value: null, composites: null, overallRank: null, positionRank: null,
+      confidenceScore: null, confidenceLabel: null, publicConfidenceLabel: null,
+      volatilityScore: null, volatilityLabel: null, modelVersion: null, positionValue: null,
+      publishedPositionalRank: null, role: null, explanation: null, positiveFactors: [],
+      negativeFactors: [], materialMissingInputs: [], inputsSubstituted: null, provenance: null,
+      insufficientReason: 'No supported result', name: 'Test Receiver', limitations: ['UNVALIDATED_MODEL'],
+    });
+    expect(market.valuedCount).toBe(0);
+  });
+
+  it('keeps the conservative absent-tier default instead of inferring model authorization from numbers', () => {
+    const { modelTier: _tier, ...preTier } = entry(rejectedHeadlines);
+    const parsed = publicationResponseSchema.parse(response([preTier as ApiBoardEntry]));
+    const p = adaptPublication(parsed).players[0];
+    expect(p.modelTier).toBe('INSUFFICIENT');
+    expect(p.value).toBeNull();
+    expect(p.role).toBeNull();
+    expect(p.confidenceScore).toBeNull();
+    // Legacy boards declaring their producing model retain their values and old rank path.
+    const declared = adaptPublication(response([entry()]));
+    expect(declared.dynastyContract).toBe('legacy');
+    expect(declared.players[0]).toMatchObject({ value: 70, overallRank: 1, confidenceScore: 80 });
+  });
+
+  it('does not headline confidence or role for a canonical null despite retained diagnostic composites', () => {
+    const market = adaptPublication(response([entry({ ...rejectedHeadlines,
+      dynastyValue: null, dynastyOverallRank: null, dynastyPositionRank: null,
+    })]));
+    expect(market.players[0]).toMatchObject({
+      dynastyValue: null, confidenceScore: null, publicConfidenceLabel: null, role: null,
+      explanation: null, positiveFactors: [], negativeFactors: [], inputsSubstituted: null, provenance: null,
+    });
+    expect(market.valuedCount).toBe(0);
+  });
+
+  it('rejects an unavailable canonical value without rewriting surviving canonical ranks', () => {
+    const market = adaptPublication(response([
+      entry({ canonicalId: 'rejected', modelTier: 'INSUFFICIENT', dynastyValue: 99,
+        dynastyOverallRank: 1, dynastyPositionRank: 1 }),
+      entry({ canonicalId: 'accepted', dynastyValue: 50, dynastyOverallRank: 2, dynastyPositionRank: 2 }),
+    ]));
+    expect(market.rejected).toMatchObject([{ canonicalId: 'rejected', reason: 'invalidValue' }]);
+    expect(market.players).toHaveLength(1);
+    expect(market.players[0]).toMatchObject({ playerId: 'accepted', dynastyValue: 50, overallRank: 2, positionRank: 2 });
+  });
+
+  it('never borrows full-model volatility or fallback counts for an accessible valuation', () => {
+    const p = adaptPublication(response([entry({ ...rejectedHeadlines, modelTier: 'ACCESSIBLE' })])).players[0];
+    expect(p.value).toBe(70);
+    expect(p.confidenceScore).toBe(80);
+    expect(p.volatilityScore).toBeNull();
+    expect(p.volatilityLabel).toBeNull();
+    expect(p.inputsSubstituted).toBeNull();
+  });
+
   it('carries missing optional fields through as null, never as zero', () => {
     const unvalued = entry({
       name: null,
@@ -320,18 +384,20 @@ describe('the board ranks on the SHARED cross-position value', () => {
 
   const withUtility = (over: Partial<ApiBoardEntry>, dynastyValue: number, composite: number) =>
     entry({
-      ...over,
       dynastyValue,
+      dynastyOverallRank: 1,
+      dynastyPositionRank: 1,
       leagueSchemaId: 'dynasty-superflex-12',
       composites: { weekly: composite, ros: composite, oneYear: composite, threeYear: composite, dynasty: composite },
+      ...over,
     });
 
   it('orders by the shared value even when the composites disagree', () => {
     const market = adaptPublication(
       response([
         // A tight end whose internal composite towers over the quarterback's.
-        withUtility({ canonicalId: 'pt-te', position: 'TE', name: 'Big Scale TE' }, 30, 92),
-        withUtility({ canonicalId: 'pt-qb', position: 'QB', name: 'Superflex QB' }, 100, 56),
+        withUtility({ canonicalId: 'pt-te', position: 'TE', name: 'Big Scale TE', dynastyOverallRank: 2 }, 30, 92),
+        withUtility({ canonicalId: 'pt-qb', position: 'QB', name: 'Superflex QB', dynastyOverallRank: 1 }, 100, 56),
       ]),
       { horizon: 'dynasty' },
     );
@@ -367,7 +433,8 @@ describe('the board ranks on the SHARED cross-position value', () => {
     const market = adaptPublication(
       response([
         withUtility({ canonicalId: 'pt-qb', position: 'QB' }, 100, 56),
-        entry({ canonicalId: 'pt-none', position: 'WR', composites: { weekly: 50, ros: 50, oneYear: 50, threeYear: 50, dynasty: 50 } }),
+        entry({ canonicalId: 'pt-none', position: 'WR', dynastyValue: null, dynastyOverallRank: null,
+          dynastyPositionRank: null, composites: { weekly: 50, ros: 50, oneYear: 50, threeYear: 50, dynasty: 50 } }),
       ]),
       { horizon: 'dynasty' },
     );

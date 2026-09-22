@@ -8,7 +8,8 @@ export { ApiClient, DEFAULT_TIMEOUT_MS, joinUrl, normalizeBaseUrl, resolveApiBas
 export type { ApiClientConfig, RequestOptions } from './client';
 export { ApiError, isAbortError, isApiError, kindForStatus } from './errors';
 export type { ApiErrorKind, ApiErrorOptions } from './errors';
-export { fetchCurrentPublication, publicationResponseSchema } from './publication';
+export { analyzePublicationContract, fetchCurrentPublication, publicationResponseSchema } from './publication';
+export type { PublicationDynastyContract } from './publication';
 export { fetchHealth, healthResponseSchema } from './health';
 export { fetchMarket, marketResponseSchema, type FetchMarketOptions } from './market';
 export type {

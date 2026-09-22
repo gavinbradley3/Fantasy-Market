@@ -26,6 +26,13 @@ export interface ProviderStatus {
   readonly required: boolean;
 }
 
+export type RefreshAttemptOutcome = 'success' | 'partial' | 'failure';
+
+export interface RefreshAttemptStatus {
+  readonly attemptedAt: string;
+  readonly outcome: RefreshAttemptOutcome;
+}
+
 export interface StatusDocument {
   readonly generatedAt: string;
   readonly board: {
@@ -34,6 +41,8 @@ export interface StatusDocument {
     readonly ageHours: number | null;
     readonly entryCount: number | null;
     readonly checksum: string | null;
+    readonly publicationId: string | null;
+    readonly lastAttempt: RefreshAttemptStatus | null;
     /** Thresholds this state was judged against, so the label can be audited. */
     readonly currentWithinHours: number;
   };
@@ -45,6 +54,7 @@ export interface StatusDocument {
     readonly quoteCount: number;
     readonly historyAppended: boolean;
     readonly currentWithinHours: number;
+    readonly lastAttempt: RefreshAttemptStatus | null;
   };
   readonly providers: {
     readonly nflverse: ProviderStatus;
@@ -65,7 +75,7 @@ export interface StatusDocument {
     /** True when this run did NOT publish, so the served board is from an earlier one. */
     readonly servingLastKnownGood: boolean;
   };
-  /** `ok` when a board is current and no required provider failed on the last run. */
+  /** `ok` when a board is current and no newer failed board attempt is known. */
   readonly overall: 'ok' | 'degraded';
 }
 
@@ -79,6 +89,10 @@ export interface StatusInputs {
   readonly marketCapturedAt: string | null;
   readonly marketSourceTimestamp: string | null;
   readonly marketHistoryAppended: boolean;
+  readonly boardPublicationId?: string | null;
+  readonly boardChecksum?: string | null;
+  readonly boardAttempt?: RefreshAttemptStatus | null;
+  readonly marketAttempt?: RefreshAttemptStatus | null;
 }
 
 /** Runs are newest-first; find the first for which `predicate` holds. */
@@ -126,7 +140,24 @@ export function buildStatus(input: StatusInputs): StatusDocument {
 
   // The served board comes from an earlier run whenever the newest run produced no publication.
   // That is the last-known-good path working, and it must be visible rather than inferred.
-  const servingLastKnownGood = last !== null && (last.run.requiredFailure || last.inference.length === 0);
+  const attemptFailed = last !== null
+    && (last.run.requiredFailure || last.inference.length === 0 || last.run.status === 'failure');
+  const servingLastKnownGood = attemptFailed && input.boardPublishedAt !== null;
+  const derivedBoardAttempt: RefreshAttemptStatus | null = last === null ? null : {
+    attemptedAt: last.run.completedAt,
+    outcome: attemptFailed
+      ? 'failure'
+      : last.run.status === 'partial' ? 'partial' : 'success',
+  };
+  const boardAttempt = input.boardAttempt === undefined ? derivedBoardAttempt : input.boardAttempt;
+  const marketAttempt = input.marketAttempt === undefined
+    ? input.marketCapturedAt === null ? null : { attemptedAt: input.marketCapturedAt, outcome: 'success' as const }
+    : input.marketAttempt;
+  const failedAfterPublication = boardAttempt?.outcome === 'failure'
+    && input.boardPublishedAt !== null
+    && Number.isFinite(Date.parse(boardAttempt.attemptedAt))
+    && Date.parse(boardAttempt.attemptedAt) <= Date.parse(input.now)
+    && Date.parse(boardAttempt.attemptedAt) > Date.parse(input.boardPublishedAt);
 
   return {
     generatedAt: input.now,
@@ -135,7 +166,9 @@ export function buildStatus(input: StatusInputs): StatusDocument {
       publishedAt: input.boardPublishedAt,
       ageHours: ageHours(input.boardPublishedAt, input.now),
       entryCount: input.boardEntryCount,
-      checksum: input.health.publication.boardChecksum,
+      checksum: input.boardChecksum ?? input.health.publication.boardChecksum,
+      publicationId: input.boardPublicationId ?? input.health.publication.currentPublicationId,
+      lastAttempt: boardAttempt,
       currentWithinHours: STALENESS.boardCurrentHours,
     },
     market: {
@@ -146,6 +179,7 @@ export function buildStatus(input: StatusInputs): StatusDocument {
       quoteCount: input.marketQuoteCount,
       historyAppended: input.marketHistoryAppended,
       currentWithinHours: STALENESS.marketCurrentHours,
+      lastAttempt: marketAttempt,
     },
     providers: {
       nflverse: providerStatus(input.runs, 'nflverse', true),
@@ -168,8 +202,8 @@ export function buildStatus(input: StatusInputs): StatusDocument {
       playerCount: last ? last.inference.length : null,
       servingLastKnownGood,
     },
-    // Degraded when the board is not current, or when the last run lost a required provider.
-    // A Sleeper failure alone is NOT degraded — that is the policy, stated in one place.
-    overall: boardState === 'current' && last?.run.requiredFailure !== true ? 'ok' : 'degraded',
+    // Degraded when the board is not current, or when a newer attempt failed to replace it.
+    // A Sleeper-only partial attempt is NOT a failure — that policy remains unchanged.
+    overall: boardState === 'current' && !failedAfterPublication ? 'ok' : 'degraded',
   };
 }

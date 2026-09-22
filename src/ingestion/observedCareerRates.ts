@@ -18,6 +18,7 @@
 // other.
 
 import type { GameStatRecord } from './types';
+import { hasUnobservedColumn, type AggregationOptions } from './aggregationPolicy';
 
 export interface ObservedCareerRates {
   /**
@@ -41,7 +42,8 @@ function finite(v: number | null | undefined): number | null {
 }
 
 /** Sum a column over games that supplied it; `null` when none did. */
-function sumOf(games: readonly GameStatRecord[], key: keyof GameStatRecord): number | null {
+function sumOf(games: readonly GameStatRecord[], key: keyof GameStatRecord, options?: AggregationOptions): number | null {
+  if (options && hasUnobservedColumn(games, key)) return null;
   let total = 0;
   let seen = false;
   for (const g of games) {
@@ -65,20 +67,21 @@ function sumOf(games: readonly GameStatRecord[], key: keyof GameStatRecord): num
 export function observedCareerRates(
   games: readonly GameStatRecord[],
   careerStarts: number | null,
+  options?: AggregationOptions,
 ): ObservedCareerRates {
   const reg = games.filter((g) => g.seasonType === 'REG');
   const out: { career_adjusted_yards_per_attempt?: number; career_rushing_yards_per_start?: number } = {};
   if (reg.length === 0) return out;
 
-  const attempts = sumOf(reg, 'passAttempts');
-  const yards = sumOf(reg, 'passingYards');
-  const tds = sumOf(reg, 'passingTds');
-  const ints = sumOf(reg, 'interceptions');
+  const attempts = sumOf(reg, 'passAttempts', options);
+  const yards = sumOf(reg, 'passingYards', options);
+  const tds = sumOf(reg, 'passingTds', options);
+  const ints = sumOf(reg, 'interceptions', options);
   if (attempts !== null && attempts > 0 && yards !== null && tds !== null && ints !== null) {
     out.career_adjusted_yards_per_attempt = (yards + 20 * tds - 45 * ints) / attempts;
   }
 
-  const rushYards = sumOf(reg, 'rushingYards');
+  const rushYards = sumOf(reg, 'rushingYards', options);
   if (rushYards !== null && careerStarts !== null && careerStarts > 0) {
     out.career_rushing_yards_per_start = rushYards / careerStarts;
   }

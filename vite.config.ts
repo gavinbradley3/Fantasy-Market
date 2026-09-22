@@ -1,6 +1,8 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath, URL } from 'node:url';
+import { assertNoPublicMarketArtifacts, assertPublicDataDirectory } from './src/ops/publicDataBoundary';
+import { resolve } from 'node:path';
 
 // PlayerTicker — static SPA. The Demo Market surfaces need no server; The Board reads the
 // internal HTTP API (Phase 9) over HTTP only.
@@ -24,7 +26,15 @@ const BASE_PATH = process.env.PLAYERTICKER_BASE_PATH ?? '/';
 
 export default defineConfig({
   base: BASE_PATH,
-  plugins: [react()],
+  plugins: [react(), {
+    name: 'public-market-exclusion',
+    configResolved(config) {
+      assertNoPublicMarketArtifacts(config.publicDir);
+    },
+    writeBundle(options) {
+      if (options.dir) assertPublicDataDirectory(resolve(options.dir, 'data'));
+    },
+  }],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

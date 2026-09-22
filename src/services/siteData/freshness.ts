@@ -37,8 +37,8 @@ export function describeAge(ageHours: number | null): string | null {
 /**
  * Describe one dataset's freshness.
  *
- * `noun` names the thing in the reader's terms ("Board", "Market"). `state` and `ageHours` come
- * straight from the published status document.
+ * `noun` names the thing in the reader's terms ("Board", "Market"). Callers supply state and
+ * age derived from the displayed artifact and the current clock, not a frozen export-time age.
  */
 export function describeFreshness(
   noun: string,

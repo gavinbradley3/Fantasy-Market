@@ -19,6 +19,7 @@
 // Postseason is excluded (REGISTRY §20.F11, POSTSEASON_EXCLUDED).
 
 import type { GameStatRecord } from './types';
+import { hasUnobservedColumn, type AggregationOptions } from './aggregationPolicy';
 
 /**
  * Games in the "recent" window for ENGINE-FACING counting facts.
@@ -66,7 +67,8 @@ type StatKey = keyof Pick<
  * Sum a column across games. Returns `undefined` when NO game supplied the column, so the
  * caller can leave the field undecided instead of publishing a zero it did not observe.
  */
-function sumOrUndefined(games: readonly GameStatRecord[], key: StatKey): number | undefined {
+function sumOrUndefined(games: readonly GameStatRecord[], key: StatKey, options?: AggregationOptions): number | undefined {
+  if (options && hasUnobservedColumn(games, key)) return undefined;
   let total = 0;
   let observed = false;
   for (const g of games) {
@@ -106,33 +108,35 @@ export function windowsFor(games: readonly GameStatRecord[]): ObservedFactWindow
 export function observedCountingFacts(
   position: 'QB' | 'RB' | 'WR' | 'TE',
   games: readonly GameStatRecord[],
+  options?: AggregationOptions,
 ): Record<string, unknown> {
   const { career, recent } = windowsFor(games);
   const facts: Record<string, unknown> = {};
   if (career.length === 0) return facts;
+  const sum = (rows: readonly GameStatRecord[], key: StatKey) => sumOrUndefined(rows, key, options);
 
   switch (position) {
     case 'QB': {
       // Career volume.
       facts.career_games_played = career.length;
-      put(facts, 'career_pass_attempts', sumOrUndefined(career, 'passAttempts'));
-      put(facts, 'career_rush_attempts', sumOrUndefined(career, 'carries'));
+      put(facts, 'career_pass_attempts', sum(career, 'passAttempts'));
+      put(facts, 'career_rush_attempts', sum(career, 'carries'));
       // Recent form.
       facts.recent_games = recent.length;
-      put(facts, 'recent_pass_attempts', sumOrUndefined(recent, 'passAttempts'));
-      put(facts, 'recent_completions', sumOrUndefined(recent, 'completions'));
-      put(facts, 'recent_passing_yards', sumOrUndefined(recent, 'passingYards'));
-      put(facts, 'recent_passing_tds', sumOrUndefined(recent, 'passingTds'));
-      put(facts, 'recent_interceptions', sumOrUndefined(recent, 'interceptions'));
-      put(facts, 'recent_sacks', sumOrUndefined(recent, 'sacks'));
-      put(facts, 'recent_rush_attempts', sumOrUndefined(recent, 'carries'));
-      put(facts, 'recent_rushing_yards', sumOrUndefined(recent, 'rushingYards'));
-      put(facts, 'recent_rushing_tds', sumOrUndefined(recent, 'rushingTds'));
+      put(facts, 'recent_pass_attempts', sum(recent, 'passAttempts'));
+      put(facts, 'recent_completions', sum(recent, 'completions'));
+      put(facts, 'recent_passing_yards', sum(recent, 'passingYards'));
+      put(facts, 'recent_passing_tds', sum(recent, 'passingTds'));
+      put(facts, 'recent_interceptions', sum(recent, 'interceptions'));
+      put(facts, 'recent_sacks', sum(recent, 'sacks'));
+      put(facts, 'recent_rush_attempts', sum(recent, 'carries'));
+      put(facts, 'recent_rushing_yards', sum(recent, 'rushingYards'));
+      put(facts, 'recent_rushing_tds', sum(recent, 'rushingTds'));
       break;
     }
     case 'RB': {
-      const carries = sumOrUndefined(career, 'carries');
-      const targets = sumOrUndefined(career, 'targets');
+      const carries = sum(career, 'carries');
+      const targets = sum(career, 'targets');
       put(facts, 'career_carries', carries);
       // A touch is a carry plus a target — a definition, not an estimate. It is only
       // produced when BOTH components were observed, so it can never be a partial sum
@@ -141,7 +145,7 @@ export function observedCountingFacts(
       break;
     }
     case 'TE': {
-      put(facts, 'career_targets', sumOrUndefined(career, 'targets'));
+      put(facts, 'career_targets', sum(career, 'targets'));
       break;
     }
     case 'WR':

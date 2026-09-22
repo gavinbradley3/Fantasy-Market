@@ -292,26 +292,72 @@ export function isStaleProduction(production: ObservedProduction, asOf: string):
 // ---------------------------------------------------------------------------
 
 /**
- * The accessible tier's confidence CEILING.
+ * CONFIDENCE AND COVERAGE ARE SEPARATE QUESTIONS.
  *
- * A reduced-input valuation can never be HIGH confidence, no matter how clean the box score
- * is, because the inputs that would confirm a role — snap share, route participation,
- * red-zone usage, target quality — are absent for every player in this tier. Capping at 74
- * keeps the tier strictly inside MEDIUM.
+ *   COVERAGE  — how much of the intended input set exists for this valuation? A property of the
+ *               MODEL TIER, identical for every player the tier values. Published as `modelTier`.
+ *   CONFIDENCE — how stable is THIS player's valuation given the evidence actually available?
+ *               A property of the player, and the only thing scored below.
+ *
+ * WHY THEY WERE SPLIT. Confidence used to start from a ceiling of 74 and then subtract three
+ * penalties every accessible player carried by construction — no participation data, no
+ * red-zone usage, no team context — worth 21 points between them. The arithmetic was
+ * `74 − 21 = 53`, so 53 was the best score any running back, receiver or tight end could
+ * achieve, HIGH (75) was unreachable for 82% of the board, and the LOW/MEDIUM line at 50 turned
+ * on roughly three points of genuine per-player difference. Bijan Robinson, the board's most
+ * valuable asset, scored 53; Ashton Jeanty at ninth scored 47 and was labelled LOW. Neither
+ * number described how much to trust the valuation — both described which columns the tier
+ * lacks, which is the same for all 712 of them.
+ *
+ * A constant subtracted from every member of a set carries no information about any member of
+ * it. So the constants moved to coverage, where they are a true statement, and confidence now
+ * measures only what varies: sample size, role stability, trajectory, share quality, freshness
+ * and biographical completeness.
+ *
+ * There is deliberately NO CEILING. Limited coverage does not imply an unreliable valuation: a
+ * receiver with five seasons of measured target share and stable usage is well evidenced for
+ * what the model asks of him, whatever a premium feed would add. Coverage says what is missing;
+ * it no longer punishes the player for it twice.
  */
-export const ACCESSIBLE_CONFIDENCE_CEILING = 74;
+/**
+ * THE SAMPLE TERM — where confidence starts, before any deduction.
+ *
+ * Sample size is not one gap among several; it is the thing every other number in the model
+ * rests on, so it sets the base rather than subtracting from a constant. And it is not a
+ * judgement call: the model already states, in `VOLUME_PSEUDO_GAMES`, how much of a player's
+ * estimate is carried by what we watched versus by the league prior. That weight is
+ *
+ *   observed share = n / (n + k),   k = VOLUME_PSEUDO_GAMES = 3
+ *
+ * and it is exactly the question confidence asks — "how much of this valuation is this
+ * player's own football?" So confidence starts at 100 × that same weight:
+ *
+ *   n = 1   →  25     one appearance; the estimate is mostly the prior
+ *   n = 4   →  57     a quarter-season
+ *   n = 8   →  73
+ *   n = 17  →  85     a full season reads essentially as measured
+ *   n = 48  →  94     three seasons
+ *   n = 90  →  97
+ *
+ * WHY THIS REPLACED TWO THRESHOLD PENALTIES. Confidence used to deduct a flat 14 for "under 8
+ * career games" and a further 12 for "under 4". Both were cliffs — a player at 8 games scored
+ * 14 points above one at 7, for one more game — and both were sized against a ceiling of 74
+ * that no longer exists. Read against the full 0–100 range they were far too small: a running
+ * back with FOUR career games came out at 80 and was labelled HIGH confidence, which is a
+ * worse falsehood than the ceiling that was removed. The shrinkage weight has no cliff
+ * anywhere on n ≥ 0, is already justified in football terms, and is the model's own existing
+ * statement about sample size rather than a second one invented for the confidence scale.
+ *
+ * It also cannot reach 100, which is correct and is NOT a coverage cap: no finite number of
+ * games makes a projection certain, and the asymptote says so without reference to which
+ * columns the tier has.
+ */
+export function sampleEvidenceScore(gamesObserved: number): number {
+  const n = Math.max(0, gamesObserved);
+  return (100 * n) / (n + VOLUME_PSEUDO_GAMES);
+}
 
 export const CONFIDENCE_PENALTY = {
-  /** No route or snap participation data exists for any accessible-tier player. */
-  NO_PARTICIPATION_DATA: 10,
-  /** Red-zone / goal-line usage is unavailable (needs play-by-play). */
-  NO_HIGH_VALUE_USAGE_DATA: 6,
-  /** Team offensive context (dropbacks, points per drive) is unavailable. */
-  NO_TEAM_CONTEXT: 5,
-  /** Fewer than 8 career games observed. */
-  SPARSE_CAREER_SAMPLE: 14,
-  /** Fewer than 4 career games observed — barely a sample at all. */
-  MINIMAL_CAREER_SAMPLE: 12,
   /** Only one season observed, so no trajectory could be computed. */
   NO_TRAJECTORY: 6,
   /** Team shares could not be reconstructed. */
@@ -337,24 +383,42 @@ export function confidenceLabel(score: number): ConfidenceLabel {
 }
 
 /**
- * Assemble confidence from the ceiling minus every applicable penalty. Deterministic and
- * order-independent: codes are sorted, and the arithmetic is a plain sum.
+ * Assemble confidence: the sample term, minus every applicable evidence gap.
+ *
+ * Deterministic and order-independent — codes are sorted and the arithmetic is a plain sum.
+ * Every term is a statement about THIS player: how much football we watched him play, and
+ * which specific things about him we could not establish. Nothing here is a statement about
+ * the tier's coverage, which is published separately and is identical for everyone in it.
  */
-export function buildConfidence(codes: readonly ConfidencePenaltyCode[]): AccessibleConfidence {
+export function buildConfidence(
+  codes: readonly ConfidencePenaltyCode[],
+  gamesObserved: number,
+): AccessibleConfidence {
   const unique = [...new Set(codes)].sort();
   const total = unique.reduce((sum, c) => sum + CONFIDENCE_PENALTY[c], 0);
-  const score = roundHalfAwayFromZero(clamp(ACCESSIBLE_CONFIDENCE_CEILING - total, 0, 100), 0);
-  return { score, label: confidenceLabel(score), penaltyCodes: unique };
+  const sampleScore = sampleEvidenceScore(gamesObserved);
+  const score = roundHalfAwayFromZero(clamp(sampleScore - total, 0, 100), 0);
+  return {
+    score,
+    label: confidenceLabel(score),
+    penaltyCodes: unique,
+    sampleScore: roundHalfAwayFromZero(sampleScore, 0),
+    gamesObserved,
+  };
 }
 
 /**
- * The penalty codes every accessible-tier valuation carries, because these inputs are
- * unavailable for the entire tier by construction rather than per player.
+ * Input categories the accessible tier never has, for EVERY player it values.
+ *
+ * These are COVERAGE facts, not confidence deductions. They are still reported — through
+ * `materialMissingInputs` and the published model tier — so a reader can see exactly what the
+ * valuation did not consider. What they no longer do is subtract the same 21 points from all
+ * 712 accessible players and call the result a measure of trust.
  */
-export const TIER_WIDE_PENALTIES: readonly ConfidencePenaltyCode[] = [
-  'NO_PARTICIPATION_DATA',
-  'NO_HIGH_VALUE_USAGE_DATA',
-  'NO_TEAM_CONTEXT',
+export const TIER_WIDE_COVERAGE_GAPS: readonly string[] = [
+  'route or snap participation',
+  'red-zone and goal-line usage',
+  'team offensive context',
 ];
 
 /**

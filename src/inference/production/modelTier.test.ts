@@ -181,14 +181,24 @@ describe('honesty of the published tier', () => {
     expect(envelope.status).toBe('AVAILABLE');
   });
 
-  it('caps accessible-tier confidence below HIGH and records why', () => {
+  it('publishes the accessible model\'s OWN confidence, uncapped by the full model\'s coverage', () => {
     for (const [pos, gsis] of [['RB', '00-RB4'], ['TE', '00-TE4'], ['WR', '00-WR4']] as const) {
       const { result } = run(pos, gsis);
       const c = result.accessibleOutput!.confidence;
-      expect(c.label).not.toBe('HIGH');
-      expect(c.penaltyCodes).toContain('NO_PARTICIPATION_DATA');
+      // EXACTLY the accessible model's number, not a minimum taken against the AIL's public
+      // confidence. That minimum described the completeness of the FULL model's input set —
+      // incomplete by definition here — so it published a number about a model that did not
+      // produce the value. On WR it was not theoretical: the frozen engine runs and is then
+      // stood down for want of route evidence, so its own sub-10 confidence won the minimum.
+      expect(result.publishedConfidenceScore).toBe(c.score);
       expect(result.publicConfidenceLabel).toBe(c.label);
-      expect(result.publishedConfidenceScore).toBeLessThanOrEqual(c.score);
+      // And the score is player-specific arithmetic: these fixtures carry four career games,
+      // so the sample term sets the base and only genuine per-player gaps come off it.
+      expect(c.gamesObserved).toBe(4);
+      expect(c.sampleScore).toBe(57);
+      for (const code of c.penaltyCodes) {
+        expect(code).not.toMatch(/PARTICIPATION|HIGH_VALUE_USAGE|TEAM_CONTEXT/);
+      }
     }
   });
 

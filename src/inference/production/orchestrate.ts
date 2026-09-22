@@ -24,7 +24,7 @@ import {
 import { UNVALIDATED_CONF_CAP } from '@/inference/registry/family';
 import { clamp } from '@/inference/util/numeric';
 import { LIMITATION_CODES, type LimitationCode } from '@/inference/types';
-import type { ObservedProduction } from '@/accessible/production';
+import type { ObservedProduction, ObservedAggregationCoverage } from '@/accessible/production';
 import { runPhase2A, type Phase2AContext } from '@/inference/result/orchestrator';
 import { makeField, type IntermediateField } from '@/inference/result/types';
 import type { InferenceStatus, SupportedPosition } from '@/inference/types';
@@ -63,6 +63,8 @@ export interface NormalizedEvidence extends Omit<Phase2AContext, 'position' | 'c
    * this. Absent for QB and WR, which keeps their normalized-input bytes unchanged.
    */
   readonly production?: ObservedProduction;
+  /** Beta-only coverage diagnostics. The isolated beta boundary must hold incomplete inputs. */
+  readonly aggregationCoverage?: ObservedAggregationCoverage;
 }
 
 /** D1 diagnostics surfaced to the production result / sidecar (§8.4 transparency). */

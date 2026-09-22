@@ -219,8 +219,13 @@ describe('volume shrinkage: property 3 — no cliffs, thresholds or discontinuit
 
 describe('volume shrinkage: what it must NOT change', () => {
   it('does not touch confidence — the fix is mathematical, not a disclosure downgrade', () => {
-    // Same sample sizes, same penalties, same score as before the change.
-    expect(rb(backOver(1, 25)).confidence.penaltyCodes).toContain('MINIMAL_CAREER_SAMPLE');
+    // Sample size reaches confidence through the SAMPLE TERM, which is the same shrinkage
+    // weight this file is about: one game leaves three quarters of the estimate on the prior,
+    // so confidence starts at 25 for it and at 85 for a full season.
+    expect(rb(backOver(1, 25)).confidence.sampleScore).toBe(25);
+    expect(rb(backOver(17, 25)).confidence.sampleScore).toBe(85);
+    // And confidence still says nothing about how GOOD the player is: two backs with the same
+    // sample and the same evidence gaps score the same, whatever their workload.
     expect(rb(backOver(17, 18.8)).confidence.score).toBe(rb(backOver(17, 4)).confidence.score);
   });
 

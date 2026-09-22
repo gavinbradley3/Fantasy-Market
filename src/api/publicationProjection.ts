@@ -84,6 +84,21 @@ export interface PublishedPlayerProjection {
   readonly negativeFactors: readonly string[];
   /** Product-language names of inputs a full valuation would have used and this one did not. */
   readonly materialMissingInputs: readonly string[];
+  /**
+   * How many of the engine's declared inputs were SUBSTITUTED rather than supplied — derived
+   * from the player's other numbers, or replaced by a league prior or a class default.
+   *
+   * A COVERAGE fact, and the one the QB tier had nowhere honest to put. The full model runs for
+   * every quarterback, so the tier badge reads "Full" — but on the live board every one of the
+   * 81 ran with 16 substituted inputs, because no free feed exists for protection context,
+   * offensive environment, explosive pass rate, CPOE, dropback share or the expected per-game
+   * splits. That was being reported as a 20-point confidence deduction on each player, which
+   * described the pipeline rather than the player. It is reported here instead.
+   *
+   * Null when the engine published no fallback log (the accessible tier, which states its own
+   * gaps through `materialMissingInputs`, and any player no model valued).
+   */
+  readonly inputsSubstituted: number | null;
   /** Product-facing reason no value was published, when the tier is INSUFFICIENT. */
   readonly insufficientReason: string | null;
   readonly provenance: PublishedProvenanceResponse | null;
@@ -222,30 +237,22 @@ export function projectPublishedPlayer(
   const fullComposites = readComposites(engineOutput);
   const accessibleComposites = readAccessibleComposites(accessible);
 
-  // WHICH MODEL'S NUMBERS GET PUBLISHED IS DECIDED BY THE TIER, not by which output happens to
-  // be present. For QB, RB and TE the two readings agree — a frozen engine output exists exactly
-  // when the tier is FULL. WR is the exception: its engine can pass readiness on a capped route
-  // ESTIMATE, so a WR stood down to ACCESSIBLE carries BOTH a frozen engine output (retained for
-  // diagnostics and for the day premium evidence arrives) and an accessible one. Reading by
-  // presence there would publish the premium engine's numbers under an ACCESSIBLE badge, which
-  // is the exact mislabelling the tier exists to prevent.
-  const useAccessible = tier === 'ACCESSIBLE' && accessible !== null;
-
-  // AN INSUFFICIENT PLAYER PUBLISHES NO VALUE. The tier says no model could value him honestly,
-  // so there is no model to read numbers from. This became reachable when WR gained an
-  // accessible path: three receivers who played but were never targeted are INSUFFICIENT to the
-  // receiving model, while the frozen engine still produced a number for them from its league
-  // constants — and one of those numbers was a dynasty composite of 56.6, which would have
-  // ranked a never-targeted receiver above real starters under an INSUFFICIENT badge.
-  // Keyed on the EXPLICIT tier string, not on `tier`: `readTier` defaults an absent tier to
-  // INSUFFICIENT (the safe direction for a badge), and an envelope written before the tier field
-  // existed carries none. Nulling those would blank an older board rather than close a leak.
-  const publishedComposites =
-    str(envelope?.model_tier) === 'INSUFFICIENT'
-      ? null
-      : useAccessible
-        ? accessibleComposites ?? fullComposites
-        : fullComposites ?? accessibleComposites;
+  // Explicit tier ownership is authoritative. Rejected outputs can coexist in the envelope
+  // for private diagnosis, but no field may fall through from one model into another.
+  // Truly pre-tier envelopes retain their old composite compatibility path; a present but
+  // unknown tier is not treated as legacy.
+  const explicitTier = str(envelope?.model_tier);
+  const legacyTier = explicitTier === null;
+  const useAccessible = tier === 'ACCESSIBLE'
+    || (legacyTier && fullComposites === null && accessibleComposites !== null);
+  const selectedComposites = useAccessible
+    ? accessibleComposites
+    : tier === 'FULL' || legacyTier ? fullComposites : null;
+  const hasValuation = str(envelope?.status) !== 'UNAVAILABLE' && selectedComposites !== null
+    && Object.values(selectedComposites).some((value) => value !== null);
+  const publishedComposites = hasValuation ? selectedComposites : null;
+  const publishAccessible = hasValuation && useAccessible;
+  const publishFull = hasValuation && !useAccessible;
 
   return {
     // Identity prefers the engine's own published spelling and falls back to the canonical
@@ -258,41 +265,43 @@ export function projectPublishedPlayer(
     outputStatus: str(envelope?.status),
     readiness: str(envelope?.readiness),
     readinessMissingCount: Array.isArray(readinessMissing) ? readinessMissing.length : null,
-    honestyState: str(envelope?.honesty_state),
+    // Missing artifacts make no honesty assertion. When a rejected output does assert one,
+    // prevent a retained COMPLETE/LIMITED diagnostic from describing an absent valuation.
+    honestyState: hasValuation || str(envelope?.honesty_state) === null
+      ? str(envelope?.honesty_state) : 'UNAVAILABLE',
     engineInvoked: envelope?.engine_invoked === true,
-    publicConfidenceLabel: str(envelope?.public_confidence_label),
-    // Score and label MUST come from the same source, because the board renders them in one
-    // cell ("HIGH 82"). So both prefer the frozen engine's own confidence when an engine ran,
-    // and fall back to the accessible model's (capped) score when one did not — there is no
-    // frozen engine output on the accessible tier. Reading the score from
-    // `published_confidence_score` first would silently re-point every FULL-tier player at the
-    // AIL's public confidence, which is a different quantity from the engine's confidence and
-    // would leave the label describing one number while the score showed another.
-    confidenceScore: useAccessible
-      ? num(accessibleConfidence?.score) ?? num(envelope?.published_confidence_score)
-      : num(confidence?.score) ?? num(envelope?.published_confidence_score) ?? num(accessibleConfidence?.score),
-    confidenceLabel: useAccessible
-      ? str(accessibleConfidence?.label) ?? str(envelope?.public_confidence_label)
-      : str(confidence?.label) ?? str(accessibleConfidence?.label) ?? str(envelope?.public_confidence_label),
-    // Volatility is a frozen-engine output and describes the FULL model's input set, so it is
-    // withheld on the accessible tier rather than borrowed from a model that did not value him.
-    volatilityScore: useAccessible ? null : num(volatility?.score),
-    volatilityLabel: useAccessible ? null : str(volatility?.label),
+    publicConfidenceLabel: !hasValuation ? null
+      : useAccessible ? str(accessibleConfidence?.label) : str(envelope?.public_confidence_label),
+    // Accepted source only; neither a rejected full-engine confidence nor its fallback log
+    // describes the accessible valuation. Unvalued players have no confidence to headline.
+    confidenceScore: !hasValuation
+      ? null
+      : useAccessible
+        ? num(accessibleConfidence?.score)
+        : num(confidence?.score) ?? num(envelope?.published_confidence_score),
+    confidenceLabel: !hasValuation
+      ? null
+      : useAccessible
+        ? str(accessibleConfidence?.label)
+        : str(confidence?.label) ?? str(envelope?.public_confidence_label),
+    volatilityScore: publishFull ? num(volatility?.score) : null,
+    volatilityLabel: publishFull ? str(volatility?.label) : null,
     composites: publishedComposites,
     limitations: strings(envelope?.limitations),
     modelTier: tier,
-    modelVersion: str(accessible?.modelVersion) ?? str(envelope?.model_version),
-    positionValue: num(accessible?.positionValue),
+    modelVersion: !hasValuation ? null : useAccessible ? str(accessible?.modelVersion) : str(envelope?.model_version),
+    positionValue: publishAccessible ? num(accessible?.positionValue) : null,
     // Ranking is a board-level ordering, so it is attached by the board projection rather
     // than read from a per-player artifact (which cannot know the cohort).
     positionalRank: null,
-    role: str(accessible?.role),
-    explanation: str(accessible?.explanation),
-    positiveFactors: strings(accessible?.positiveFactors),
-    negativeFactors: strings(accessible?.negativeFactors),
-    materialMissingInputs: strings(accessible?.materialMissingInputs),
-    insufficientReason: str(insufficient?.reason) ?? str(envelope?.tier_not_attempted_reason),
-    provenance: readProvenance(accessible),
+    role: publishAccessible ? str(accessible?.role) : null,
+    explanation: publishAccessible ? str(accessible?.explanation) : null,
+    positiveFactors: publishAccessible ? strings(accessible?.positiveFactors) : [],
+    negativeFactors: publishAccessible ? strings(accessible?.negativeFactors) : [],
+    materialMissingInputs: publishAccessible ? strings(accessible?.materialMissingInputs) : [],
+    inputsSubstituted: publishFull && Array.isArray(engineOutput?.fallback_log) ? engineOutput.fallback_log.length : null,
+    insufficientReason: hasValuation ? null : str(insufficient?.reason) ?? str(envelope?.tier_not_attempted_reason),
+    provenance: publishAccessible ? readProvenance(accessible) : null,
   };
 }
 
