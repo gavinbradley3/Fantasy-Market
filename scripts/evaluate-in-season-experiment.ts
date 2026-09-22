@@ -7,12 +7,13 @@
  * configuration, coordinates, checksums, model versions, and replay inputs that interpret them.
  */
 
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { FilePayloadStore } from '@/transport/fileStore';
 import {
   EXPERIMENTAL_IN_SEASON_CONFIGURATION,
+  EXPERIMENTAL_ROLE_GATED_CONFIGURATION,
   evaluateExperimentalInSeason,
   type ExperimentalInSeasonConfigurationId,
 } from '@/runtime';
@@ -28,6 +29,7 @@ interface Args {
   includeSleeper: boolean;
   codeSha: string | null;
   codeTree: string | null;
+  roleReferences: string | null;
 }
 
 function list(value: string): number[] {
@@ -48,6 +50,7 @@ function parseArgs(argv: string[]): Args {
     includeSleeper: true,
     codeSha: null,
     codeTree: null,
+    roleReferences: null,
   };
   for (let i = 0; i < argv.length; i++) {
     const next = (flag: string) => {
@@ -70,6 +73,7 @@ function parseArgs(argv: string[]): Args {
       case '--output-dir': args.outputDir = next('--output-dir'); break;
       case '--code-sha': args.codeSha = next('--code-sha'); break;
       case '--code-tree': args.codeTree = next('--code-tree'); break;
+      case '--role-references': args.roleReferences = next('--role-references'); break;
       case '--no-sleeper': args.includeSleeper = false; break;
       case '--sleeper': args.includeSleeper = true; break;
       default: throw new Error(`unknown argument ${argv[i]}`);
@@ -95,8 +99,8 @@ function isolatedOutputDirectory(value: string): string {
 export async function main(argv: string[] = process.argv.slice(2)): Promise<number> {
   const args = parseArgs(argv);
   const configurationId = required(args.configurationId, '--config');
-  if (configurationId !== EXPERIMENTAL_IN_SEASON_CONFIGURATION.id) {
-    throw new Error(`--config must equal ${EXPERIMENTAL_IN_SEASON_CONFIGURATION.id}`);
+  if (configurationId !== EXPERIMENTAL_IN_SEASON_CONFIGURATION.id && configurationId !== EXPERIMENTAL_ROLE_GATED_CONFIGURATION.id) {
+    throw new Error('unsupported explicit experimental configuration');
   }
   if (!args.seasons) throw new Error('--seasons is required; the experiment never derives a season from the clock');
   const asOf = required(args.asOf, '--as-of');
@@ -114,6 +118,7 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<numb
       mode,
       includeSleeper: args.includeSleeper,
       codeIdentity,
+      ...(args.roleReferences ? { roleReferences: JSON.parse(readFileSync(resolve(args.roleReferences), 'utf8')) } : {}),
     },
     { payloadStore: new FilePayloadStore(captures) },
   );

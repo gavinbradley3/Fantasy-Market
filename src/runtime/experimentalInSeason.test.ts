@@ -1,6 +1,8 @@
-import { afterEach, describe, expect, it } from 'vitest';
-import { rmSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { FilePayloadStore } from '@/transport/fileStore';
+import { main as experimentalCli } from '../../scripts/evaluate-in-season-experiment';
 import { PersistenceStore, PersistenceError } from '@/persistence';
 import { tempDbPath } from '@/persistence/__fixtures';
 import {
@@ -28,14 +30,253 @@ import { createLivePipeline } from './livePipeline';
 import { buildSourcePlan } from './sources';
 import {
   EXPERIMENTAL_IN_SEASON_CONFIGURATION,
+  EXPERIMENTAL_ROLE_GATED_CONFIGURATION,
   buildExperimentalInSeasonSourcePlan,
   classifyExperimentalPlayers,
   evaluateExperimentalInSeason,
   experimentalPathRequiredCapabilities,
   type ExperimentalInSeasonOptions,
 } from './experimentalInSeason';
+import { ROLE_REFERENCE_VERSION, roleReferenceChecksum, validateRoleReferences, type RoleReferenceContent } from './experimentalRoleReferences';
+import { applyExperimentalRoleGate, type GatedPlayerDiagnostic } from './experimentalRoleGate';
 
 const CLOCK = fixedClock(FETCHED_AT);
+
+describe('v2 role gate through actual normalization, evidence, tier and inference', () => {
+  const options: ExperimentalInSeasonOptions = { ...BASE_OPTIONS, asOf: '2025-12-31T00:00:00.000Z',
+    configurationId: EXPERIMENTAL_ROLE_GATED_CONFIGURATION.id };
+  const provenance = 'synthetic:integration-final-and-tenure';
+  function bundle(players: readonly {canonicalId: string; position: 'QB' | 'RB' | 'WR' | 'TE'}[], weeks = 17, appearances = 3) {
+    const content: RoleReferenceContent = {
+      version: ROLE_REFERENCE_VERSION, id: 'role-integration-1', source: 'synthetic-isolated-test', createdAt: options.asOf,
+      asOf: options.asOf, valuationSeasons: [2025], careerSeasons: [], coverageFrom: '2025-08-01T00:00:00.000Z', coverageThrough: options.asOf,
+      sources: [{ id: provenance, capturedAt: options.asOf, checksum: 'a'.repeat(64) }],
+      players: players.map((p) => ({ canonicalId: p.canonicalId, position: p.position, evidence: {
+        coverage: Object.fromEntries(['mandatorySources', 'completion', 'playerObservations', 'membership'].map((k) => [k, { complete: true, provenance }])),
+        memberships: [{ team: 'CIN', from: '2025-08-01T00:00:00.000Z', to: null, knownAt: '2025-08-01T00:00:00.000Z',
+          trusted: true, provenance, continuityEvidence: 'synthetic fully attested tenure' }],
+        opportunities: Array.from({length: weeks}, (_, i) => ({ id: gameId(i+1), team: 'CIN', seasonType: 'REG' as const,
+          scheduledAt: kickoff(i+1), startedAt: kickoff(i+1), completedAt: new Date(Date.parse(kickoff(i+1))+10800000).toISOString(),
+          knownAt: new Date(Date.parse(kickoff(i+1))+14400000).toISOString(), status: 'FINAL' as const,
+          trusted: true, provenance, completionProof: 'synthetic explicit final status' })),
+        observations: Array.from({length: appearances}, (_, i) => ({ id: `obs-${p.position}-${i+1}`, gameId: gameId(i+1), team:'CIN',
+          observedAt: new Date(Date.parse(kickoff(i+1))+10800000).toISOString(), knownAt: new Date(Date.parse(kickoff(i+1))+14400000).toISOString(),
+          trusted:true, provenance, roleFieldsComplete:true, officialStart: p.position === 'QB',
+          carries: p.position === 'RB' ? 17 : 0, targets: {QB:0,RB:4,WR:9,TE:6}[p.position] })),
+        attestations: [], availabilityAttestations: [],
+      }})),
+    };
+    return { ...content, checksum: roleReferenceChecksum(content) };
+  }
+  function resign(raw: ReturnType<typeof bundle>) {
+    const { checksum: _checksum, ...content } = raw;
+    return {...content, checksum: roleReferenceChecksum(content)};
+  }
+  const staleRoutes = () => fourPositionRoutes({ games:3, schedule:17 });
+  async function seed() {
+    return evaluate(staleRoutes(), {...options, configurationId: EXPERIMENTAL_IN_SEASON_CONFIGURATION.id});
+  }
+  it('holds the 3+14 defect in all positions without modifying historical inputs or baseline inference', async () => {
+    const old = await seed(); const refs = bundle(old.players); const captured = JSON.stringify(refs);
+    const result = await evaluate(staleRoutes(), {...options, roleReferences: refs});
+    const players = result.players as GatedPlayerDiagnostic[];
+    expect(old.experimentalEvaluationComplete).toBe(true);
+    expect(result.sourcePlanComplete).toBe(true); expect(result.inferenceComplete).toBe(true);
+    expect(result.experimentalEvaluationComplete).toBe(false);
+    expect(result.roleGate?.referenceCoverageComplete).toBe(true);
+    expect(result.roleGate?.eligiblePlayers).toEqual([]);
+    expect(players.every((p) => p.terminalCategory === 'held_expired_role' && !p.numericallyEligible && !p.valued && p.outputChecksum === null && p.roleClaim === null)).toBe(true);
+    expect(players.map((p) => p.baselineDiagnostic.outputChecksum)).toEqual(old.players.map((p) => p.outputChecksum));
+    expect(players.map((p) => p.selectedTier)).toEqual(old.players.map((p) => p.selectedTier));
+    expect(players.every((p) => p.roleEvidence?.opportunitiesWithoutSupport === 14)).toBe(true);
+    expect(players.every((p) => p.roleEvidence?.historicalObservations.length === 3)).toBe(true);
+    expect(JSON.stringify(refs)).toBe(captured);
+    expect(JSON.stringify(result)).not.toMatch(/"(engineOutput|accessibleOutput|headlineValue|dynastyValue|rank|utility)"/);
+    expect(result.configuration.productionPublicationAuthorized).toBe(false);
+    expect(result.replayInputs.roleReferences?.checksum).toBe(refs.checksum);
+    expect(result.versions.experimentalResultSchema).toBe('playerticker.experimental-evaluation/2');
+    for (const position of positions) {
+      expect(result.roleGate?.byPosition[position]).toMatchObject({ selected:1, held_expired_role:1, numerically_eligible:0 });
+    }
+  });
+  it.each([1,2,3,4])('executes exact boundary gap %i without output-driven tier selection', async (gap) => {
+    const old = await seed(); const refs = bundle(old.players,3+gap);
+    const result = await evaluate(fourPositionRoutes({games:3,schedule:3+gap}), {...options, roleReferences:refs});
+    for(const p of result.players as GatedPlayerDiagnostic[]) {
+      expect(p.roleEvidence?.opportunitiesWithoutSupport).toBe(gap);
+      expect(p.numericallyEligible).toBe(gap < (p.position === 'QB' ? 2 : 3));
+      expect(p.selectedTier).toBe(p.position === 'QB' ? 'FULL' : 'ACCESSIBLE');
+    }
+  });
+  it('separates source-wide invalid/missing references from missing player evidence and rejects altered checksums', async () => {
+    const old=await seed(); const refs=bundle(old.players);
+    const missing=await evaluate(staleRoutes(),options);
+    expect(missing.roleGate?.referenceFailure).toBe('ROLE_REFERENCE_BUNDLE_MISSING');
+    expect((missing.players as GatedPlayerDiagnostic[]).every(p=>p.terminalCategory==='blocked_reference_coverage')).toBe(true);
+    refs.players.pop();
+    const oneMissing=await evaluate(staleRoutes(),{...options,roleReferences:resign(refs)});
+    expect((oneMissing.players as GatedPlayerDiagnostic[]).filter(p=>p.roleReason==='ROLE_PLAYER_REFERENCE_MISSING')).toHaveLength(1);
+    const invalid=await evaluate(staleRoutes(),{...options,roleReferences:refs});
+    expect(invalid.roleGate?.referenceFailure).toBe('ROLE_REFERENCE_CHECKSUM_MISMATCH');
+    expect(invalid.roleGate?.eligiblePlayers).toEqual([]);
+  });
+  it('cross-checks known schedule coordinates and observed workload, not just completeness booleans', async () => {
+    const old=await seed(); const refs=bundle(old.players);
+    refs.players[0]!.evidence.opportunities.pop();
+    const gap=await evaluate(staleRoutes(),{...options,roleReferences:resign(refs)});
+    expect((gap.players as GatedPlayerDiagnostic[])[0]!.roleReason).toBe('ROLE_REFERENCE_SCHEDULE_GAP');
+    const mismatch=bundle(old.players);
+    const wr=mismatch.players.find(p=>p.position==='WR')!; wr.evidence.observations[0]!.targets=99;
+    const result=await evaluate(staleRoutes(),{...options,roleReferences:resign(mismatch)});
+    expect((result.players as GatedPlayerDiagnostic[]).find(p=>p.position==='WR')?.roleReason).toBe('ROLE_REFERENCE_OBSERVATION_MISMATCH');
+  });
+  it('cannot omit old-team historical model observations to defeat the sticky numerical hold', async () => {
+    const old=await seed(); const refs=bundle(old.players,4);
+    const historicalId='2025_OLD_BUF'; const historicalAt='2025-07-01T17:00:00.000Z';
+    const priorGames=gameRows(1).map(g=>({...g,game_id:historicalId,kickoff:historicalAt,team:'BUF'}));
+    const routes={...fourPositionRoutes({games:3,schedule:4}),[URLS.nflverseGames]:csv([...priorGames,...gameRows(3)]),
+      [URLS.nflverseSchedule]:csv([{...scheduleRows(1)[0]!,game_id:historicalId,kickoff:historicalAt,home_team:'BUF'},...scheduleRows(4)])};
+    const missing=await evaluate(routes,{...options,roleReferences:refs});
+    expect((missing.players as GatedPlayerDiagnostic[]).every(p=>p.roleReason==='ROLE_REFERENCE_HISTORICAL_OBSERVATION_GAP' && !p.numericallyEligible)).toBe(true);
+    for(const p of refs.players) p.evidence.observations.unshift({...p.evidence.observations[0]!,id:'prior-history',gameId:historicalId,team:'BUF',observedAt:historicalAt,knownAt:historicalAt});
+    const retained=await evaluate(routes,{...options,roleReferences:resign(refs)});
+    expect((retained.players as GatedPlayerDiagnostic[]).every(p=>p.roleEvidence?.currentRoleEvidence==='SUPPORTED_OBSERVED'
+      && p.roleEvidence?.numericalRoleContext==='REQUIRES_POST_GAP_INPUT_POLICY' && !p.numericallyEligible)).toBe(true);
+    expect(retained.roleGate?.referenceCoverageComplete).toBe(true);
+    for(const p of refs.players) p.evidence.observations[0]!.observedAt=kickoff(1);
+    const redated=await evaluate(routes,{...options,roleReferences:resign(refs)});
+    expect((redated.players as GatedPlayerDiagnostic[]).every(p=>p.roleEvidence?.numericalRoleContext==='REQUIRES_POST_GAP_INPUT_POLICY' && !p.numericallyEligible)).toBe(true);
+  });
+  it('cannot relabel the fourteen missed opportunities to the opponent to fabricate support', async () => {
+    const old=await seed(); const refs=bundle(old.players);
+    for (const p of refs.players) for (const g of p.evidence.opportunities.slice(3)) g.team='CLE';
+    const result=await evaluate(staleRoutes(),{...options,roleReferences:resign(refs)});
+    expect((result.players as GatedPlayerDiagnostic[]).every(p=>p.terminalCategory==='blocked_reference_coverage'
+      && p.roleReason==='ROLE_REFERENCE_SCHEDULE_GAP' && !p.numericallyEligible)).toBe(true);
+    expect(result.roleGate?.eligiblePlayers).toEqual([]);
+  });
+  it('never reports run reference coverage complete when a player coverage key is false, even for unsupported claims', async () => {
+    const old=await seed(); const refs=bundle(old.players);
+    refs.players[0]!.evidence.coverage.membership!.complete=false;
+    const validation=validateRoleReferences(resign(refs),options);
+    const result=applyExperimentalRoleGate([{...old.players[0]!,roleClaim:'UNESTABLISHED'}],validation,true,options.asOf,null);
+    expect(result.players[0]!.terminalCategory).toBe('blocked_reference_coverage');
+    expect(result.referenceCoverageComplete).toBe(false);
+  });
+  it('retains optional Sleeper semantics and holds mandatory source failure separately', async () => {
+    const old=await seed(); const refs=bundle(old.players);
+    const result=await evaluate({...staleRoutes(), [URLS.sleeperIdentity]:{status:500,body:'failed'}},
+      {...options,includeSleeper:true,roleReferences:refs});
+    expect(result.sourcePlanComplete).toBe(true);
+    expect(result.sources.find(s=>s.provider==='sleeper')?.required).toBe(false);
+    const failed=await evaluate({...staleRoutes(),[URLS.nflverseRoster]:{status:500,body:'failed'}},{...options,roleReferences:refs});
+    expect(failed.sourcePlanComplete).toBe(false); expect(failed.experimentalEvaluationComplete).toBe(false);
+    expect((failed.players as GatedPlayerDiagnostic[]).every(p=>p.terminalCategory==='blocked_source_coverage')).toBe(true);
+  });
+  it('keeps availability separate and does not treat IR or a future positive attestation as current role support', async () => {
+    const old=await seed(); const refs=bundle(old.players);
+    for (const p of refs.players) {
+      p.evidence.availabilityAttestations.push({id:'ir',status:'IR',effectiveAt: kickoff(4),knownAt:kickoff(4),validThrough:options.asOf,trusted:true,provenance});
+      p.evidence.attestations.push({id:'future',team:'CIN',claim:old.players.find(x=>x.canonicalId===p.canonicalId)!.roleClaim!,verdict:'AFFIRM',
+        effectiveAt:'2026-01-01T00:00:00.000Z',knownAt:'2026-01-01T00:00:00.000Z',trusted:true,provenance,authority:'TEAM_OFFICIAL'});
+    }
+    const result=await evaluate(staleRoutes(),{...options,roleReferences:resign(refs)});
+    expect((result.players as GatedPlayerDiagnostic[]).every(p=>p.roleEvidence?.availability==='IR' && p.terminalCategory==='held_expired_role')).toBe(true);
+    expect((result.players as GatedPlayerDiagnostic[]).every(p=>p.roleEvidence?.futureAttestationsExcluded?.includes('future'))).toBe(true);
+  });
+  it.each([1,2])('meaningful %i-game return restores only reviewed qualitative support; numerical hold remains sticky', async (returns) => {
+    const old=await seed(); const refs=bundle(old.players,18,18);
+    const keep=(week:number)=>week<=3 || week>18-returns;
+    for(const p of refs.players) p.evidence.observations=p.evidence.observations.filter(o=>keep(Number(o.gameId.split('_')[1])));
+    const schedule=scheduleRows(18).map(g=>({...g,home_qb_id:keep(g.week)?'00-QB4':'00-OTHER-QB'}));
+    const games=gameRows(18).filter(g=>keep(Number(String(g.game_id).split('_')[1])));
+    const result=await evaluate({...staleRoutes(),[URLS.nflverseGames]:csv(games),[URLS.nflverseSchedule]:csv(schedule)}, {...options,roleReferences:resign(refs)});
+    for(const p of result.players as GatedPlayerDiagnostic[]) {
+      expect(p.roleEvidence?.currentRoleEvidence).toBe(p.position==='QB'||returns===2?'SUPPORTED_OBSERVED':'UNKNOWN_EXPIRED_OR_UNESTABLISHED');
+      expect(p.roleEvidence?.numericalRoleContext).toBe('REQUIRES_POST_GAP_INPUT_POLICY');
+      expect(p.numericallyEligible).toBe(false); expect(p.outputChecksum).toBeNull();
+    }
+    expect(result.roleGate?.eligiblePlayers).toEqual([]);
+  });
+  it('does not renew claims from a cameo and does not carry an old-team claim after a trade', async () => {
+    const old=await seed(); const refs=bundle(old.players,17,17);
+    for(const p of refs.players) {
+      p.evidence.observations=p.evidence.observations.filter(o=>Number(o.gameId.split('_')[1])<=3 || o.gameId===gameId(17));
+      Object.assign(p.evidence.observations[3]!,{officialStart:false,carries:1,targets:1});
+    }
+    const games=gameRows(17).filter(g=>Number(String(g.game_id).split('_')[1])<=3 || g.game_id===gameId(17))
+      .map(g=>g.game_id===gameId(17)?{...g,carries:1,targets:1}:g);
+    const cameo=await evaluate({...staleRoutes(),[URLS.nflverseGames]:csv(games)}, {...options,roleReferences:resign(refs)});
+    expect((cameo.players as GatedPlayerDiagnostic[]).every(p=>p.terminalCategory==='held_expired_role')).toBe(true);
+    const traded=bundle(old.players);
+    for(const p of traded.players) {
+      const oldTenure=p.evidence.memberships[0]!; oldTenure.to=kickoff(4);
+      p.evidence.memberships.push({...oldTenure,team:'BUF',from:kickoff(4),to:null,knownAt:kickoff(4)});
+    }
+    const trade=await evaluate(staleRoutes(),{...options,roleReferences:resign(traded)});
+    expect((trade.players as GatedPlayerDiagnostic[]).every(p=>p.terminalCategory==='held_unknown_role' && p.roleEvidence?.team==='BUF')).toBe(true);
+    expect((trade.players as GatedPlayerDiagnostic[]).map(p=>p.baselineDiagnostic.outputChecksum)).toEqual(old.players.map(p=>p.outputChecksum));
+  });
+  it('keeps inference failures, malformed/missing, genuine INSUFFICIENT, role hold and unsupported paths distinct', async () => {
+    const old=await seed(); const refs=validateRoleReferences(bundle(old.players),options);
+    const variants = old.players.map((p,i)=>({...p,inferenceStatus: (['legitimate_insufficient','failed_inference','missing_inference','malformed_null_result'] as const)[i]!}));
+    const gated=applyExperimentalRoleGate(variants,refs,true,options.asOf,null);
+    expect(gated.players.map(p=>p.terminalCategory)).toEqual(['legitimate_insufficient','failed_inference','failed_inference','failed_inference']);
+    expect(gated.players.map(p=>p.baselineDiagnostic.inferenceStatus)).toEqual(variants.map(p=>p.inferenceStatus));
+    expect(gated.eligiblePlayers).toEqual([]);
+    const source=applyExperimentalRoleGate(variants,refs,false,options.asOf,null);
+    expect(source.players.every(p=>p.terminalCategory==='blocked_source_coverage')).toBe(true);
+    const unsupported=applyExperimentalRoleGate([{...old.players[0]!,inferenceStatus:'unsupported_model_path'}],refs,true,options.asOf,null);
+    expect(unsupported.players[0]?.terminalCategory).toBe('unsupported_model_path');
+  });
+  it('replays identically with a different wall clock and does not change v1 meaning', async () => {
+    const old=await seed(); const store=new MemoryPayloadStore(); const refs=bundle(old.players);
+    const live=await evaluate(staleRoutes(),{...options,roleReferences:refs},store);
+    const replayOptions={...options,mode:'replay' as const,roleReferences:refs};
+    const noNetwork=new HttpClient({fetchFn:()=>{throw new Error('network forbidden');}});
+    const a=await evaluateExperimentalInSeason(replayOptions,{payloadStore:store,client:noNetwork,clock:fixedClock('2028-01-01T00:00:00.000Z')});
+    const b=await evaluateExperimentalInSeason(replayOptions,{payloadStore:store,client:noNetwork,clock:fixedClock('2030-01-01T00:00:00.000Z')});
+    expect(a).toEqual(b); expect(a.players).toEqual(live.players);
+    const v1=await evaluateExperimentalInSeason({...options,configurationId:EXPERIMENTAL_IN_SEASON_CONFIGURATION.id,mode:'replay'},
+      {payloadStore:store,client:noNetwork,clock:CLOCK});
+    expect(v1.roleGate).toBeUndefined(); expect(v1.configuration.version).toBe(1);
+    expect(v1.players).toEqual(old.players); expect(v1.experimentalEvaluationComplete).toBe(true);
+    expect(()=>buildExperimentalInSeasonSourcePlan({...BASE_OPTIONS,roleReferences:refs})).toThrow(/v1 semantics/);
+  });
+  it('executes the actual CLI with a checksummed reference file and isolated captured replay', async () => {
+    const dbPath=tempDbPath(); paths.push(dbPath); const dir=dirname(dbPath);
+    const captures=join(dir,'captures'); const store=new FilePayloadStore(captures);
+    const baseline=await evaluateExperimentalInSeason({...options,configurationId:EXPERIMENTAL_IN_SEASON_CONFIGURATION.id},
+      {payloadStore:store,client:client(staleRoutes()),clock:CLOCK});
+    const referencePath=join(dir,'references.json'); writeFileSync(referencePath,JSON.stringify(bundle(baseline.players)));
+    const output=join(dir,'diagnostics'); const log=vi.spyOn(console,'log').mockImplementation(()=>{});
+    try {
+      const exitCode=await experimentalCli(['--config',options.configurationId,'--seasons','2025','--as-of',options.asOf,
+        '--mode','replay','--no-sleeper','--captures',captures,'--role-references',referencePath,
+        '--code-sha',options.codeIdentity.sha,'--code-tree',options.codeIdentity.tree,'--output-dir',output]);
+      expect(exitCode).toBe(1);
+      const result=JSON.parse(readFileSync(join(output,readdirSync(output)[0]!), 'utf8'));
+      expect(result.roleGate.eligiblePlayers).toEqual([]);
+      expect(result.players.every((p:GatedPlayerDiagnostic)=>p.terminalCategory==='held_expired_role')).toBe(true);
+      expect(result.configuration.productionPublicationAuthorized).toBe(false);
+    } finally {log.mockRestore();}
+  });
+  it('rejects canonical publication despite ignored gates and preserves seeded last-good bytes, identity, timestamp and pointer', async () => {
+    const dbPath=tempDbPath(); paths.push(dbPath);
+    const store=PersistenceStore.open(dbPath,()=> '2026-01-01T00:00:05.000Z');
+    const production=createLivePipeline({store:()=>store,payloadStore:new MemoryPayloadStore(),seasons:[2025],asOf:()=>AS_OF,clock:CLOCK,client:client(defaultRoutes())});
+    const context={runId:'role-seed',trigger:'manual' as const,attempt:1,startedAt:'2026-01-01T00:00:00.000Z'};
+    try {
+      const refreshed=await production.refresh(context); await production.persist(context,refreshed); await production.publish(context);
+      const record=store.getCurrentPublicationRecord(); const bytes=JSON.stringify(store.getCurrentPublication()); const checksum=roleReferenceChecksum(bytes);
+      const old=await seed(); const result=await evaluate(staleRoutes(),{...options,roleReferences:bundle(old.players)});
+      expect(()=>store.publishBoard({runId:result.evaluationId})).toThrow(PersistenceError);
+      expect(store.getCurrentPublicationRecord()).toEqual(record);
+      expect(JSON.stringify(store.getCurrentPublication())).toBe(bytes);
+      expect(roleReferenceChecksum(JSON.stringify(store.getCurrentPublication()))).toBe(checksum);
+    } finally {store.close();}
+  });
+});
 const paths: string[] = [];
 afterEach(() => { for (const path of paths.splice(0)) rmSync(dirname(path), { recursive: true, force: true }); });
 

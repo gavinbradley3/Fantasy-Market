@@ -1,0 +1,38 @@
+{
+  "manifestVersion": "playerticker.experimental.population-inputs/v1",
+  "status": "NOT_READY_REFERENCE_EVIDENCE_AND_CAPTURES_REQUIRED",
+  "configurationId": "playerticker.experimental.in-season-participation-independent/v2-role-gated",
+  "sourceConfigurationId": "playerticker.experimental.in-season-participation-independent/v1",
+  "rolePolicyId": "playerticker.experimental.role-evidence-opportunities/v1",
+  "codeIdentity": { "sha": null, "tree": null },
+  "asOf": "2026-09-21T00:00:00.000Z",
+  "valuationSeasons": [2026],
+  "careerSeasons": [2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025],
+  "mode": "replay",
+  "includeSleeper": false,
+  "capturesDirectory": "../../inputs/role-population-2026/captures",
+  "captureIdentities": [],
+  "references": {
+    "path": "../../inputs/role-population-2026/role-references.json",
+    "version": "playerticker.experimental.role-references/v1",
+    "id": null,
+    "source": null,
+    "createdAt": null,
+    "checksum": null
+  },
+  "intentionallyOmitted": ["nflverse:participation?season=2026", "optional Sleeper identity enrichment"],
+  "mandatoryCoordinates": [
+    "nflverse:identity", "nflverse:schedule?season=2026", "nflverse:roster?season=2026", "nflverse:games?season=2026",
+    "nflverse:games?season=2017", "nflverse:games?season=2018", "nflverse:games?season=2019",
+    "nflverse:games?season=2020", "nflverse:games?season=2021", "nflverse:games?season=2022",
+    "nflverse:games?season=2023", "nflverse:games?season=2024", "nflverse:games?season=2025"
+  ],
+  "outputDirectory": "../../outputs/role-population-2026",
+  "productionPublicationAuthorized": false,
+  "notes": [
+    "Template only, not an assertion that inputs exist. Fill null identities from the final candidate and validated retained inputs.",
+    "The CLI consumes explicit flags plus the reference bundle, not this planning manifest directly.",
+    "Record exact evaluator-emitted requestedCoordinates, capture payload checksums, registry/inference/engine/schema/curve versions with the completed run.",
+    "No population acquisition was performed by this implementation."
+  ]
+}
