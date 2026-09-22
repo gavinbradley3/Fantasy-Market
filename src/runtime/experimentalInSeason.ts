@@ -26,6 +26,9 @@ import { PRODUCTION_CURVE } from '@/utility/productionCurve';
 import { NFLVERSE_PARTICIPATION_DELIVERY_POLICY } from '@/transport/providers/nflverseParticipationPolicy';
 import { selectInferenceBuilds, type EngineVersions } from './selection';
 import { buildSourcePlan, REQUIRED_PROVIDERS } from './sources';
+import { applyExperimentalRoleGate } from './experimentalRoleGate';
+import { validateRoleReferences } from './experimentalRoleReferences';
+import { CONTRACT as ROLE_POLICY } from './experimentalRoleEvidence';
 
 export const EXPERIMENTAL_IN_SEASON_CONFIGURATION = {
   id: 'playerticker.experimental.in-season-participation-independent/v1',
@@ -41,7 +44,14 @@ export const EXPERIMENTAL_IN_SEASON_CONFIGURATION = {
   supportedValuedPaths: ['QB:FULL', 'RB:ACCESSIBLE', 'WR:ACCESSIBLE', 'TE:ACCESSIBLE'],
 } as const;
 
-export type ExperimentalInSeasonConfigurationId = typeof EXPERIMENTAL_IN_SEASON_CONFIGURATION.id;
+export const EXPERIMENTAL_ROLE_GATED_CONFIGURATION = {
+  ...EXPERIMENTAL_IN_SEASON_CONFIGURATION,
+  id: 'playerticker.experimental.in-season-participation-independent/v2-role-gated',
+  version: 2,
+  sourceConfigurationId: EXPERIMENTAL_IN_SEASON_CONFIGURATION.id,
+  rolePolicyId: ROLE_POLICY.id,
+} as const;
+export type ExperimentalInSeasonConfigurationId = typeof EXPERIMENTAL_IN_SEASON_CONFIGURATION.id | typeof EXPERIMENTAL_ROLE_GATED_CONFIGURATION.id;
 
 export interface ExperimentalInSeasonOptions {
   /** Must exactly name the versioned experiment. No environment or date selects it. */
@@ -60,6 +70,8 @@ export interface ExperimentalInSeasonOptions {
   readonly codeIdentity: { readonly sha: string; readonly tree: string };
   readonly engineVersions?: EngineVersions;
   readonly conditional?: boolean;
+  /** v2 only. Validated at this boundary; missing/malformed evidence holds eligibility. */
+  readonly roleReferences?: unknown;
 }
 
 export interface ExperimentalInSeasonDeps {
@@ -115,7 +127,9 @@ export interface ExperimentalInSeasonResult {
   readonly evaluationId: string;
   readonly configuration: {
     readonly id: ExperimentalInSeasonConfigurationId;
-    readonly version: 1;
+    readonly version: 1 | 2;
+    readonly sourceConfigurationId?: string;
+    readonly rolePolicyId?: string;
     readonly productionPublicationAuthorized: false;
     readonly roleValidity: 'UNRESOLVED_NOT_PRODUCTION_VALIDATED';
   };
@@ -128,9 +142,10 @@ export interface ExperimentalInSeasonResult {
     readonly requestedCoordinates: readonly string[];
     readonly payloadChecksums: readonly string[];
     readonly codeIdentity: { readonly sha: string; readonly tree: string };
+    readonly roleReferences?: ReturnType<typeof applyExperimentalRoleGate>['referenceIdentity'];
   };
   readonly versions: {
-    readonly experimentalResultSchema: 'playerticker.experimental-evaluation/1';
+    readonly experimentalResultSchema: 'playerticker.experimental-evaluation/1' | 'playerticker.experimental-evaluation/2';
     readonly transportEnvelopeSchema: string;
     readonly registryVersions: readonly string[];
     readonly inferenceLayerVersions: readonly string[];
@@ -145,6 +160,7 @@ export interface ExperimentalInSeasonResult {
   readonly players: readonly ExperimentalPlayerDiagnostic[];
   readonly snapshotId: string | null;
   readonly warnings: readonly string[];
+  readonly roleGate?: Omit<ReturnType<typeof applyExperimentalRoleGate>, 'players'>;
 }
 
 const BASE_PATH_CAPABILITIES = ['nflverse:identity', 'nflverse:schedule', 'nflverse:roster', 'nflverse:games'] as const;
@@ -165,8 +181,11 @@ export function experimentalPathRequiredCapabilities(
 }
 
 function assertExplicitSupportedOptions(options: ExperimentalInSeasonOptions): number {
-  if (options.configurationId !== EXPERIMENTAL_IN_SEASON_CONFIGURATION.id) {
+  if (options.configurationId !== EXPERIMENTAL_IN_SEASON_CONFIGURATION.id && options.configurationId !== EXPERIMENTAL_ROLE_GATED_CONFIGURATION.id) {
     throw new Error(`unsupported experimental configuration: ${String(options.configurationId)}`);
+  }
+  if (options.configurationId === EXPERIMENTAL_IN_SEASON_CONFIGURATION.id && options.roleReferences !== undefined) {
+    throw new Error('role references require explicit v2 configuration; v1 semantics are unchanged');
   }
   if (options.valuationSeasons.length !== 1 || !Number.isInteger(options.valuationSeasons[0])) {
     throw new Error('experimental v1 requires exactly one explicit integer valuation season');
@@ -323,6 +342,8 @@ export async function evaluateExperimentalInSeason(
   deps: ExperimentalInSeasonDeps,
 ): Promise<ExperimentalInSeasonResult> {
   const plan = buildExperimentalInSeasonSourcePlan(options);
+  const roleGated = options.configurationId === EXPERIMENTAL_ROLE_GATED_CONFIGURATION.id;
+  const references = roleGated ? validateRoleReferences(options.roleReferences, options) : null;
   const clock = deps.clock ?? systemClock;
   const registry = buildDefaultRegistry();
   const transportConfig = deps.transportConfig ?? defaultTransportConfig();
@@ -353,7 +374,10 @@ export async function evaluateExperimentalInSeason(
     return source !== undefined && source.outcome !== 'failed';
   }) && requestedKeys.every((key) => returnedKeys.has(key));
 
-  const players = classifyExperimentalPlayers(builds, refresh.inference, sourcePlanComplete);
+  const baselinePlayers = classifyExperimentalPlayers(builds, refresh.inference, sourcePlanComplete);
+  const gated = references ? applyExperimentalRoleGate(baselinePlayers, references, sourcePlanComplete, options.asOf, refresh.snapshot ?? null) : null;
+  const players = gated?.players ?? baselinePlayers;
+  const roleGate = gated ? (({ players: _players, ...diagnostic }) => diagnostic)(gated) : null;
   const terminal = new Set<ExperimentalInferenceStatus>(['valued', 'legitimate_insufficient']);
   const inferenceComplete = builds.length > 0 && refresh.inference.length === builds.length && players.every((player) => terminal.has(player.inferenceStatus));
   const payloadChecksums = [...refresh.summary.payloadChecksums].sort();
@@ -369,13 +393,15 @@ export async function evaluateExperimentalInSeason(
     payloadChecksums,
     snapshotId: refresh.snapshot?.snapshotId ?? null,
     players: players.map((player) => ({ canonicalId: player.canonicalId, position: player.position, status: player.inferenceStatus, outputChecksum: player.outputChecksum })),
+    ...(roleGate ? { roleGate } : {}),
   };
 
   return {
     evaluationId: `experiment-${digest(stableStringify(identity))}`,
     configuration: {
-      id: EXPERIMENTAL_IN_SEASON_CONFIGURATION.id,
-      version: EXPERIMENTAL_IN_SEASON_CONFIGURATION.version,
+      id: options.configurationId,
+      version: roleGated ? 2 : 1,
+      ...(roleGated ? { sourceConfigurationId: EXPERIMENTAL_IN_SEASON_CONFIGURATION.id, rolePolicyId: ROLE_POLICY.id } : {}),
       productionPublicationAuthorized: false,
       roleValidity: 'UNRESOLVED_NOT_PRODUCTION_VALIDATED',
     },
@@ -388,9 +414,10 @@ export async function evaluateExperimentalInSeason(
       requestedCoordinates: requestedKeys,
       payloadChecksums,
       codeIdentity: { ...options.codeIdentity },
+      ...(roleGate ? { roleReferences: roleGate.referenceIdentity } : {}),
     },
     versions: {
-      experimentalResultSchema: 'playerticker.experimental-evaluation/1',
+      experimentalResultSchema: roleGated ? 'playerticker.experimental-evaluation/2' : 'playerticker.experimental-evaluation/1',
       transportEnvelopeSchema: ENVELOPE_SCHEMA_VERSION,
       registryVersions: [...new Set(refresh.inference.flatMap((outcome) => outcome.result ? [outcome.result.registryVersion] : []))].sort(),
       inferenceLayerVersions: [...new Set(refresh.inference.flatMap((outcome) => outcome.result ? [outcome.result.inferenceLayerVersion] : []))].sort(),
@@ -401,13 +428,15 @@ export async function evaluateExperimentalInSeason(
     sources: [...acquired, ...plan.omitted].sort((a, b) => a.requestKey.localeCompare(b.requestKey)),
     sourcePlanComplete,
     inferenceComplete,
-    experimentalEvaluationComplete: sourcePlanComplete && inferenceComplete,
+    experimentalEvaluationComplete: sourcePlanComplete && inferenceComplete && (!roleGate || roleGate.numericalEvaluationComplete),
     players,
     snapshotId: refresh.snapshot?.snapshotId ?? null,
+    ...(roleGate ? { roleGate } : {}),
     warnings: [
       'EXPERIMENTAL_NON_SERVING: production publication is not authorized',
       'ROLE_VALIDITY_UNRESOLVED: appearance-window role claims can remain stale after missed team opportunities',
       'POPULATION_ACCURACY_NOT_VALIDATED: synthetic control flow is not population validation',
+      ...(roleGated ? ['PROVISIONAL_ROLE_GATE: eligibility hold means current valuation assumptions are unsupported, not zero dynasty value'] : []),
     ],
   };
 }

@@ -8,6 +8,7 @@ export { createLivePipeline, type LivePipelineConfig, type LiveRefreshOutput } f
 export { buildSourcePlan, REQUIRED_PROVIDERS, type SourcePlanOptions } from './sources';
 export {
   EXPERIMENTAL_IN_SEASON_CONFIGURATION,
+  EXPERIMENTAL_ROLE_GATED_CONFIGURATION,
   buildExperimentalInSeasonSourcePlan,
   classifyExperimentalPlayers,
   evaluateExperimentalInSeason,
