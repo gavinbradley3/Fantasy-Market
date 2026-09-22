@@ -33,6 +33,7 @@
 
 import { RECENT_GAME_WINDOW, windowsFor } from './observedFacts';
 import type { GameStatRecord } from './types';
+import { betaTargetShare, hasUnobservedColumn, type AggregationOptions } from './aggregationPolicy';
 
 import type { CountingWindow, ObservedProduction, TeamShares } from '@/accessible/production';
 
@@ -85,9 +86,9 @@ function sumOrNull(games: readonly GameStatRecord[], key: CountingKey): number |
   return observed ? total : null;
 }
 
-function windowOf(games: readonly GameStatRecord[]): CountingWindow {
+function windowOf(games: readonly GameStatRecord[], options?: AggregationOptions): CountingWindow {
   const out: Record<string, number | null> = {};
-  for (const key of COUNTING_KEYS) out[key] = sumOrNull(games, key);
+  for (const key of COUNTING_KEYS) out[key] = options && hasUnobservedColumn(games, key) ? null : sumOrNull(games, key);
   return { games: games.length, ...out } as CountingWindow;
 }
 
@@ -188,19 +189,20 @@ export function observedProduction(
   games: readonly GameStatRecord[],
   teamTotals: TeamGameTotals,
   rosteredTeamWeeks: number | null = null,
+  options?: AggregationOptions,
 ): ObservedProduction | null {
   const { career, recent } = windowsFor(games);
   if (career.length === 0) return null;
   const split = seasonSplit(career);
   const roleGames = roleWindowGames(games);
   return {
-    career: windowOf(career),
-    recent: windowOf(recent),
-    roleWindow: windowOf(roleGames),
-    latestSeason: split.latest ? windowOf(split.latest) : null,
-    priorSeason: split.prior ? windowOf(split.prior) : null,
+    career: windowOf(career, options),
+    recent: windowOf(recent, options),
+    roleWindow: windowOf(roleGames, options),
+    latestSeason: split.latest ? windowOf(split.latest, options) : null,
+    priorSeason: split.prior ? windowOf(split.prior, options) : null,
     teamShares: sharesOver(roleGames, teamTotals),
-    providerTargetShare: providerShareOver(roleGames),
+    providerTargetShare: options ? betaTargetShare(roleGames, options).value : providerShareOver(roleGames),
     seasonsPlayed: split.seasons,
     newestGameKickoff: career.length > 0 ? career[0].kickoff : null,
     rosteredTeamWeeks,

@@ -8,6 +8,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
+    "preview:controlled-beta": "TSX_TSCONFIG_PATH=./tsconfig.app.json node --import tsx scripts/preview-controlled-beta.ts",
+    "evaluate:controlled-beta": "TSX_TSCONFIG_PATH=./tsconfig.app.json node --import tsx scripts/build-controlled-beta.ts",
     "typecheck": "tsc -b --noEmit && tsc -p tsconfig.te.json && tsc -p tsconfig.qb.json",
     "test": "vitest run",
     "test:watch": "vitest",

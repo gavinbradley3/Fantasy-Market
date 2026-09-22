@@ -1,5 +1,11 @@
 # External dynasty market data — sources, licensing, and the boundary
 
+> Controlled-beta release update: external acquisition, API serving, browser reads, Market
+> Edge and public exports are disabled. See [the enforced release boundary](CONTROLLED_BETA_MARKET_EXCLUSION.md).
+> The historical integration notes below describe retained development code, not an active
+> public-release entitlement or current operating instructions. Public upstream rights remain
+> unresolved; attribution alone does not authorize redistribution.
+
 PlayerTicker's valuation engines produce PlayerTicker's own numbers. This document covers the
 other kind of number on the board: what an **external market** says a player is worth.
 
@@ -114,6 +120,9 @@ rediscover the rule.
 ---
 
 ## Operating it
+
+The following historical commands are now blocked before acquisition by the controlled-beta
+release policy. Retained private history and its offline seed utility are not deleted.
 
 ```bash
 npm run ingest:market                 # fetch, resolve, append a capture to the production DB

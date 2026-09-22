@@ -14,14 +14,6 @@ import { resolvePublicationFormat, usePublishedMarket } from '@/services/publica
 import { FreshnessNote } from '@/components/data/FreshnessNote';
 import type { PublishedMarket, PublishedPlayer } from '@/services/publication';
 import {
-  buildBoardComparisons,
-  countCovered,
-  formatLabel,
-  marketUpdatedLabel,
-  useExternalMarket,
-  type ExternalMarket,
-} from '@/services/market';
-import {
   PUBLISHED_COLUMNS,
   PublishedPlayerCard,
   PublishedPlayerRow,
@@ -102,22 +94,12 @@ function matchesQuery(player: PublishedPlayer, query: string): boolean {
 export default function BoardPage() {
   const [params, setParams] = useSearchParams();
   const market = usePublishedMarket();
-  // Supplementary, and read independently: if the external market is unavailable the board
-  // still renders PlayerTicker's own valuations, with the market columns showing absence.
-  const external = useExternalMarket();
 
   const pos = params.getAll('pos').filter((p): p is Position => (POSITIONS as string[]).includes(p));
   const sort = (SORTS.find((s) => s.key === params.get('sort'))?.key ?? 'rank') as SortKey;
   const query = params.get('q') ?? '';
 
   const players = useMemo(() => market.market?.players ?? [], [market.market]);
-  // Built from the WHOLE board rather than the filtered rows: percentile denominators depend
-  // on how many players each side ranks, and a player's standing must not shift because the
-  // reader typed in the search box.
-  const comparisons = useMemo(
-    () => buildBoardComparisons(players, external.market),
-    [players, external.market],
-  );
   const filtered = useMemo(() => {
     let rows = players;
     if (pos.length) rows = rows.filter((p) => pos.includes(p.position));
@@ -151,7 +133,7 @@ export default function BoardPage() {
         subtitle={boardSubtitle(market.market, market.status === 'loading')}
         actions={
           <Button onClick={market.retry} disabled={market.isFetching}>
-            {market.isFetching ? 'Refreshing…' : 'Refresh Market'}
+            {market.isFetching ? 'Refreshing…' : 'Reload Board'}
           </Button>
         }
       />
@@ -262,9 +244,6 @@ export default function BoardPage() {
           <PublicationProvenance
             market={market.market}
             shown={filtered.length}
-            external={external.market}
-            externalUnavailable={external.unavailable}
-            covered={countCovered(comparisons)}
           />
 
           {filtered.length === 0 ? (
@@ -301,7 +280,6 @@ export default function BoardPage() {
                       <PublishedPlayerRow
                         key={p.playerId}
                         player={p}
-                        comparison={comparisons.get(p.playerId)}
                       />
                     ))}
                   </tbody>
@@ -314,7 +292,6 @@ export default function BoardPage() {
                   <PublishedPlayerCard
                     key={p.playerId}
                     player={p}
-                    comparison={comparisons.get(p.playerId)}
                   />
                 ))}
               </div>
@@ -335,15 +312,9 @@ export default function BoardPage() {
 function PublicationProvenance({
   market,
   shown,
-  external,
-  externalUnavailable,
-  covered,
 }: {
   market: NonNullable<ReturnType<typeof usePublishedMarket>['market']>;
   shown: number;
-  external: ExternalMarket | undefined;
-  externalUnavailable: boolean;
-  covered: number;
 }) {
   const unvalued = market.players.length - market.valuedCount;
   const limited = market.players.filter((p) => p.modelTier === 'ACCESSIBLE').length;
@@ -394,78 +365,7 @@ function PublicationProvenance({
           {market.rejected.length === 1 ? 'was' : 'were'} left out rather than guessed.
         </p>
       )}
-      <MarketProvenance
-        external={external}
-        unavailable={externalUnavailable}
-        covered={covered}
-        boardSize={market.players.length}
-      />
+      <p>External market comparisons are disabled for this release. PlayerTicker valuations are independent of external market prices.</p>
     </div>
-  );
-}
-
-/**
- * Where the market columns come from, and what they do not cover.
- *
- * Four things have to be said here and none of them are decoration: whose numbers these are,
- * how current they actually are, how many board players the source has never heard of, and
- * which PlayerTicker ranking the comparison is against. That last line used to say the delta
- * was NOT against the rank column beside it, because the comparison re-ranked the board on the
- * position engines' internal composites. It is the same ranking now, and saying so is what
- * makes the Edge column checkable by eye.
- *
- * The wording stays restrained — "market updated Sep 11", not "live" — because the source
- * publishes weekly and any stronger word would outrun the data.
- */
-function MarketProvenance({
-  external,
-  unavailable,
-  covered,
-  boardSize,
-}: {
-  external: ExternalMarket | undefined;
-  unavailable: boolean;
-  covered: number;
-  boardSize: number;
-}) {
-  if (unavailable) {
-    return (
-      <p>
-        External market context is unavailable right now, so the market columns show “—”. The
-        PlayerTicker valuations above are unaffected.
-      </p>
-    );
-  }
-  if (!external) return null;
-  if (external.quoteCount === 0) {
-    return <p>No external market data has been ingested yet, so the market columns show “—”.</p>;
-  }
-
-  const updated = marketUpdatedLabel(external.sourceTimestamp);
-  const uncovered = boardSize - covered;
-  return (
-    <p className="max-w-4xl">
-      Market columns show <strong>{external.attribution.publisher}</strong> dynasty{' '}
-      {formatLabel(external.format)} ranks, compared against the{' '}
-      <strong>PlayerTicker Rank</strong> in the first column — the same ranking, so subtracting
-      the two ranks on a row reproduces its “vs Mkt” figure
-      {updated ? <> · market updated <span className="data">{updated}</span></> : null} ·{' '}
-      {external.attribution.refreshCadence} · external comparison source, not a PlayerTicker
-      valuation.
-      {uncovered > 0 && (
-        <>
-          {' '}
-          <span className="data">{uncovered}</span> of these players{' '}
-          {uncovered === 1 ? 'is' : 'are'} not covered by it and show “—” rather than a zero.
-        </>
-      )}
-      {!external.movementAvailable && (
-        <>
-          {' '}
-          Only {external.captureCount === 1 ? 'one capture is' : `${external.captureCount} captures are`} stored, so
-          no market movement is shown.
-        </>
-      )}
-    </p>
   );
 }

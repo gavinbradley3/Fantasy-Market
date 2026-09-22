@@ -6,7 +6,8 @@
 
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { HonestyBadge, CoverageBadge, PlayerTickerValue, playerTickerValue } from './publishedRows';
+import { HonestyBadge, CoverageBadge, PlayerTickerValue, playerTickerValue, PublishedPlayerDetails } from './publishedRows';
+import userEvent from '@testing-library/user-event';
 import type { PublishedPlayer } from '@/services/publication';
 
 function player(over: Partial<PublishedPlayer> = {}): PublishedPlayer {
@@ -54,6 +55,21 @@ function player(over: Partial<PublishedPlayer> = {}): PublishedPlayer {
     ...over,
   } as PublishedPlayer;
 }
+
+describe('essential explanation access',()=>{
+  it('exposes substituted input and value meaning in a focusable touch disclosure',async()=>{
+    render(<PublishedPlayerDetails player={player({modelTier:'FULL',inputsSubstituted:16})}/>);
+    const summary=screen.getByText('Evidence and explanation for Test Back');summary.focus();expect(summary).toHaveFocus();
+    await userEvent.click(summary);expect(summary.closest('details')).toHaveAttribute('open');
+    expect(screen.getByText(/16 inputs were derived or substituted/)).toBeVisible();
+    expect(screen.getByText(/board ranks this same value/)).toBeVisible();
+  });
+  it('does not display rejected explanation or role claims for an unvalued player',()=>{
+    render(<PublishedPlayerDetails player={player({modelTier:'INSUFFICIENT',dynastyValue:null,explanation:'Rejected alpha claim',role:'Alpha',insufficientReason:'Insufficient observations'})}/>);
+    expect(screen.queryByText('Rejected alpha claim')).not.toBeInTheDocument();expect(screen.queryByText('Alpha')).not.toBeInTheDocument();
+    expect(screen.getByText('Insufficient observations')).toBeInTheDocument();
+  });
+});
 
 describe('HonestyBadge', () => {
   it('does not treat an accessible valuation as unavailable because the FULL model was not ready', () => {

@@ -7,6 +7,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 import { publicationResponseSchema } from '../src/services/api/publication';
+import { assertPublicDataDirectory } from '../src/ops/publicDataBoundary';
 
 interface Args {
   source: string;
@@ -57,12 +58,15 @@ export function prepareSiteData(args: Args): { entryCount: number; boardBytes: n
     throw new Error(`required board.json entryCount mismatch: declares ${entryCount}, contains ${parsed.data.entries.length}`);
   }
 
+  // Never erase old data to make this check pass. A dirty deploy directory needs a fresh
+  // build; retained private market captures in the source remain untouched.
+  assertPublicDataDirectory(args.destination);
   mkdirSync(args.destination, { recursive: true });
   writeFileSync(join(args.destination, 'board.json'), boardBytes);
 
   // These documents are deliberately supplementary: their absence never weakens or blocks a
   // valid board deployment.
-  for (const file of ['status.json', 'market-latest.json']) {
+  for (const file of ['status.json']) {
     const path = join(args.source, file);
     if (existsSync(path)) writeFileSync(join(args.destination, basename(path)), readFileSync(path));
     else console.warn(`::warning::optional ${file} is unavailable`);

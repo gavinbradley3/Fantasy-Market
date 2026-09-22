@@ -16,11 +16,15 @@ import type { RouteContext } from '../app';
 import type { ApiResponse } from '../dto';
 import { toMarketResponse } from '../dto';
 import { BadRequestError } from '../middleware/errors';
+import { MARKET_DATA_DISABLED, MARKET_DATA_DISABLED_REASON } from '@/config/release';
 
 const SOURCE_PATTERN = /^[a-z0-9_-]{1,64}$/;
 
 /** GET /market — latest external market quotes. An empty market is 200 + zero players. */
 export function currentMarket({ app, req }: RouteContext): ApiResponse {
+  if (MARKET_DATA_DISABLED) {
+    return { status: 410, body: { error: { code: 'MARKET_DATA_DISABLED', message: MARKET_DATA_DISABLED_REASON } } };
+  }
   const source = req.query.source?.trim() || DEFAULT_MARKET_SOURCE;
   if (!SOURCE_PATTERN.test(source)) {
     throw new BadRequestError('invalid query parameter: source', [

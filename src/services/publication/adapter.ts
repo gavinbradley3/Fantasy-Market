@@ -171,13 +171,24 @@ export function adaptPublication(
       continue;
     }
 
-    const composites = adaptComposites(entry.composites);
+    const modelTier = adaptTier(entry.modelTier);
+    const unsupported = modelTier === 'INSUFFICIENT' || entry.outputStatus === 'UNAVAILABLE';
+    // A current publication with a claimed canonical value and an explicitly rejected model
+    // is contradictory. Reject it; do not repair values, compact ranks or invent a fallback.
+    if (dynastyContract === 'canonical' && unsupported && entry.dynastyValue !== null) {
+      rejected.push({ canonicalId, reason: 'invalidValue', detail: 'unavailable model carries a canonical dynasty value' });
+      continue;
+    }
+    const composites = unsupported ? null : adaptComposites(entry.composites);
     const rawValue = entry.composites ? entry.composites[horizon] : null;
     if (rawValue !== null && rawValue !== undefined && !Number.isFinite(rawValue)) {
       rejected.push({ canonicalId, reason: 'invalidValue', detail: `${horizon} composite is not a finite number` });
       continue;
     }
 
+    const hasValuation = !unsupported && (dynastyContract === 'canonical'
+      ? entry.dynastyValue !== null : composites !== null);
+    const accessibleDiagnostics = hasValuation && modelTier === 'ACCESSIBLE';
     seen.add(canonicalId);
     admitted.push({
       playerId: canonicalId,
@@ -198,11 +209,11 @@ export function adaptPublication(
       dynastyValueSource: entry.dynastyValueSource ?? null,
       leagueSchemaId: entry.leagueSchemaId ?? null,
       productionCurveVersion: entry.productionCurveVersion ?? null,
-      confidenceScore: finiteOrNull(entry.confidenceScore),
-      confidenceLabel: entry.confidenceLabel,
-      publicConfidenceLabel: entry.publicConfidenceLabel,
-      volatilityScore: finiteOrNull(entry.volatilityScore),
-      volatilityLabel: entry.volatilityLabel,
+      confidenceScore: hasValuation ? finiteOrNull(entry.confidenceScore) : null,
+      confidenceLabel: hasValuation ? entry.confidenceLabel : null,
+      publicConfidenceLabel: hasValuation ? entry.publicConfidenceLabel : null,
+      volatilityScore: hasValuation && modelTier === 'FULL' ? finiteOrNull(entry.volatilityScore) : null,
+      volatilityLabel: hasValuation && modelTier === 'FULL' ? entry.volatilityLabel : null,
       honestyState: entry.honestyState,
       readiness: entry.readiness,
       outputStatus: entry.outputStatus,
@@ -212,18 +223,18 @@ export function adaptPublication(
       outputChecksum: entry.outputChecksum,
       // Copied through, never inferred. An older backend that publishes no tier is treated as
       // INSUFFICIENT rather than silently assumed to be a full valuation — the safe direction.
-      modelTier: adaptTier(entry.modelTier),
-      modelVersion: entry.modelVersion ?? null,
-      positionValue: finiteOrNull(entry.positionValue),
-      publishedPositionalRank: finiteOrNull(entry.positionalRank),
-      role: entry.role ?? null,
-      explanation: entry.explanation ?? null,
-      positiveFactors: [...(entry.positiveFactors ?? [])],
-      negativeFactors: [...(entry.negativeFactors ?? [])],
-      materialMissingInputs: [...(entry.materialMissingInputs ?? [])],
-      inputsSubstituted: finiteOrNull(entry.inputsSubstituted),
-      insufficientReason: entry.insufficientReason ?? null,
-      provenance: adaptProvenance(entry.provenance),
+      modelTier,
+      modelVersion: hasValuation ? entry.modelVersion ?? null : null,
+      positionValue: hasValuation ? finiteOrNull(entry.positionValue) : null,
+      publishedPositionalRank: hasValuation ? finiteOrNull(entry.positionalRank) : null,
+      role: accessibleDiagnostics ? entry.role ?? null : null,
+      explanation: accessibleDiagnostics ? entry.explanation ?? null : null,
+      positiveFactors: accessibleDiagnostics ? [...(entry.positiveFactors ?? [])] : [],
+      negativeFactors: accessibleDiagnostics ? [...(entry.negativeFactors ?? [])] : [],
+      materialMissingInputs: accessibleDiagnostics ? [...(entry.materialMissingInputs ?? [])] : [],
+      inputsSubstituted: hasValuation && modelTier === 'FULL' ? finiteOrNull(entry.inputsSubstituted) : null,
+      insufficientReason: hasValuation ? null : entry.insufficientReason ?? null,
+      provenance: accessibleDiagnostics ? adaptProvenance(entry.provenance) : null,
     });
   }
 

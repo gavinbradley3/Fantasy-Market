@@ -281,8 +281,6 @@ export const PUBLISHED_COLUMNS = [
   { label: 'Pos', align: 'left' },
   { label: 'Team', align: 'left' },
   { label: 'PlayerTicker Value', align: 'right' },
-  { label: 'Mkt Dyn', align: 'right' },
-  { label: 'vs Mkt', align: 'right' },
   { label: 'Confidence', align: 'right' },
   { label: 'Volatility', align: 'right' },
   { label: 'Coverage', align: 'left' },
@@ -290,7 +288,6 @@ export const PUBLISHED_COLUMNS = [
 
 export function PublishedPlayerRow({
   player,
-  comparison,
 }: {
   player: PublishedPlayer;
   comparison?: ModelMarketComparison;
@@ -306,6 +303,7 @@ export function PublishedPlayerRow({
       </td>
       <td className="w-full px-3 py-2">
         <PublishedPlayerName player={player} />
+        <PublishedPlayerDetails player={player} />
       </td>
       <td className="w-px px-3 py-2">
         <PositionGlyph position={player.position} />
@@ -315,12 +313,6 @@ export function PublishedPlayerRow({
       </td>
       <td className="w-px whitespace-nowrap px-3 py-2 text-right">
         <PlayerTickerValue player={player} className="data text-[15px] font-semibold text-text-primary" />
-      </td>
-      <td className="w-px whitespace-nowrap px-3 py-2 text-right">
-        <MarketRank comparison={comparison} />
-      </td>
-      <td className="w-px whitespace-nowrap px-3 py-2 text-right">
-        <MarketRankDelta comparison={comparison} />
       </td>
       <td className="w-px whitespace-nowrap px-3 py-2 text-right text-text-secondary">
         {player.confidenceLabel ?? player.publicConfidenceLabel ? (
@@ -352,7 +344,6 @@ export function PublishedPlayerRow({
 
 export function PublishedPlayerCard({
   player,
-  comparison,
 }: {
   player: PublishedPlayer;
   comparison?: ModelMarketComparison;
@@ -391,14 +382,32 @@ export function PublishedPlayerCard({
         <CoverageBadge player={player} />
         <span>Confidence {label(player.confidenceLabel ?? player.publicConfidenceLabel)}</span>
         <span>Volatility {label(player.volatilityLabel)}</span>
-        <span className="inline-flex items-baseline gap-1">
-          Mkt dynasty <MarketRank comparison={comparison} /> <MarketRankDelta comparison={comparison} />
-        </span>
       </div>
-      {player.role && <div className="mt-2 text-xs text-text-secondary">{player.role}</div>}
-      {player.explanation && (
-        <p className="mt-1.5 text-[11px] leading-relaxed text-text-muted">{player.explanation}</p>
-      )}
+      <PublishedPlayerDetails player={player} />
     </div>
+  );
+}
+
+/** Native disclosure works with keyboard and touch; no essential meaning is hover-only. */
+export function PublishedPlayerDetails({ player }: { player: PublishedPlayer }) {
+  const valued = player.modelTier !== 'INSUFFICIENT' && playerTickerValue(player) !== null;
+  return (
+    <details className="mt-1 max-w-xl whitespace-normal text-xs leading-relaxed text-text-muted">
+      <summary className="min-h-[44px] cursor-pointer py-3 text-text-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-blue">
+        Evidence and explanation for {player.name ?? player.playerId}
+      </summary>
+      <div className="space-y-2 pb-3">
+        <p>Model evidence as of {player.asOf ?? 'unknown'}. This is separate from the board publication time.</p>
+        {valued ? <>
+          <p>PlayerTicker Value is projected multi-year utility above replacement, on a 0–100 scale. The board ranks this same value; no external market prices are used.</p>
+          <p>{player.modelTier === 'ACCESSIBLE'
+            ? 'Standard coverage: box-score production, team shares and age. Route, snap and red-zone observations are not supplied by this model path.'
+            : `Full model path. ${player.inputsSubstituted === null ? 'Input substitution count is unavailable.' : `${player.inputsSubstituted} inputs were derived or substituted; full model does not mean every input was directly observed.`}`}</p>
+          {player.explanation && <p>{player.explanation}</p>}
+          {player.materialMissingInputs.length > 0 && <p>Unavailable inputs: {player.materialMissingInputs.join('; ')}.</p>}
+          <p>Coverage describes available inputs. Confidence describes model support, not forecast accuracy or a guarantee.</p>
+        </> : <p>{player.insufficientReason ?? 'No supported value is published. Unknown is not zero dynasty value.'}</p>}
+      </div>
+    </details>
   );
 }

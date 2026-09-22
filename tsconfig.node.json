@@ -17,5 +17,5 @@
   },
   // The local API entry point is typechecked here (it is Node-side, never part of the browser
   // bundle). The older generator scripts keep their existing status.
-  "include": ["vite.config.ts", "vitest.config.ts", "scripts/serve-api.ts"]
+  "include": ["vite.config.ts", "vitest.config.ts", "scripts/serve-api.ts", "scripts/preview-controlled-beta.ts", "scripts/build-controlled-beta.ts"]
 }

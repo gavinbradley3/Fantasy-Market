@@ -28,7 +28,7 @@ export interface FreshnessNoteProps {
 const CLOCK_INTERVAL_MS = 60_000;
 
 /** A modest display clock: no data refetch and no model work, just elapsed-time updates. */
-function useFreshnessClock(): string {
+export function useFreshnessClock(): string {
   const [now, setNow] = useState(() => new Date().toISOString());
   useEffect(() => {
     const update = () => setNow(new Date().toISOString());

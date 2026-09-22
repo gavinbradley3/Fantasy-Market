@@ -3,11 +3,12 @@
 // The property these protect: production NEVER silently substitutes demo data for a failed
 // production read, and old data is never labelled current.
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { ApiClient, ApiError, fetchMarket, isApiError } from '@/services/api';
 import { resolveSiteDataSource } from './source';
 import { fetchMarketDocument, fetchStatusDocument } from './documents';
 import { describeAge, describeFreshness } from './freshness';
+import { marketResponseSchema } from '@/services/api/market';
 
 const okJson = (body: unknown) =>
   new ApiClient({
@@ -24,7 +25,7 @@ describe('data source resolution', () => {
     expect(s.kind).toBe('static');
     expect(s.publicationPath).toBe('/board.json');
     expect(s.statusPath).toBe('/status.json');
-    expect(s.marketPath).toBe('/market-latest.json');
+    expect(s.marketPath).toBeNull();
   });
 
   it('honours the deployed base path, so a project page and a custom domain both work', () => {
@@ -98,7 +99,7 @@ describe('document validation', () => {
     ).rejects.toBeInstanceOf(ApiError);
   });
 
-  it('reads market quotes and keeps attribution', async () => {
+  it('does not read retained market quotes in the public release', async () => {
     const doc = await fetchMarketDocument(
       okJson({
         source: 'dynastyprocess',
@@ -110,9 +111,7 @@ describe('document validation', () => {
       }),
       STATIC,
     );
-    expect(doc?.quotes).toHaveLength(1);
-    // Attribution is rendered, not stripped: the licensing position is unchanged by deployment.
-    expect(doc?.attribution).toEqual({ name: 'DynastyProcess', licence: 'provisional' });
+    expect(doc).toBeNull();
   });
 
   it('returns null — not an error — when the source publishes no such document', async () => {
@@ -168,44 +167,32 @@ describe('freshness wording', () => {
   });
 });
 
-describe('the market read follows the resolved source', () => {
-  it('requests the STATIC market document in production, not the API route', async () => {
-    // THE DEFECT. `fetchMarket` hard-coded `/market`, so the deployed app asked for
-    // `<base>/data/market` — a URL the export does not write. Every production page therefore
-    // read the market as unavailable, and because the market is supplementary by design the
-    // board rendered fine and said nothing was wrong: 616 em-dashes and no Edge column.
-    const seen: string[] = [];
-    const client = {
-      getJson: async (path: string) => {
-        seen.push(path);
-        return marketBody();
-      },
-    } as unknown as ApiClient;
-    const source = resolveSiteDataSource({ BASE_URL: '/Fantasy-Market/' });
-    await fetchMarket(client, {}, source.marketPath!);
-    expect(seen).toEqual(['/market-latest.json']);
+describe('public market exclusion', () => {
+  it.each([
+    {}, { DEV: true }, { VITE_PLAYERTICKER_API_URL: 'http://localhost:8787' },
+    { VITE_PLAYERTICKER_DATA_URL: 'https://example.test/data' },
+  ])('cannot be activated through a data-source environment choice: %j', (env) => {
+    expect(resolveSiteDataSource(env).marketPath).toBeNull();
   });
 
-  it('appends no query string to a static document, which has no lens to select', async () => {
-    const seen: string[] = [];
-    const client = {
-      getJson: async (path: string) => {
-        seen.push(path);
-        return marketBody();
-      },
-    } as unknown as ApiClient;
-    await fetchMarket(client, { format: 'dynasty_superflex' }, '/market-latest.json');
-    expect(seen).toEqual(['/market-latest.json']);
-    // The dev API route still takes its parameters.
-    await fetchMarket(client, { format: 'dynasty_1qb' }, '/market');
-    expect(seen[1]).toBe('/market?format=dynasty_1qb');
+  it.each(['/market', '/market-latest.json', '/market-history.jsonl'])(
+    'rejects explicit browser requests to %s without sending a request', async (path) => {
+      const getJson = vi.fn().mockResolvedValue(marketBody());
+      const client = { getJson } as unknown as ApiClient;
+      await expect(fetchMarket(client, { format: 'dynasty_superflex' }, path)).rejects.toThrow('public usage rights');
+      expect(getJson).not.toHaveBeenCalled();
+    },
+  );
+
+  it('blocks even an injected legacy source from the document reader', async () => {
+    const getJson = vi.fn().mockResolvedValue(marketBody());
+    const client = { getJson } as unknown as ApiClient;
+    expect(await fetchMarketDocument(client, { ...STATIC, marketPath: '/market-latest.json' })).toBeNull();
+    expect(getJson).not.toHaveBeenCalled();
   });
 
-  it('validates the exported document against the SAME contract the API route uses', async () => {
-    // `market-latest.json` is written by `toMarketResponse`, the projection the HTTP route
-    // returns, so one schema covers both and the two surfaces cannot drift.
-    const client = { getJson: async () => marketBody() } as unknown as ApiClient;
-    const parsed = await fetchMarket(client, {}, '/market-latest.json');
+  it('preserves the offline private-history schema and attribution without fetching data', () => {
+    const parsed = marketResponseSchema.parse(marketBody());
     expect(parsed.quotes[0].canonicalPlayerId).toBe('pt-1');
     expect(parsed.attribution.publisher).toBe('DynastyProcess');
   });

@@ -201,10 +201,82 @@ describe('projectPublishedPlayer', () => {
     expect(p.composites).toBeNull();
     expect(p.engineInvoked).toBe(false);
     expect(p.limitations).toEqual([]);
+    expect(p.honestyState).toBeNull();
+    expect(p.publicConfidenceLabel).toBeNull();
+    expect(p.role).toBeNull();
+    expect(p.provenance).toBeNull();
   });
 });
 
 describe('the published tier decides which model’s numbers are published', () => {
+  const diagnosticAccessible = {
+    modelVersion: 'rejected-model',
+    composites: { weekly: 90, ros: 91, oneYear: 92, threeYear: 93, dynasty: 94 },
+    positionValue: 95,
+    role: 'Current alpha',
+    explanation: 'Unsupported headline',
+    positiveFactors: ['Unsupported positive'], negativeFactors: ['Unsupported negative'],
+    materialMissingInputs: ['Rejected-model gap'],
+    confidence: { score: 88, label: 'HIGH' },
+    provenance: { gamesObserved: 100, seasonsObserved: 8, teamSharesDerived: true,
+      observedFields: ['routes'], derivedFields: [], unavailableFields: [] },
+  };
+
+  function expectNoHeadlines(p: ReturnType<typeof projectPublishedPlayer>) {
+    expect(p).toMatchObject({
+      composites: null, publicConfidenceLabel: null, confidenceScore: null, confidenceLabel: null,
+      volatilityScore: null, volatilityLabel: null, positionValue: null, positionalRank: null,
+      role: null, explanation: null, positiveFactors: [], negativeFactors: [], materialMissingInputs: [],
+      inputsSubstituted: null, provenance: null, modelVersion: null,
+    });
+  }
+
+  it.each(['INSUFFICIENT', 'UNRECOGNIZED'])('suppresses every rejected headline for tier %s', (tier) => {
+    const raw = JSON.parse(envelope());
+    raw.engine_output.fallback_log = ['a', 'b'];
+    raw.model_tier = tier;
+    raw.accessible_model = diagnosticAccessible;
+    raw.accessible_insufficient = { reason: 'Insufficient observed receiving opportunity' };
+    const p = projectPublishedPlayer(normalizedInput(), JSON.stringify(raw));
+    expectNoHeadlines(p);
+    expect(p.name).toBe('Test Receiver');
+    expect(p.limitations).toEqual(['UNVALIDATED_MODEL']);
+    expect(p.insufficientReason).toBe('Insufficient observed receiving opportunity');
+    expect(p.honestyState).toBe('UNAVAILABLE');
+    expect(p.engineInvoked).toBe(true); // Historical execution fact, not authorization.
+  });
+
+  it.each([null, {}, { ...diagnosticAccessible, composites: null }])(
+    'does not borrow FULL results when the selected accessible result is missing or malformed (%j)', (accessible) => {
+      const p = projectPublishedPlayer(normalizedInput(), envelope({ model_tier: 'ACCESSIBLE', accessible_model: accessible }));
+      expectNoHeadlines(p);
+      expect(p.modelTier).toBe('ACCESSIBLE'); // Do not relabel a malformed result as legitimate INSUFFICIENT.
+    },
+  );
+
+  it('does not borrow ACCESSIBLE results or claims when FULL was selected', () => {
+    const p = projectPublishedPlayer(normalizedInput(), envelope({
+      model_tier: 'FULL', model_version: 'accepted-full-version', accessible_model: diagnosticAccessible,
+    }));
+    expect(p.composites?.dynasty).toBe(59);
+    expect(p.confidenceScore).toBe(82);
+    expect(p.modelVersion).toBe('accepted-full-version');
+    expect(p.role).toBeNull();
+    expect(p.explanation).toBeNull();
+    expect(p.positiveFactors).toEqual([]);
+    expect(p.provenance).toBeNull();
+    expect(p.positionValue).toBeNull();
+    expectNoHeadlines(projectPublishedPlayer(normalizedInput(), envelope({
+      model_tier: 'FULL', engine_output: null, accessible_model: diagnosticAccessible,
+    })));
+  });
+
+  it('does not publish diagnostic values when the envelope explicitly declares unavailable', () => {
+    expectNoHeadlines(projectPublishedPlayer(normalizedInput(), envelope({
+      model_tier: 'FULL', status: 'UNAVAILABLE', accessible_model: diagnosticAccessible,
+    })));
+  });
+
   it('publishes the ACCESSIBLE model’s numbers when the tier says ACCESSIBLE, even though a frozen engine output is present', () => {
     // A WR stood down for want of real route evidence carries BOTH outputs. Reading by presence
     // would publish the premium engine's composites and confidence under an ACCESSIBLE badge.
@@ -226,8 +298,10 @@ describe('the published tier decides which model’s numbers are published', () 
     expect(p.composites?.dynasty).toBe(44);
     expect(p.confidenceScore).toBe(61);
     expect(p.confidenceLabel).toBe('MEDIUM');
+    expect(p.publicConfidenceLabel).toBe('MEDIUM');
     // Volatility is a frozen-engine output and is not borrowed by the accessible tier.
     expect(p.volatilityScore).toBeNull();
+    expect(p.inputsSubstituted).toBeNull();
   });
 
   it('publishes NO value for an explicitly INSUFFICIENT player, whatever the frozen engine produced', () => {

@@ -32,6 +32,20 @@ export interface CountingWindow {
   readonly receivingAirYards: number | null;
 }
 
+/** Additive beta-only diagnostics; absence preserves all original experiment contracts. */
+export interface ObservedAggregationCoverage {
+  readonly policyVersion: string;
+  readonly numericalEvidenceComplete: boolean;
+  readonly issues: readonly {
+    readonly code: 'PARTIAL_WINDOW_COLUMN' | 'UNOBSERVED_WINDOW_COLUMN' | 'TARGET_DENOMINATOR_UNAVAILABLE' | 'TARGET_DENOMINATOR_CONFLICT';
+    readonly window: string;
+    readonly field: string;
+    readonly totalGames: number;
+    readonly observedGames: number;
+    readonly unavailableGameIds: readonly string[];
+  }[];
+}
+
 /**
  * Player share of the team's own opportunity, computed from the SAME game rows on both sides
  * of the ratio so the denominator can never describe a different set of games than the

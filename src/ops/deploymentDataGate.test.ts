@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -28,7 +28,7 @@ function validBoard(modelTier: 'ACCESSIBLE' | 'INSUFFICIENT' = 'ACCESSIBLE'): Re
 }
 
 function run(source: string, destination: string) {
-  return spawnSync('npx', ['tsx', 'scripts/prepare-site-data.ts', '--source', source, '--destination', destination], {
+  return spawnSync(process.execPath, ['--import', 'tsx', 'scripts/prepare-site-data.ts', '--source', source, '--destination', destination], {
     encoding: 'utf8', env: { ...process.env, TSX_TSCONFIG_PATH: './tsconfig.app.json' },
   });
 }
@@ -64,22 +64,42 @@ describe('PT-09 deployment data admission', () => {
     expect(readFileSync(join(destination, 'board.json'), 'utf8')).toBe(body);
   });
 
-  it('keeps market data optional while copying it unchanged when present', () => {
+  it('copies no external market values, history or comparison artifacts', () => {
     const source = tempDir();
     const destination = tempDir();
     writeFileSync(join(source, 'board.json'), JSON.stringify(validBoard()));
 
     const absent = run(source, destination);
     expect(absent.status).toBe(0);
-    expect(absent.stderr).toContain('optional market-latest.json is unavailable');
+    expect(absent.stderr).not.toContain('market-latest');
 
     const market = '{"quotes":[1]}\n';
     writeFileSync(join(source, 'market-latest.json'), market);
-    execFileSync('npx', ['tsx', 'scripts/prepare-site-data.ts', '--source', source, '--destination', destination], {
+    writeFileSync(join(source, 'market-history.jsonl'), market);
+    writeFileSync(join(source, 'comparison.json'), market);
+    execFileSync(process.execPath, ['--import', 'tsx', 'scripts/prepare-site-data.ts', '--source', source, '--destination', destination], {
       env: { ...process.env, TSX_TSCONFIG_PATH: './tsconfig.app.json' },
     });
-    expect(readFileSync(join(destination, 'market-latest.json'), 'utf8')).toBe(market);
+    expect(readdirSync(destination)).toEqual(['board.json']);
+    // Retained private history is not removed or rewritten to achieve exclusion.
+    expect(readFileSync(join(source, 'market-latest.json'), 'utf8')).toBe(market);
+    expect(readFileSync(join(source, 'market-history.jsonl'), 'utf8')).toBe(market);
   });
+
+  it.each(['market-latest.json', 'market-history.jsonl', 'comparison.json', 'unrecognized.json'])(
+    'rejects a dirty destination containing %s before overwriting the last-good board', (artifact) => {
+      const source = tempDir();
+      const destination = tempDir();
+      writeFileSync(join(source, 'board.json'), JSON.stringify(validBoard()));
+      writeFileSync(join(destination, 'board.json'), 'last-good bytes');
+      writeFileSync(join(destination, artifact), 'retained private bytes');
+      const result = run(source, destination);
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain('non-release artifact');
+      expect(readFileSync(join(destination, 'board.json'), 'utf8')).toBe('last-good bytes');
+      expect(readFileSync(join(destination, artifact), 'utf8')).toBe('retained private bytes');
+    },
+  );
 
   it('admits a status-only failure update without changing last-good board bytes', () => {
     const source = tempDir();

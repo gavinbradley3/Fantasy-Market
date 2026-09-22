@@ -11,6 +11,7 @@
 import { z } from 'zod';
 import { ApiClient, ApiError, type RequestOptions } from '@/services/api';
 import type { SiteDataSource } from './source';
+import { MARKET_DATA_DISABLED } from '@/config/release';
 
 /** Freshness states the refresh emits. Mirrors `src/ops/staleness.ts`. */
 export const freshnessStates = ['current', 'stale', 'expired', 'unknown'] as const;
@@ -112,7 +113,7 @@ export async function fetchMarketDocument(
   source: SiteDataSource,
   options: RequestOptions = {},
 ): Promise<MarketDocument | null> {
-  if (source.marketPath === null) return null;
+  if (MARKET_DATA_DISABLED || source.marketPath === null) return null;
   const body = await client.getJson<unknown>(source.marketPath, options);
   const parsed = marketDocumentSchema.safeParse(body);
   if (!parsed.success) {

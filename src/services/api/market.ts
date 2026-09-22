@@ -12,6 +12,7 @@ import { z } from 'zod';
 import { ApiError } from './errors';
 import type { ApiClient, RequestOptions } from './client';
 import type { ApiMarketResponse } from './types';
+import { MARKET_DATA_DISABLED, MARKET_DATA_DISABLED_REASON } from '@/config/release';
 
 const attributionSchema = z.object({
   publisher: z.string(),
@@ -77,6 +78,7 @@ export async function fetchMarket(
   options: FetchMarketOptions = {},
   path = '/market',
 ): Promise<ApiMarketResponse> {
+  if (MARKET_DATA_DISABLED) throw new ApiError('invalidResponse', MARKET_DATA_DISABLED_REASON);
   const { format, source, ...request } = options;
   const params = new URLSearchParams();
   if (format) params.set('format', format);

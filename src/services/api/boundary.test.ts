@@ -132,8 +132,9 @@ describe('the API client is transport-only', () => {
   });
 
   it('imports nothing outside itself but browser-safe contracts', () => {
-    // The client may only depend on its own files and `zod` (already in the browser bundle).
-    const allowed = /^(\.|zod$)/;
+    // The single extra dependency is a browser-safe constant release policy, so the transport
+    // can refuse uncleared market requests before network IO. No general config-layer import.
+    const allowed = /^(\.|zod$|@\/config\/release$)/;
     const offenders: string[] = [];
     for (const f of clientFiles) {
       for (const s of specifiersOf(stripComments(readFileSync(f, 'utf8')))) {
@@ -141,6 +142,12 @@ describe('the API client is transport-only', () => {
       }
     }
     expect(offenders).toEqual([]);
+  });
+
+  it('the release policy has no imports, environment reads, network or model execution', () => {
+    const policy = stripComments(readFileSync(join(SRC, 'config', 'release.ts'), 'utf8'));
+    expect(specifiersOf(policy)).toEqual([]);
+    expect(policy).not.toMatch(/import\.meta|process\.env|fetch\(|Date\.now|runInference|computeUtility/);
   });
 });
 

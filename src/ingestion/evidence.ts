@@ -16,6 +16,8 @@ import { observedCountingFacts, D2_ROLE_WINDOW_GAMES, RECENT_GAME_WINDOW } from 
 import { observedReceivingRates } from './observedReceiving';
 import { observedCareerRates } from './observedCareerRates';
 import { buildTeamGameTotals, observedProduction, type TeamGameTotals } from './observedProduction';
+import { BETA_AGGREGATION_VERSION, betaAggregationOptions, type AggregationOptions, type AggregationPolicy } from './aggregationPolicy';
+import { aggregationCoverage } from './aggregationCoverage';
 import { compareOrdinal, withinAsOf } from './ordering';
 import type { NormalizedSnapshot } from './snapshot';
 import type {
@@ -64,6 +66,7 @@ interface SnapshotIndex {
    * as-of contributes to no total that is ever consulted.
    */
   readonly teamGameTotals: TeamGameTotals;
+  readonly betaAggregations: Map<string, AggregationOptions>;
 }
 
 const INDEX_CACHE = new WeakMap<NormalizedSnapshot, SnapshotIndex>();
@@ -95,6 +98,7 @@ function indexOf(snapshot: NormalizedSnapshot): SnapshotIndex {
     transactionsByPlayer: byCanonical(snapshot.transactions),
     officialStartsByPlayer: byCanonical(snapshot.officialStarts),
     teamGameTotals: buildTeamGameTotals(snapshot.games),
+    betaAggregations: new Map(),
   };
   INDEX_CACHE.set(snapshot, index);
   return index;
@@ -349,6 +353,7 @@ export interface EvidenceOptions {
    * nothing is scoped and all positions read everything, which is the previous behaviour.
    */
   readonly valuationSeasons?: readonly number[];
+  readonly aggregationPolicy?: AggregationPolicy;
 }
 
 export function buildEvidenceFor(
@@ -359,6 +364,18 @@ export function buildEvidenceFor(
   options: EvidenceOptions = {},
 ): BuiltEvidence | null {
   const index = indexOf(snapshot);
+  if (options.aggregationPolicy !== undefined && options.aggregationPolicy !== BETA_AGGREGATION_VERSION) {
+    throw new Error(`Unsupported aggregation policy: ${String(options.aggregationPolicy)}`);
+  }
+  let aggregation: AggregationOptions | undefined;
+  if (options.aggregationPolicy === BETA_AGGREGATION_VERSION) {
+    aggregation = index.betaAggregations.get(asOf);
+    if (!aggregation) {
+      aggregation = betaAggregationOptions(snapshot.games.filter((g) => withinAsOf(asOf, g.kickoff)
+        && withinAsOf(asOf, g.sourceTimestamp) && withinAsOf(asOf, g.freshness.fetchedAt)));
+      index.betaAggregations.set(asOf, aggregation);
+    }
+  }
   const playerRec = index.playersById.get(canonicalId);
   if (!playerRec) return null;
 
@@ -390,6 +407,7 @@ export function buildEvidenceFor(
   const evidence: {
     -readonly [K in keyof NormalizedEvidence]?: NormalizedEvidence[K];
   } = {};
+  if (aggregation) evidence.aggregationCoverage = aggregationCoverage(position, myGames, aggregation);
 
   evidence.expectedGames = {
     gamesLeft,
@@ -606,7 +624,7 @@ export function buildEvidenceFor(
   // Counting stats aggregated from the per-game records already in this snapshot. These are
   // DIRECT observations, so they are supplied as FACTS and win over any AIL estimate for the
   // same field. A column no game supplied is left out entirely rather than summed to zero.
-  const facts: Record<string, unknown> = { ...observedCountingFacts(position, myGames) };
+  const facts: Record<string, unknown> = { ...observedCountingFacts(position, myGames, aggregation) };
   const factTimestamps: Record<string, string> = {};
   const newestGame = myGames.reduce<string | undefined>(
     (m, g) => (m === undefined || g.sourceTimestamp > m ? g.sourceTimestamp : m),
@@ -620,7 +638,7 @@ export function buildEvidenceFor(
   // starts come from the role evidence built just above, so the rushing rate's denominator is
   // the same start count the rest of the engine uses. QB only: no other engine takes these.
   if (position === 'QB') {
-    Object.assign(facts, observedCareerRates(myGames, evidence.qbRole?.careerStarts ?? null));
+    Object.assign(facts, observedCareerRates(myGames, evidence.qbRole?.careerStarts ?? null, aggregation));
   }
 
   // --- observed receiving rates (WR) ---
@@ -631,7 +649,7 @@ export function buildEvidenceFor(
   // the counting facts do. WR only: RB and TE are valued by the accessible tier, which reads
   // its own observed production and must not have its inputs changed here.
   if (position === 'WR') {
-    Object.assign(facts, observedReceivingRates(myGames));
+    Object.assign(facts, observedReceivingRates(myGames, aggregation));
   }
 
   // Observed practice_status enum, when an injury record is present.
@@ -659,6 +677,7 @@ export function buildEvidenceFor(
       myGames,
       index.teamGameTotals,
       rosterWeeks.size > 0 ? rosterWeeks.size : null,
+      aggregation,
     );
     if (production) evidence.production = production;
   }

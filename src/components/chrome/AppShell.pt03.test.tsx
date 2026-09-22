@@ -142,7 +142,7 @@ describe('PT-03 published-board chrome through the real app shell and route', ()
     renderApp(fetchFn);
     await screen.findAllByText('Published Receiver');
 
-    await userEvent.click(screen.getByRole('button', { name: 'Refresh Market' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Reload Board' }));
     expect(screen.getByLabelText('Published board format')).toHaveAttribute(
       'title', '12-team Dynasty · Superflex · Full PPR',
     );
@@ -165,7 +165,7 @@ describe('PT-03 published-board chrome through the real app shell and route', ()
     expect(screen.getByLabelText('Published board format')).toHaveAttribute(
       'title', '12-team Dynasty · Superflex · Full PPR',
     );
-    await userEvent.click(screen.getByRole('button', { name: 'Refresh Market' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Reload Board' }));
     await waitFor(() => expect(screen.getByLabelText('Published board format')).toHaveAttribute(
       'title', 'Published format unrecognized',
     ));
