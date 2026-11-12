@@ -11,6 +11,7 @@ import type { ProviderSource } from './buildInput';
 import { nflverseAdapter } from './adapters/nflverse';
 import { sleeperAdapter } from './adapters/sleeper';
 import { freshness } from './__fixtures';
+import { syntheticScheduleFor } from './__fixtures';
 
 describe('canonical player deduplication (Correction 2)', () => {
   it('two providers supplying the same player yield ONE canonical player record', () => {
@@ -101,6 +102,7 @@ function ingestWeekly(rows: readonly Record<string, unknown>[]) {
     payloads: {
       identity: [{ gsis_id: '00-WR', full_name: 'Test Receiver', position: 'WR', team: 'CIN' }],
       games: rows,
+      schedule: syntheticScheduleFor(rows),
     },
   };
   return ingest([source]).snapshot;
@@ -140,6 +142,7 @@ describe('duplicate per-game stat rows', () => {
       payloads: {
         identity: [{ gsis_id: '00-WR', full_name: 'Test Receiver', position: 'WR', team: 'CIN' }],
         games: [weeklyRow({ targets: 13 }), weeklyRow({ targets: 9 })],
+        schedule: syntheticScheduleFor([weeklyRow()]),
       },
     };
     const { snapshot, diagnostics } = ingest([source]);

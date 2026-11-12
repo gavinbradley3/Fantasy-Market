@@ -133,12 +133,22 @@ export interface MarketResponse {
 export interface RunSourceResponse {
   readonly provider: string;
   readonly capability: string;
+  /** Allowlisted logical coordinate; raw request keys and URLs are never exposed. */
+  readonly season: number | null;
   readonly required: boolean;
   readonly mode: string;
   readonly status: string;
   readonly errorCode: string | null;
   readonly failureStage: string | null;
   readonly retryable: boolean | null;
+}
+
+/** Extract only the supported season coordinate from a canonical request key. */
+function seasonFromRequestKey(requestKey: string): number | null {
+  const match = /(?:^|[?&])season=(\d{4})(?:&|$)/.exec(requestKey);
+  if (!match) return null;
+  const season = Number(match[1]);
+  return season >= 1999 && season <= 2100 ? season : null;
 }
 
 /** GET /history/:runId — a durable run projected to a stable shape. */
@@ -208,6 +218,7 @@ export function toRunResponse(view: RefreshRunView): RunResponse {
     sources: view.sources.map((s) => ({
       provider: s.provider,
       capability: s.capability,
+      season: seasonFromRequestKey(s.requestKey),
       required: s.required,
       mode: s.mode,
       status: s.status,

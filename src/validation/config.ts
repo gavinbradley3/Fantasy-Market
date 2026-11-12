@@ -1,0 +1,32 @@
+// Experiment configuration: everything that defines a backtest, archived beside its results.
+
+export interface ExperimentConfig {
+  readonly name: string;
+  readonly description: string;
+  /** Directory holding the nflverse files the harness reads (see scripts/backtest/fetch-data.ts). */
+  readonly dataDir: string;
+  /** Capture store for the PlayerTicker pipeline runs. */
+  readonly capturesDir: string;
+  /**
+   * Give each decision date its own empty capture store (capturesDir/<id>). Required for a valid
+   * replay: on a 304 the transport reuses a cached envelope verbatim, including the effective
+   * date of whichever run first fetched it, and the pipeline derives age and seasons completed
+   * from that date (phase2-baseline-v1 replayed every date with October 2019 ages).
+   */
+  readonly isolateCaptures?: boolean;
+  /** Scratch directory for pipeline databases; not archived. */
+  readonly workDir: string;
+  readonly decisions: readonly { readonly season: number; readonly checkpoint: string }[];
+  /**
+   * Chronological periods by DECISION season. The test period is sealed: the evaluator refuses
+   * to compute or report it unless explicitly unsealed with a recorded reason.
+   */
+  readonly periods: {
+    readonly development: readonly number[];
+    readonly validation: readonly number[];
+    readonly test: readonly number[];
+  };
+  /** League format the outcome targets are measured in. */
+  readonly leagueSchemaId: string;
+  readonly bootstrap: { readonly reps: number; readonly seed: number };
+}

@@ -6,7 +6,7 @@
 // and to replay, with only the `mode` differing, which is what makes a replay provably the
 // same run rather than a similar one.
 
-import type { IngestionProvider, RefreshRequest, RefreshMode } from '@/transport';
+import type { IngestionProvider, OptionalSource, RefreshRequest, RefreshMode } from '@/transport';
 
 export interface SourcePlanOptions {
   /**
@@ -103,3 +103,19 @@ export function buildSourcePlan(options: SourcePlanOptions): RefreshRequest[] {
 
 /** Providers whose failure makes a refresh incomplete rather than merely degraded. */
 export const REQUIRED_PROVIDERS: readonly IngestionProvider[] = ['nflverse'];
+
+/**
+ * nflverse coordinates whose absence must not block a board.
+ *
+ * PARTICIPATION. nflverse publishes `pbp_participation_<season>.csv` after a season ends, so
+ * during the season the current year's file does not exist (HTTP 404). Treating it as required
+ * made every in-season refresh fail before publishing anything (docs/PHASE1_RECOVERY_AUDIT.md,
+ * B1) — and no published value reads it: the accessible models carry NO_PARTICIPATION_DATA
+ * for every player, and only the unpublished frozen WR engine consumes it.
+ *
+ * It stays in the plan, so it is fetched whenever it exists (prior seasons, and the current
+ * season once released). When it is missing the source is recorded as a FAILED, non-required
+ * outcome with its error code, the snapshot simply holds no participation rows for that
+ * season, and nothing is substituted for them.
+ */
+export const OPTIONAL_SOURCES: readonly OptionalSource[] = [{ provider: 'nflverse', capability: 'participation' }];

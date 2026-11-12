@@ -97,6 +97,23 @@ export function nflSeasonOf(referenceIso: string): number | null {
 }
 
 /**
+ * The most recent season whose REGULAR SEASON had ended at `referenceIso`, or null.
+ *
+ * A regular season is treated as ended at the Week 19 boundary — the Thursday after the Week 18
+ * slate — which is the same calendar convention `weekBoundaryIso` applies to every week.
+ */
+export function lastCompletedSeasonAt(referenceIso: string): number | null {
+  const ref = Date.parse(referenceIso);
+  if (!Number.isFinite(ref)) return null;
+  const year = new Date(ref).getUTCFullYear();
+  for (let season = year; season >= year - 2; season--) {
+    const end = weekBoundaryIso(season, 19);
+    if (end !== null && Date.parse(end) <= ref) return season;
+  }
+  return null;
+}
+
+/**
  * Seasons completed as at a reference instant, from the player's rookie season.
  *
  * `years_of_experience` in a current-state identity export is a CURRENT value — it counts
@@ -105,14 +122,22 @@ export function nflSeasonOf(referenceIso: string): number | null {
  * a 2018 rookie has completed eight seasons as at February 2026 and seven as at February
  * 2025, from the same source row.
  *
+ * A season counts only once its regular season has ENDED (`lastCompletedSeasonAt`). The previous
+ * rule, `nflSeasonOf(ref) - rookie + 1`, also counted the season in progress — and, from March
+ * to August, the season not yet started — so in September 2026 a 2022 rookie read 5 completed
+ * seasons instead of 4, and a 2026 rookie read 1 instead of 0
+ * (docs/PHASE1_RECOVERY_AUDIT.md, B7).
+ *
  * Returns `null` when the rookie season is missing or the arithmetic is implausible, so a
  * bad input surfaces as unknown rather than as a confident wrong number.
  */
 export function seasonsCompletedAsOf(rookieSeason: number | null, referenceIso: string): number | null {
   if (rookieSeason === null || !Number.isInteger(rookieSeason)) return null;
-  const season = nflSeasonOf(referenceIso);
-  if (season === null) return null;
-  const completed = season - rookieSeason + 1;
+  const last = lastCompletedSeasonAt(referenceIso);
+  if (last === null) return null;
+  // A rookie in his first season (or drafted for the next one) has completed none. A rookie
+  // season further in the future than that is implausible input, not a zero.
+  const completed = last - rookieSeason + 1;
   return completed >= 0 && completed <= 30 ? completed : null;
 }
 
@@ -139,3 +164,75 @@ export function ageFromBirthDate(birthDate: string | null, referenceIso: string)
   // A negative or implausible age means the inputs disagree; report nothing rather than a number.
   return age >= 0 && age <= 70 ? age : null;
 }
+
+// ---------------------------------------------------------------------------------------------
+// Scheduled kickoffs.
+//
+// nflverse's schedules release publishes `gameday` (YYYY-MM-DD) and `gametime` (HH:MM, 24-hour)
+// as US EASTERN wall-clock time (nflreadr data dictionary, schedules: "gametime — kickoff time in
+// eastern time zone"). Converting that to an instant needs the Eastern UTC offset on that date.
+// The offset is computed from the statutory US DST rule rather than the host's time-zone
+// database, so a replay produces the same instant on any machine.
+// ---------------------------------------------------------------------------------------------
+
+/** UTC ms of the nth (1-based) given weekday of a month, at a UTC hour; n = -1 means last. */
+function nthWeekdayUtc(year: number, month: number, weekday: number, n: number, hourUtc: number): number {
+  if (n > 0) {
+    const first = new Date(Date.UTC(year, month, 1)).getUTCDay();
+    const day = 1 + ((weekday - first + 7) % 7) + (n - 1) * 7;
+    return Date.UTC(year, month, day, hourUtc);
+  }
+  const lastDate = new Date(Date.UTC(year, month + 1, 0));
+  const day = lastDate.getUTCDate() - ((lastDate.getUTCDay() - weekday + 7) % 7);
+  return Date.UTC(year, month, day, hourUtc);
+}
+
+/**
+ * Is a US-Eastern wall-clock instant (expressed as if it were UTC) inside daylight time?
+ *
+ * 2007 onward: second Sunday of March 02:00 to first Sunday of November 02:00 (local).
+ * Before 2007: first Sunday of April 02:00 to last Sunday of October 02:00 (local).
+ */
+function easternDaylight(wallAsUtcMs: number): boolean {
+  const year = new Date(wallAsUtcMs).getUTCFullYear();
+  const start = year >= 2007 ? nthWeekdayUtc(year, 2, 0, 2, 2) : nthWeekdayUtc(year, 3, 0, 1, 2);
+  const end = year >= 2007 ? nthWeekdayUtc(year, 10, 0, 1, 2) : nthWeekdayUtc(year, 9, 0, -1, 2);
+  return wallAsUtcMs >= start && wallAsUtcMs < end;
+}
+
+/**
+ * A US-Eastern date and optional HH:MM time as an ISO instant, or null when unreadable.
+ * Without a time, the start of that Eastern day is returned; callers must treat it as a date,
+ * not a kickoff.
+ */
+export function easternWallClockToIso(date: string | null, time: string | null): string | null {
+  if (!date) return null;
+  const d = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date.trim());
+  if (!d) return null;
+  let hh = 0;
+  let mm = 0;
+  if (time) {
+    const t = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(time.trim());
+    if (!t) return null;
+    hh = Number(t[1]);
+    mm = Number(t[2]);
+    if (hh > 23 || mm > 59) return null;
+  }
+  const wall = Date.UTC(Number(d[1]), Number(d[2]) - 1, Number(d[3]), hh, mm);
+  if (!Number.isFinite(wall)) return null;
+  const check = new Date(wall);
+  if (check.getUTCMonth() + 1 !== Number(d[2]) || check.getUTCDate() !== Number(d[3])) return null;
+  const offsetHours = easternDaylight(wall) ? 4 : 5;
+  return new Date(wall + offsetHours * 3_600_000).toISOString();
+}
+
+/**
+ * How long after a scheduled kickoff a game's final box score may be used.
+ *
+ * Five hours covers regulation, overtime and delays. Before that, a game in progress would
+ * contribute its FINAL statistics to a board dated during the game.
+ */
+export const GAME_FINAL_AFTER_MS = 5 * 3_600_000;
+
+/** A date-only schedule row: usable after the whole Eastern day plus the final allowance. */
+export const DATE_ONLY_FINAL_AFTER_MS = 24 * 3_600_000 + GAME_FINAL_AFTER_MS;

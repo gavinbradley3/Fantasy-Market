@@ -17,6 +17,8 @@ import { observedReceivingRates } from './observedReceiving';
 import { observedCareerRates } from './observedCareerRates';
 import { buildTeamGameTotals, observedProduction, type TeamGameTotals } from './observedProduction';
 import { compareOrdinal, withinAsOf } from './ordering';
+import { nflSeasonOf } from './weekTiming';
+import { availableAtOf } from './gameTiming';
 import type { NormalizedSnapshot } from './snapshot';
 import type {
   GameStatRecord,
@@ -64,6 +66,8 @@ interface SnapshotIndex {
    * as-of contributes to no total that is ever consulted.
    */
   readonly teamGameTotals: TeamGameTotals;
+  /** Earliest weekly-roster attestation per season: when that season's rosters began. */
+  readonly rosterSeasonStart: ReadonlyMap<number, string>;
 }
 
 const INDEX_CACHE = new WeakMap<NormalizedSnapshot, SnapshotIndex>();
@@ -95,12 +99,22 @@ function indexOf(snapshot: NormalizedSnapshot): SnapshotIndex {
     transactionsByPlayer: byCanonical(snapshot.transactions),
     officialStartsByPlayer: byCanonical(snapshot.officialStarts),
     teamGameTotals: buildTeamGameTotals(snapshot.games),
+    rosterSeasonStart: rosterSeasonStarts(snapshot.rosters),
   };
   INDEX_CACHE.set(snapshot, index);
   return index;
 }
 
 const EMPTY: readonly never[] = [];
+
+function rosterSeasonStarts(rosters: readonly RosterRecord[]): Map<number, string> {
+  const out = new Map<number, string>();
+  for (const r of rosters) {
+    const cur = out.get(r.season);
+    if (cur === undefined || r.sourceTimestamp < cur) out.set(r.season, r.sourceTimestamp);
+  }
+  return out;
+}
 
 /**
  * Start rate over the role window at or above which a quarterback is his team's STARTER.
@@ -188,6 +202,8 @@ interface PointInTimeFacts {
   readonly statusProvider: IngestionProvider;
   /** The provider that supplied `injuryDesignation`. */
   readonly designationProvider: IngestionProvider;
+  /** When a roster-derived designation was attested (its week boundary); null otherwise. */
+  readonly designationAttestedAt: string | null;
   /** The provider that supplied the surviving `team`. */
   readonly teamProvider: IngestionProvider;
   /**
@@ -213,6 +229,13 @@ const ROSTER_TO_CANONICAL: Readonly<Record<RosterRecord['rosterStatus'], Canonic
   RESERVE: 'inactive',
 };
 
+/** The designation implied by a roster row on an injury list. */
+const ROSTER_INJURY_DESIGNATION: Partial<Record<RosterRecord['rosterStatus'], string>> = {
+  IR: 'IR',
+  PUP: 'PUP',
+  NFI: 'NFI',
+};
+
 function resolvePointInTime(
   rec: PlayerRecord,
   index: SnapshotIndex,
@@ -231,21 +254,55 @@ function resolvePointInTime(
   const teamAttested = attestedFor('team');
   const designationAttested = attestedFor('injuryDesignation');
   const roster = latest(index.rostersByPlayer.get(canonicalId) ?? EMPTY, asOf);
+
+  // NOT ON ANY CURRENT ROSTER. Once the as-of season's weekly rosters exist, a player with no
+  // row in that season is on no team's roster this season (retired, released, unsigned). His
+  // latest row describes a previous season, so publishing its team as current would be false —
+  // Derek Carr read "NO" in November 2026 from a 2025 row. He is reported with no team and a
+  // not-rostered status instead. Before the season's rosters exist (the offseason), the latest
+  // row is still the best point-in-time evidence and is used as before.
+  const asOfSeason = nflSeasonOf(asOf);
+  const seasonStart = asOfSeason === null ? undefined : index.rosterSeasonStart.get(asOfSeason);
+  if (roster && asOfSeason !== null && roster.season < asOfSeason && seasonStart !== undefined && withinAsOf(asOf, seasonStart)) {
+    return {
+      team: null,
+      status: 'inactive',
+      injuryDesignation: null,
+      identityAttested: statusAttested,
+      attestedAt: seasonStart,
+      designationAttestedAt: null,
+      statusProvider: roster.freshness.provider,
+      designationProvider: roster.freshness.provider,
+      teamProvider: roster.freshness.provider,
+    };
+  }
   return {
     team: roster?.team ?? (teamAttested ? rec.team : null),
     status: roster ? ROSTER_TO_CANONICAL[roster.rosterStatus] : statusAttested ? (rec.status as CanonicalStatus | null) : null,
     // An injury designation has no historical source here at all, so it is only ever used when
     // the source that supplied it attested it at or before the as-of. A current designation must
     // never leak backward onto a board whose as-of predates it.
-    injuryDesignation: designationAttested ? rec.injuryDesignation : null,
+    // A point-in-time roster row on an injury list IS the designation at the as-of: it outranks
+    // the identity export's current-state field, which may describe a later date.
+    injuryDesignation:
+      roster && ROSTER_INJURY_DESIGNATION[roster.rosterStatus] !== undefined
+        ? ROSTER_INJURY_DESIGNATION[roster.rosterStatus]!
+        : designationAttested
+          ? rec.injuryDesignation
+          : null,
     identityAttested: statusAttested,
     attestedAt: roster?.sourceTimestamp ?? rec.fieldSources?.status?.sourceTimestamp ?? rec.sourceTimestamp,
+    designationAttestedAt:
+      roster && ROSTER_INJURY_DESIGNATION[roster.rosterStatus] !== undefined ? roster.sourceTimestamp : null,
     // Whoever actually supplied the status that survived: an nflverse roster row when one
     // exists, otherwise the identity export's own source.
     statusProvider: roster
       ? roster.freshness.provider
       : rec.fieldSources?.status?.provider ?? rec.freshness.provider,
-    designationProvider: rec.fieldSources?.injuryDesignation?.provider ?? rec.freshness.provider,
+    designationProvider:
+      roster && ROSTER_INJURY_DESIGNATION[roster.rosterStatus] !== undefined
+        ? roster.freshness.provider
+        : rec.fieldSources?.injuryDesignation?.provider ?? rec.freshness.provider,
     teamProvider: roster
       ? roster.freshness.provider
       : rec.fieldSources?.team?.provider ?? rec.freshness.provider,
@@ -311,7 +368,7 @@ function buildCanonicalPlayer(
       ? present(
           pit.injuryDesignation,
           toProviderId(pit.designationProvider),
-          rec.fieldSources?.injuryDesignation?.sourceTimestamp ?? ts,
+          pit.designationAttestedAt ?? rec.fieldSources?.injuryDesignation?.sourceTimestamp ?? ts,
         )
       : notProvided(),
     headshot_url: notProvided(),
@@ -367,7 +424,9 @@ export function buildEvidenceFor(
   const pit = resolvePointInTime(playerRec, index, canonicalId, asOf);
   const team = pit.team;
 
-  const allGames = (index.gamesByPlayer.get(canonicalId) ?? EMPTY).filter((g) => g.seasonType === 'REG' && withinAsOf(asOf, g.kickoff));
+  // Eligibility is the instant the game's FINAL box score exists (`availableAt`), not its
+  // kickoff: a board dated during a game must not see that game's final statistics.
+  const allGames = (index.gamesByPlayer.get(canonicalId) ?? EMPTY).filter((g) => g.seasonType === 'REG' && withinAsOf(asOf, availableAtOf(g)));
   // QB reads the full ingested history; every other position stays inside the valuation
   // window. See `EvidenceOptions.valuationSeasons`.
   const valuationSeasons = options.valuationSeasons;
@@ -375,13 +434,24 @@ export function buildEvidenceFor(
     position === 'QB' || !valuationSeasons || valuationSeasons.length === 0
       ? allGames
       : allGames.filter((g) => valuationSeasons.includes(g.season));
-  const myParticipation = (index.participationByPlayer.get(canonicalId) ?? EMPTY).filter((p) => withinAsOf(asOf, p.kickoff));
+  const myParticipation = (index.participationByPlayer.get(canonicalId) ?? EMPTY).filter((p) => withinAsOf(asOf, availableAtOf(p)));
   const myInjury = latest(index.injuriesByPlayer.get(canonicalId) ?? EMPTY, asOf);
   const myTxns = (index.transactionsByPlayer.get(canonicalId) ?? EMPTY).filter((t) => withinAsOf(asOf, t.date));
 
   // --- expected games (schedule + availability) ---
+  // Remaining regular-season games IN THE AS-OF SEASON. Counting every scheduled game after the
+  // as-of spans two seasons at a historical date (and three when a later schedule has been
+  // released), exceeds the QB engine's [0,21] bound, and made the engine reject every
+  // quarterback on any back-dated board (docs/PHASE1_RECOVERY_AUDIT.md, B8).
+  const asOfSeason = nflSeasonOf(asOf);
   const gamesLeft = team
-    ? snapshot.schedule.filter((s) => s.seasonType === 'REG' && (s.homeTeam === team || s.awayTeam === team) && Date.parse(s.kickoff) > Date.parse(asOf)).length
+    ? snapshot.schedule.filter(
+        (s) =>
+          s.seasonType === 'REG' &&
+          s.season === asOfSeason &&
+          (s.homeTeam === team || s.awayTeam === team) &&
+          Date.parse(s.kickoff) > Date.parse(asOf),
+      ).length
     : 0;
   const availState = injuryToState(myInjury, playerRec, pit);
   const availProb = availabilityProbability(availState);
@@ -585,8 +655,14 @@ export function buildEvidenceFor(
   // same field. A column no game supplied is left out entirely rather than summed to zero.
   const facts: Record<string, unknown> = { ...observedCountingFacts(position, myGames) };
   const factTimestamps: Record<string, string> = {};
+  // A counting fact is attested by the newest GAME it sums, not by when the payload was captured.
+  // Stamping it with the capture date marked every career total as post-as-of evidence whenever
+  // a later capture was replayed at an earlier as-of, and the as-of guard then discarded the
+  // whole stat line (docs/PHASE1_RECOVERY_AUDIT.md, B8). The stamp is the instant the newest
+  // game's final box score existed (`availableAt`); every game here is already filtered to
+  // availableAt <= asOf, so this stamp can never exceed the as-of.
   const newestGame = myGames.reduce<string | undefined>(
-    (m, g) => (m === undefined || g.sourceTimestamp > m ? g.sourceTimestamp : m),
+    (m, g) => (m === undefined || availableAtOf(g) > m ? availableAtOf(g) : m),
     undefined,
   );
   if (newestGame !== undefined) {
@@ -659,7 +735,7 @@ function gameRow(g: GameStatRecord) {
 }
 
 function latestParticipation(recs: readonly ParticipationRecord[], asOf: string): ParticipationRecord | null {
-  return latest(recs.filter((p) => withinAsOf(asOf, p.kickoff)), asOf);
+  return latest(recs.filter((p) => withinAsOf(asOf, availableAtOf(p))), asOf);
 }
 
 function negativeTxn(txns: readonly TransactionRecord[], asOf: string): 'BENCH_OR_TRADE_BLOCK_OR_WAIVED' | 'IR_CHURN' | 'NONE' {

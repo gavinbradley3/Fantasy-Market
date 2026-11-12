@@ -164,7 +164,9 @@ describe('GET /history/:runId', () => {
     const body = ok.body as { runId: string; sources: unknown[] };
     expect(body.runId).toBe('run-1');
     expect(body.sources).toHaveLength(1);
+    expect(body.sources[0]).toMatchObject({ season: null });
     expect(JSON.stringify(body)).not.toContain('payloadChecksum'); // projected, not raw
+    expect(JSON.stringify(body)).not.toContain('requestKey');
     expect((await get('/history/nope')).status).toBe(404);
   });
 });

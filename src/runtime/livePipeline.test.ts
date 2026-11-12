@@ -35,6 +35,8 @@ function harness(options: { calls?: string[]; payloadStore?: MemoryPayloadStore;
     asOf: () => AS_OF,
     clock: CLOCK,
     replayOnly: options.replayOnly ?? false,
+    // Fixture boards hold a handful of players; production floors are tested separately.
+    publicationFloors: null,
     client: new HttpClient({
       fetchFn: options.replayOnly
         ? () => { throw new Error('network must not be used in replay mode'); }

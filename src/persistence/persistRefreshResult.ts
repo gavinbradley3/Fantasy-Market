@@ -11,7 +11,7 @@
 
 import { randomUUID } from 'node:crypto';
 import { buildNormalizedInferenceInput, type BuildInputOptions, type IngestionProvider } from '@/ingestion';
-import type { RefreshResult } from '@/transport';
+import { isRequiredSource, type OptionalSource, type RefreshResult } from '@/transport';
 import { PersistenceError } from './errors';
 import { PersistenceStore } from './store';
 import { SCHEMA_VERSIONS, type RefreshMode, type RefreshRunStatus, type SourceOutcomeMode } from './types';
@@ -22,6 +22,8 @@ export interface PersistRefreshParams {
   readonly inferenceBuilds?: readonly BuildInputOptions[];
   /** Providers treated as required (marks source outcomes; affects nothing else). */
   readonly requiredProviders?: readonly IngestionProvider[];
+  /** Coordinates of a required provider that are nonetheless optional (see RefreshPolicy). */
+  readonly optionalSources?: readonly OptionalSource[];
   /** Caller-supplied id makes retry idempotent; omitted → a fresh event id is generated. */
   readonly runId?: string;
   readonly startedAt: string;
@@ -58,9 +60,33 @@ function deriveMode(result: RefreshResult): RefreshMode {
 export function persistRefreshResult(store: PersistenceStore, params: PersistRefreshParams): PersistRefreshOutcome {
   const { result } = params;
   const runId = params.runId ?? `run-${randomUUID()}`;
-  const requiredSet = new Set<IngestionProvider>(params.requiredProviders ?? []);
+  const policy = { requiredProviders: params.requiredProviders ?? [], optionalSources: params.optionalSources ?? [] };
   const snapshotId = result.snapshot?.snapshotId ?? null;
   const nowMode = deriveMode(result);
+
+  // Persistence receives the exact builds selected by refresh. Require a one-for-one,
+  // successful result for every coordinate and reject extra/unaccounted outcomes. This
+  // independently catches a missing outcome even if a malformed caller left refresh status
+  // as success. A successful INSUFFICIENT result has `ok: true` plus a result and therefore
+  // remains a legitimate (unvalued) board entry.
+  const selected = params.inferenceBuilds ?? [];
+  const coordinate = (x: { canonicalId: string; position: string }) => `${x.canonicalId}\u0000${x.position}`;
+  const selectedCoordinates = new Set(selected.map(coordinate));
+  const successfulCoordinates = new Set(
+    result.inference
+      .filter((outcome) => outcome.ok && outcome.result != null)
+      .map(coordinate),
+  );
+  // Historical callers may persist source-only failed/partial attempts without supplying
+  // builds. There is no selected inference set to validate in that mode; the existing
+  // zero-association rules continue to govern it.
+  const inferenceComplete = params.inferenceBuilds === undefined || (
+    selected.length === selectedCoordinates.size &&
+    result.inference.length === selected.length &&
+    successfulCoordinates.size === selected.length &&
+    selected.every((build) => successfulCoordinates.has(coordinate(build)))
+  );
+  const persistedStatus: RefreshRunStatus = inferenceComplete ? result.status : 'failure';
 
   const persistedInference: PersistedInferenceRef[] = [];
 
@@ -80,7 +106,7 @@ export function persistRefreshResult(store: PersistenceStore, params: PersistRef
       startedAt: params.startedAt,
       completedAt: params.completedAt,
       mode: nowMode,
-      status: result.status,
+      status: persistedStatus,
       requiredFailure: result.summary.requiredFailures.length > 0,
       sourceCount: result.summary.total,
       successCount: result.summary.successes,
@@ -98,7 +124,7 @@ export function persistRefreshResult(store: PersistenceStore, params: PersistRef
         provider: s.provider,
         capability: s.capability,
         requestKey: s.requestKey,
-        required: requiredSet.has(s.provider),
+        required: isRequiredSource(policy, s),
         mode: s.outcome as SourceOutcomeMode,
         status: s.outcome === 'failed' ? 'failure' : 'success',
         payloadChecksum: s.payloadChecksum ?? null,
@@ -155,19 +181,19 @@ export function persistRefreshResult(store: PersistenceStore, params: PersistRef
     // association (otherwise there is no board to publish). Enforced here, inside the
     // transaction, so an empty successful run is rejected AND fully rolled back. Failed and
     // partial runs may legitimately have zero associations.
-    if (result.status === 'success' && persistedInference.length === 0) {
+    if (persistedStatus === 'success' && persistedInference.length === 0) {
       throw new PersistenceError('INVALID_ARTIFACT_SET', 'a successful run must persist at least one inference association', { stage: 'association-write', detail: runId });
     }
   });
 
   return {
     runId,
-    status: result.status,
+    status: persistedStatus,
     snapshotId,
     // Publishable when no REQUIRED provider failed and there is a board to publish. NOT
     // `status === 'success'`: that goes to 'partial' when any OPTIONAL source fails, which let
     // one unreachable enrichment provider suppress a complete board (see `publishBoard`).
-    publishable: result.summary.requiredFailures.length === 0 && persistedInference.length > 0,
+    publishable: persistedStatus !== 'failure' && result.summary.requiredFailures.length === 0 && persistedInference.length > 0,
     inference: persistedInference,
   };
 }

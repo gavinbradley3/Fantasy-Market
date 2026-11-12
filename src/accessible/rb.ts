@@ -188,7 +188,7 @@ const TD_PSEUDO_GAMES = 22;
  * column sums to 1.0 over the components it uses; a component that is null is dropped and
  * the remaining weights renormalize (see `weightedMean`).
  */
-const RB_HORIZON_WEIGHTS = {
+export const RB_HORIZON_WEIGHTS = {
   weekly: { RV: 0.26, RCV: 0.14, EFF: 0.08, SC: 0.1, RS: 0.16, TR: 0.03, AG: 0.03, AV: 0.16, DUR: 0.04 },
   ros: { RV: 0.24, RCV: 0.15, EFF: 0.09, SC: 0.09, RS: 0.15, TR: 0.05, AG: 0.06, AV: 0.11, DUR: 0.06 },
   oneYear: { RV: 0.21, RCV: 0.16, EFF: 0.09, SC: 0.08, RS: 0.15, TR: 0.07, AG: 0.14, AV: 0.04, DUR: 0.06 },

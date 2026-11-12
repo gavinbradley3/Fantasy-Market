@@ -39,15 +39,17 @@
  * --verify-replay detects any divergence.
  */
 
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, rmSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { composeApi } from '@/api';
 import { FilePayloadStore } from '@/transport/fileStore';
 import { createLivePipeline } from '@/runtime';
-import type { PersistenceStore } from '@/persistence';
+import { PRODUCTION_PUBLICATION_FLOORS, type PersistenceStore, type PublicationFloors } from '@/persistence';
 import type { TransportConfigDescriptor } from '@/application';
 import { describeSeasonSelection, isPlausibleSeason, resolveSeasons, type SeasonSource } from '@/ingestion/season';
 import { checkHeap } from '@/ops/heapGuard';
+import { reportSourceFailures } from '@/ops/sourceFailureDiagnostics';
 
 const DEFAULT_DB = '.local/playerticker.db';
 const DEFAULT_CAPTURES = '.local/captures';
@@ -163,7 +165,11 @@ function resources(startedAtMs: number): { durationSeconds: number; peakRssMb: n
   };
 }
 
-async function runOnce(args: ResolvedArgs, mode: 'live' | 'replay'): Promise<RunSummary> {
+async function runOnce(
+  args: ResolvedArgs,
+  mode: 'live' | 'replay',
+  floors: PublicationFloors | null = PRODUCTION_PUBLICATION_FLOORS,
+): Promise<RunSummary> {
   const startedAtMs = Date.now();
   mkdirSync(dirname(resolve(args.db)), { recursive: true });
   mkdirSync(resolve(args.captures), { recursive: true });
@@ -181,14 +187,28 @@ async function runOnce(args: ResolvedArgs, mode: 'live' | 'replay'): Promise<Run
       asOf: () => args.asOf,
       includeSleeper: args.sleeper,
       replayOnly: mode === 'replay',
+      publicationFloors: floors,
     }),
   });
   store = composed.store;
 
   try {
     const ack = await composed.api.handle({ method: 'POST', path: '/refresh', query: {} });
-    const body = ack.body as { published?: boolean; publicationId?: string | null; failure?: unknown };
-    if (body.failure) console.error('[ingest] refresh failure:', JSON.stringify(body.failure));
+    const body = ack.body as { runId?: unknown; published?: boolean; publicationId?: string | null; reason?: unknown };
+    // A required-source failure can be a normal partial/nonpublishable result rather than a
+    // thrown scheduler failure. Read the exact persisted run so that evidence is not lost with
+    // the ephemeral production database. The reporter is bounded and never changes the result.
+    await reportSourceFailures(composed.api, body.runId);
+
+    // A refused publication is never silent: name the reason, and for a floor refusal name
+    // every position that fell short.
+    if (!body.published) {
+      console.error(`[ingest] not published: reason=${typeof body.reason === 'string' ? body.reason : 'unknown'}`);
+      if (floors && typeof body.runId === 'string') {
+        const report = store.publicationFloorReport(body.runId, floors);
+        for (const v of report?.violations ?? []) console.error(`[ingest] publication floor not met: ${v.reason}`);
+      }
+    }
 
     const res = await composed.api.handle({ method: 'GET', path: '/publication', query: {} });
     if (res.status !== 200) {
@@ -257,8 +277,18 @@ function render(summary: RunSummary): string {
   return lines.join('\n');
 }
 
-async function main(): Promise<number> {
-  const parsed = parseArgs(process.argv.slice(2));
+interface MainOptions {
+  /** Test seam only: production uses the real preflight guard. */
+  readonly heapCheck?: typeof checkHeap;
+  /**
+   * Test seam only: fixture-scale boards hold a handful of players and cannot meet production
+   * floors. Production always uses PRODUCTION_PUBLICATION_FLOORS.
+   */
+  readonly publicationFloors?: PublicationFloors | null;
+}
+
+export async function main(argv: string[] = process.argv.slice(2), options: MainOptions = {}): Promise<number> {
+  const parsed = parseArgs(argv);
 
   // Resolve the season list ONCE, here, and say out loud where it came from. An unsupplied
   // list is derived from the clock, so a checkout that sits unused cannot keep ingesting the
@@ -272,7 +302,7 @@ async function main(): Promise<number> {
   // Checked BEFORE any provider is contacted. Without this the process spends two minutes
   // fetching and parsing every payload and is then killed mid-computation, which reads like a
   // provider or pipeline fault and is neither.
-  const heap = checkHeap({
+  const heap = (options.heapCheck ?? checkHeap)({
     seasonCount: args.seasons.length,
     careerSeasonCount: args.careerSeasons?.length ?? 0,
   });
@@ -282,19 +312,30 @@ async function main(): Promise<number> {
   }
   if (!args.json) console.log(`[ingest] ${heap.message}`);
 
-  const first = await runOnce(args, args.mode);
+  const floors = options.publicationFloors === undefined ? PRODUCTION_PUBLICATION_FLOORS : options.publicationFloors;
+  const first = await runOnce(args, args.mode, floors);
   console.log(args.json ? JSON.stringify(first, null, 2) : render(first));
 
   if (args.verifyReplay) {
     // Re-run from the captures with the network unused. The board must match exactly; any
     // divergence means a run is not reproducible from what was recorded.
-    const replayed = await runOnce(args, 'replay');
+    // The replay runs into its OWN fresh database. Replaying into the live run's database read
+    // the live run's publication back whenever the replay itself failed to publish, so a replay
+    // that published nothing could still report MATCH.
+    const replayDb = `${resolve(args.db)}.replay-verify`;
+    for (const suffix of ['', '-wal', '-shm']) rmSync(`${replayDb}${suffix}`, { force: true });
+    const replayed = await runOnce({ ...args, db: replayDb }, 'replay', floors);
+    // The publication id IS the board checksum (board-<checksum> over every entry's input and
+    // output checksum), so equality here means every valuation is byte-identical — not merely
+    // the same counts. publishedAt is metadata and deliberately not compared.
     const same =
+      replayed.published &&
       replayed.snapshotId === first.snapshotId &&
+      replayed.publicationId === first.publicationId &&
       replayed.entryCount === first.entryCount &&
       replayed.valued === first.valued;
     console.log('');
-    console.log(`replay verify  snapshot ${replayed.snapshotId} entries ${replayed.entryCount} valued ${replayed.valued}`);
+    console.log(`replay verify  snapshot ${replayed.snapshotId} board ${replayed.publicationId} entries ${replayed.entryCount} valued ${replayed.valued}`);
     console.log(`replay verify  ${same ? 'MATCH' : 'DIVERGED'}`);
     if (!same) return 1;
   }
@@ -302,9 +343,11 @@ async function main(): Promise<number> {
   return first.published && first.entryCount > 0 ? 0 : 1;
 }
 
-main()
-  .then((code) => process.exit(code))
-  .catch((err) => {
-    console.error(err instanceof Error ? (err.stack ?? err.message) : String(err));
-    process.exit(1);
-  });
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main()
+    .then((code) => process.exit(code))
+    .catch((err) => {
+      console.error(err instanceof Error ? (err.stack ?? err.message) : String(err));
+      process.exit(1);
+    });
+}
