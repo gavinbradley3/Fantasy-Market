@@ -84,6 +84,18 @@
    "release": "injuries",
    "releaseLastUpdated": "2026-11-12 10:56:20 EST",
    "sha256": "89785d46c2b4a86108d5fd31d4353fa9d663116044fc9b63cdea8d1758dfb500"
+  },
+  "team2025": {
+   "file": ".local/trends-data/stats_team_week_2025.csv",
+   "release": "stats_team",
+   "releaseLastUpdated": "2026-11-12 12:37:14 EST",
+   "sha256": "91058a59d894855377b2f39f40c4e7bdbeef96d12144289dc68215209a1c93cb"
+  },
+  "team2026": {
+   "file": ".local/trends-data/stats_team_week_2026.csv",
+   "release": "stats_team",
+   "releaseLastUpdated": "2026-11-12 12:37:14 EST",
+   "sha256": "b87aa50dd275feda741c267004f9d28e6975768637288d3740ef96772d888527"
   }
  },
  "players": [
