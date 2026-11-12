@@ -5,8 +5,15 @@ export interface ExperimentConfig {
   readonly description: string;
   /** Directory holding the nflverse files the harness reads (see scripts/backtest/fetch-data.ts). */
   readonly dataDir: string;
-  /** Shared capture store for the PlayerTicker pipeline runs. */
+  /** Capture store for the PlayerTicker pipeline runs. */
   readonly capturesDir: string;
+  /**
+   * Give each decision date its own empty capture store (capturesDir/<id>). Required for a valid
+   * replay: on a 304 the transport reuses a cached envelope verbatim, including the effective
+   * date of whichever run first fetched it, and the pipeline derives age and seasons completed
+   * from that date (phase2-baseline-v1 replayed every date with October 2019 ages).
+   */
+  readonly isolateCaptures?: boolean;
   /** Scratch directory for pipeline databases; not archived. */
   readonly workDir: string;
   readonly decisions: readonly { readonly season: number; readonly checkpoint: string }[];

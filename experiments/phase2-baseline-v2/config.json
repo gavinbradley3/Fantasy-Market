@@ -1,0 +1,130 @@
+{
+  "name": "phase2-baseline-v2",
+  "description": "As phase2-baseline-v1 (same decisions, periods, baselines, seeds) but each decision date replays from its own empty capture store, so every payload carries that date as its effective date. v1 is invalid for PlayerTicker: it replayed every date with October 2019 ages.",
+  "dataDir": ".local/validation-data",
+  "capturesDir": ".local/validation-captures-v2",
+  "workDir": ".local/validation-work-v2",
+  "decisions": [
+    {
+      "season": 2019,
+      "checkpoint": "OFFSEASON"
+    },
+    {
+      "season": 2019,
+      "checkpoint": "W4"
+    },
+    {
+      "season": 2019,
+      "checkpoint": "W8"
+    },
+    {
+      "season": 2019,
+      "checkpoint": "W12"
+    },
+    {
+      "season": 2020,
+      "checkpoint": "OFFSEASON"
+    },
+    {
+      "season": 2020,
+      "checkpoint": "W4"
+    },
+    {
+      "season": 2020,
+      "checkpoint": "W8"
+    },
+    {
+      "season": 2020,
+      "checkpoint": "W12"
+    },
+    {
+      "season": 2021,
+      "checkpoint": "OFFSEASON"
+    },
+    {
+      "season": 2021,
+      "checkpoint": "W4"
+    },
+    {
+      "season": 2021,
+      "checkpoint": "W8"
+    },
+    {
+      "season": 2021,
+      "checkpoint": "W12"
+    },
+    {
+      "season": 2022,
+      "checkpoint": "OFFSEASON"
+    },
+    {
+      "season": 2022,
+      "checkpoint": "W4"
+    },
+    {
+      "season": 2022,
+      "checkpoint": "W8"
+    },
+    {
+      "season": 2022,
+      "checkpoint": "W12"
+    },
+    {
+      "season": 2023,
+      "checkpoint": "OFFSEASON"
+    },
+    {
+      "season": 2023,
+      "checkpoint": "W4"
+    },
+    {
+      "season": 2023,
+      "checkpoint": "W8"
+    },
+    {
+      "season": 2023,
+      "checkpoint": "W12"
+    },
+    {
+      "season": 2024,
+      "checkpoint": "OFFSEASON"
+    },
+    {
+      "season": 2024,
+      "checkpoint": "W4"
+    },
+    {
+      "season": 2024,
+      "checkpoint": "W8"
+    },
+    {
+      "season": 2024,
+      "checkpoint": "W12"
+    },
+    {
+      "season": 2025,
+      "checkpoint": "OFFSEASON"
+    }
+  ],
+  "periods": {
+    "development": [
+      2019,
+      2020,
+      2021
+    ],
+    "validation": [
+      2022,
+      2023
+    ],
+    "test": [
+      2024,
+      2025
+    ]
+  },
+  "leagueSchemaId": "dynasty-superflex-12",
+  "bootstrap": {
+    "reps": 1000,
+    "seed": 20261112
+  },
+  "isolateCaptures": true
+}

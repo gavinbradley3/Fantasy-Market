@@ -54,9 +54,14 @@ function main(): number {
     rmSync(dir, { recursive: true, force: true });
     mkdirSync(dir, { recursive: true });
     const db = join(dir, 'pt.db');
+    const captures = config.isolateCaptures ? join(resolve(config.capturesDir), date.id) : resolve(config.capturesDir);
+    if (config.isolateCaptures) {
+      rmSync(captures, { recursive: true, force: true });
+      mkdirSync(captures, { recursive: true });
+    }
     const t0 = Date.now();
     const ingestArgs = ['run', '-s', 'ingest', '--', '--as-of', date.asOf, '--seasons', seasons.join(','), '--career-seasons', careerSeasons.join(','),
-      '--db', db, '--captures', resolve(config.capturesDir), '--no-sleeper'];
+      '--db', db, '--captures', captures, '--no-sleeper'];
     try {
       run('npm', ingestArgs, join(dir, 'ingest.log'));
     } catch (err) {
@@ -66,6 +71,10 @@ function main(): number {
       Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 90_000);
       rmSync(dir, { recursive: true, force: true });
       mkdirSync(dir, { recursive: true });
+      if (config.isolateCaptures) {
+        rmSync(captures, { recursive: true, force: true });
+        mkdirSync(captures, { recursive: true });
+      }
       run('npm', ingestArgs, join(dir, 'ingest.log'));
     }
     run('npm', ['run', '-s', 'export:site-data', '--', '--db', db, '--out', join(dir, 'export')], join(dir, 'export.log'));
@@ -76,6 +85,12 @@ function main(): number {
     for (const r of sqlite.prepare('SELECT serialized FROM normalized_input_artifact').all() as { serialized: string }[]) {
       const input = JSON.parse(r.serialized);
       gsisOf.set(String(input.player.identity.canonical_id), input.player.identity.provider_ids?.gsis ?? null);
+    }
+    // Every payload must be dated at this decision instant. A payload carrying another run's
+    // effective date would give the pipeline that run's ages and experience.
+    const staleDates = (sqlite.prepare('SELECT request_key, effective_date FROM raw_payload_artifact WHERE effective_date <> ?').all(date.asOf) as { request_key: string; effective_date: string }[]);
+    if (config.isolateCaptures && staleDates.length > 0) {
+      throw new Error(`${date.id}: ${staleDates.length} payload(s) carry another effective date, e.g. ${staleDates[0].request_key}=${staleDates[0].effective_date}`);
     }
     const captureChecksums = (sqlite.prepare('SELECT payload_checksum, request_key FROM raw_payload_artifact ORDER BY request_key').all() as { payload_checksum: string; request_key: string }[])
       .map((r) => `${r.request_key}=${r.payload_checksum}`);
@@ -94,6 +109,7 @@ function main(): number {
       manifest: {
         id: date.id, asOf: date.asOf, codeSha, seasons, careerSeasons,
         publicationId: board.publication.publicationId, valuationChecksum: valuationChecksum(board.entries),
+        payloadsWithOtherEffectiveDate: staleDates.length,
         captureChecksums, durationSeconds: Math.round((Date.now() - t0) / 1000),
       },
       players,
