@@ -15,6 +15,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -67,7 +68,8 @@ function main(): number {
     } catch (err) {
       // nflverse replaces a release asset by delete-then-upload, so a request inside that
       // window gets a 404. One retry after a pause; a second failure stops the batch.
-      console.log(`${date.id}: ingest failed (${String((err as Error).message).split('\n')[1] ?? 'see log'}); retrying once in 90s`);
+      const why = String((err as { stderr?: string }).stderr ?? (err as Error).message).split('\n').find((l) => /failure|Error:/.test(l)) ?? 'see log';
+      console.log(`${date.id}: ingest failed (${why.trim()}); retrying once in 90s`);
       Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 90_000);
       rmSync(dir, { recursive: true, force: true });
       mkdirSync(dir, { recursive: true });
@@ -110,6 +112,10 @@ function main(): number {
         id: date.id, asOf: date.asOf, codeSha, seasons, careerSeasons,
         publicationId: board.publication.publicationId, valuationChecksum: valuationChecksum(board.entries),
         payloadsWithOtherEffectiveDate: staleDates.length,
+        // Hash of the prediction rows only (values, ranks, tiers). Unlike valuationChecksum it
+        // ignores input-provenance hashes, which change whenever nflverse republishes a file
+        // even when no valuation moves; it is the replay-determinism check.
+        predictionChecksum: createHash('sha256').update(JSON.stringify([...players].sort((a, b) => String(a.gsis).localeCompare(String(b.gsis))))).digest('hex'),
         captureChecksums, durationSeconds: Math.round((Date.now() - t0) / 1000),
       },
       players,
