@@ -35,7 +35,9 @@
     "explain:players": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/explain-players.ts",
     "backtest:fetch": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/backtest/fetch-data.ts",
     "backtest:predict": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/backtest/predict-playerticker.ts",
-    "backtest:evaluate": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/backtest/evaluate.ts"
+    "backtest:evaluate": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/backtest/evaluate.ts",
+    "backtest:archive": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/backtest/archive-snapshot.ts",
+    "trends:rb": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/trends/rb-trends.ts"
   },
   "dependencies": {
     "react": "^18.3.1",

@@ -1,0 +1,1065 @@
+{
+ "generatedFrom": "local files listed in sources; rerun reproduces this output from the same bytes",
+ "decisionInstants": {
+  "earlier": "2026-10-13T12:15:00.000Z",
+  "later": "2026-11-10T13:15:00.000Z",
+  "lastFinalKickoffUsed": "2026-11-10T01:15:00.000Z"
+ },
+ "windows": [
+  {
+   "label": "2025 season",
+   "season": 2025,
+   "from": 1,
+   "to": 18
+  },
+  {
+   "label": "2026 Weeks 1–5",
+   "season": 2026,
+   "from": 1,
+   "to": 5
+  },
+  {
+   "label": "2026 Weeks 6–9",
+   "season": 2026,
+   "from": 6,
+   "to": 9
+  }
+ ],
+ "model": {
+  "id": "F_two_part",
+  "status": "research challenger; not a published PlayerTicker valuation",
+  "fittedThrough": 2025,
+  "replacementRank": 35,
+  "replacement": {
+   "earlier": [
+    71.3,
+    47.1
+   ],
+   "later": [
+    70,
+    48.9
+   ]
+  },
+  "validationMaeSeasonPoints": 31.8
+ },
+ "sources": {
+  "stats2025": {
+   "file": ".local/validation-data/stats_player_week_2025.csv",
+   "release": "stats_player",
+   "releaseLastUpdated": "2026-11-12 12:36:57 EST",
+   "sha256": "e5e0615b3d96a3eaebfaee91e55afb4a4e7fe0caf057454177bcd7d6ad4bcfc2"
+  },
+  "stats2026": {
+   "file": ".local/validation-data/stats_player_week_2026.csv",
+   "release": "stats_player",
+   "releaseLastUpdated": "2026-11-12 12:36:57 EST",
+   "sha256": "164bbcb46f4bf93c06a17c0f2497a06c17bbaf543d1e352ee6b85410febf884a"
+  },
+  "games": {
+   "file": ".local/validation-data/games.csv",
+   "release": "schedules",
+   "releaseLastUpdated": "2026-11-12 15:46:43 EST",
+   "sha256": "7b6db9362136b0846e4e55730cdb5ec7fcab107b7c55b6fa2f6802d555fceb9e"
+  },
+  "players": {
+   "file": ".local/validation-data/players.csv",
+   "release": "players",
+   "releaseLastUpdated": "2026-11-12 11:32:03 EST",
+   "sha256": "f90a9d0009b8e5d50353b0013971b466534b25cc2f98b7ad14d39361356975d7"
+  },
+  "snaps2025": {
+   "file": ".local/trends-data/snap_counts_2025.csv",
+   "release": "snap_counts",
+   "releaseLastUpdated": "2026-11-10 07:27:35 EST",
+   "sha256": "3fc2deb0e9ad86d34d4578cb80bb21c95253e088ee22ca028adf46f7485eff1f"
+  },
+  "snaps2026": {
+   "file": ".local/trends-data/snap_counts_2026.csv",
+   "release": "snap_counts",
+   "releaseLastUpdated": "2026-11-10 07:27:35 EST",
+   "sha256": "354729bdea65e782b8e559354dcdcc55d4ece586dfbcd00adf263523092b12b7"
+  },
+  "injuries2026": {
+   "file": ".local/trends-data/injuries_2026.csv",
+   "release": "injuries",
+   "releaseLastUpdated": "2026-11-12 10:56:20 EST",
+   "sha256": "89785d46c2b4a86108d5fd31d4353fa9d663116044fc9b63cdea8d1758dfb500"
+  }
+ },
+ "players": [
+  {
+   "gsis": "00-0040122",
+   "name": "Ashton Jeanty",
+   "team": "LV",
+   "selectedBy": "Highest F two-season value at the later date",
+   "injury": null,
+   "ledger1": [
+    {
+     "window": "2025 season",
+     "gamesPlayed": 17,
+     "teamGames": 17,
+     "gamesShare": 1,
+     "missedGames": [],
+     "teams": [
+      "LV"
+     ],
+     "snapShare": 0.7788235294117648,
+     "snapRowsMissing": 0,
+     "carriesPerGame": 15.647058823529411,
+     "targetsPerGame": 4.294117647058823,
+     "opportunitiesPerGame": 19.941176470588236,
+     "carryShare": 0.7208672086720868,
+     "targetShare": 0.14777327935222673,
+     "yardsPerCarry": 3.6654135338345863,
+     "pprPerGamePlayed": 14.535294117647062,
+     "pprTotal": 247.10000000000005
+    },
+    {
+     "window": "2026 Weeks 1–5",
+     "gamesPlayed": 5,
+     "teamGames": 5,
+     "gamesShare": 1,
+     "missedGames": [],
+     "teams": [
+      "LV"
+     ],
+     "snapShare": 0.718,
+     "snapRowsMissing": 0,
+     "carriesPerGame": 17.6,
+     "targetsPerGame": 6,
+     "opportunitiesPerGame": 23.6,
+     "carryShare": 0.6423357664233577,
+     "targetShare": 0.1744186046511628,
+     "yardsPerCarry": 3.3068181818181817,
+     "pprPerGamePlayed": 16.92,
+     "pprTotal": 84.60000000000001
+    },
+    {
+     "window": "2026 Weeks 6–9",
+     "gamesPlayed": 4,
+     "teamGames": 4,
+     "gamesShare": 1,
+     "missedGames": [],
+     "teams": [
+      "LV"
+     ],
+     "snapShare": 0.585,
+     "snapRowsMissing": 0,
+     "carriesPerGame": 6.5,
+     "targetsPerGame": 6.25,
+     "opportunitiesPerGame": 12.75,
+     "carryShare": 0.3058823529411765,
+     "targetShare": 0.17985611510791366,
+     "yardsPerCarry": 2.730769230769231,
+     "pprPerGamePlayed": 13.675,
+     "pprTotal": 54.7
+    }
+   ],
+   "ledger2": {
+    "inputs": {
+     "earlier": {
+      "gamesShare": 1,
+      "pointsPerGamePlayed": 15.4
+     },
+     "later": {
+      "gamesShare": 1,
+      "pointsPerGamePlayed": 15
+     },
+     "newGamesInRecentWindow": 4,
+     "newGamesPointsPerGame": 13.7,
+     "age": 22.7
+    },
+    "projection": {
+     "nextSeason": {
+      "earlier": 247.4,
+      "later": 241.6,
+      "change": -5.7,
+      "fromPointsPerGamePlayed": -5.7,
+      "fromGamesShare": 0
+     },
+     "twoSeason": {
+      "earlier": 429.2,
+      "later": 419.6,
+      "change": -9.6,
+      "fromPointsPerGamePlayed": -9.6,
+      "fromGamesShare": 0
+     }
+    },
+    "value": {
+     "earlier": 310.9,
+     "later": 300.7,
+     "change": -10.1,
+     "fromOwnProjection": -9.6,
+     "fromReplacementLevel": -0.5
+    },
+    "rank": {
+     "earlier": 1,
+     "later": 1
+    }
+   },
+   "missing": []
+  },
+  {
+   "gsis": "00-0039139",
+   "name": "Jahmyr Gibbs",
+   "team": "DET",
+   "selectedBy": "Highest F two-season value at the later date",
+   "injury": null,
+   "ledger1": [
+    {
+     "window": "2025 season",
+     "gamesPlayed": 17,
+     "teamGames": 17,
+     "gamesShare": 1,
+     "missedGames": [],
+     "teams": [
+      "DET"
+     ],
+     "snapShare": 0.67,
+     "snapRowsMissing": 0,
+     "carriesPerGame": 14.294117647058824,
+     "targetsPerGame": 5.529411764705882,
+     "opportunitiesPerGame": 19.823529411764707,
+     "carryShare": 0.5497737556561086,
+     "targetShare": 0.1709090909090909,
+     "yardsPerCarry": 5.032921810699588,
+     "pprPerGamePlayed": 21.700000000000003,
+     "pprTotal": 368.90000000000003
+    },
+    {
+     "window": "2026 Weeks 1–5",
+     "gamesPlayed": 5,
+     "teamGames": 5,
+     "gamesShare": 1,
+     "missedGames": [],
+     "teams": [
+      "DET"
+     ],
+     "snapShare": 0.766,
+     "snapRowsMissing": 0,
+     "carriesPerGame": 21,
+     "targetsPerGame": 6.8,
+     "opportunitiesPerGame": 27.8,
+     "carryShare": 0.8076923076923077,
+     "targetShare": 0.18085106382978725,
+     "yardsPerCarry": 4.8,
+     "pprPerGamePlayed": 31.140000000000004,
+     "pprTotal": 155.70000000000002
+    },
+    {
+     "window": "2026 Weeks 6–9",
+     "gamesPlayed": 3,
+     "teamGames": 3,
+     "gamesShare": 1,
+     "missedGames": [],
+     "teams": [
+      "DET"
+     ],
+     "snapShare": 0.7800000000000001,
+     "snapRowsMissing": 0,
+     "carriesPerGame": 24,
+     "targetsPerGame": 3.6666666666666665,
+     "opportunitiesPerGame": 27.666666666666668,
+     "carryShare": 0.72,
+     "targetShare": 0.13580246913580246,
+     "yardsPerCarry": 4.763888888888889,
+     "pprPerGamePlayed": 19.166666666666668,
+     "pprTotal": 57.5
+    }
+   ],
+   "ledger2": {
+    "inputs": {
+     "earlier": {
+      "gamesShare": 0.987,
+      "pointsPerGamePlayed": 23.5
+     },
+     "later": {
+      "gamesShare": 0.989,
+      "pointsPerGamePlayed": 23
+     },
+     "newGamesInRecentWindow": 3,
+     "newGamesPointsPerGame": 19.2,
+     "age": 24.5
+    },
+    "projection": {
+     "nextSeason": {
+      "earlier": 239.6,
+      "later": 234.5,
+      "change": -5.1,
+      "fromPointsPerGamePlayed": -5.5,
+      "fromGamesShare": 0.4
+     },
+     "twoSeason": {
+      "earlier": 414.9,
+      "later": 406.4,
+      "change": -8.6,
+      "fromPointsPerGamePlayed": -9.3,
+      "fromGamesShare": 0.7
+     }
+    },
+    "value": {
+     "earlier": 296.6,
+     "later": 287.5,
+     "change": -9.1,
+     "fromOwnProjection": -8.6,
+     "fromReplacementLevel": -0.5
+    },
+    "rank": {
+     "earlier": 2,
+     "later": 2
+    }
+   },
+   "missing": []
+  },
+  {
+   "gsis": "00-0041496",
+   "name": "Jonah Coleman",
+   "team": "DEN",
+   "selectedBy": "Largest rise in F next-season projection (top-48 RB at either date)",
+   "injury": null,
+   "ledger1": [
+    {
+     "window": "2025 season",
+     "gamesPlayed": 0,
+     "teamGames": 0,
+     "gamesShare": null,
+     "missedGames": [],
+     "teams": [],
+     "snapShare": null,
+     "snapRowsMissing": 0,
+     "carriesPerGame": null,
+     "targetsPerGame": null,
+     "opportunitiesPerGame": null,
+     "carryShare": null,
+     "targetShare": null,
+     "yardsPerCarry": null,
+     "pprPerGamePlayed": null,
+     "pprTotal": 0
+    },
+    {
+     "window": "2026 Weeks 1–5",
+     "gamesPlayed": 2,
+     "teamGames": 5,
+     "gamesShare": 0.4,
+     "missedGames": [
+      {
+       "week": 3,
+       "injuryReport": "Out (Ankle)"
+      },
+      {
+       "week": 4,
+       "injuryReport": "no injury-report entry"
+      },
+      {
+       "week": 5,
+       "injuryReport": "no injury-report entry"
+      }
+     ],
+     "teams": [
+      "DEN"
+     ],
+     "snapShare": 0.23,
+     "snapRowsMissing": 0,
+     "carriesPerGame": 5,
+     "targetsPerGame": 1.5,
+     "opportunitiesPerGame": 6.5,
+     "carryShare": 0.23255813953488372,
+     "targetShare": 0.05357142857142857,
+     "yardsPerCarry": 3.9,
+     "pprPerGamePlayed": 7.4,
+     "pprTotal": 14.8
+    },
+    {
+     "window": "2026 Weeks 6–9",
+     "gamesPlayed": 3,
+     "teamGames": 4,
+     "gamesShare": 0.75,
+     "missedGames": [
+      {
+       "week": 6,
+       "injuryReport": "no injury-report entry"
+      }
+     ],
+     "teams": [
+      "DEN"
+     ],
+     "snapShare": 0.64,
+     "snapRowsMissing": 0,
+     "carriesPerGame": 12.333333333333334,
+     "targetsPerGame": 3.6666666666666665,
+     "opportunitiesPerGame": 16,
+     "carryShare": 0.4868421052631579,
+     "targetShare": 0.125,
+     "yardsPerCarry": 4.108108108108108,
+     "pprPerGamePlayed": 16.033333333333335,
+     "pprTotal": 48.10000000000001
+    }
+   ],
+   "ledger2": {
+    "inputs": {
+     "earlier": {
+      "gamesShare": 0.4,
+      "pointsPerGamePlayed": 7.4
+     },
+     "later": {
+      "gamesShare": 0.556,
+      "pointsPerGamePlayed": 12.6
+     },
+     "newGamesInRecentWindow": 3,
+     "newGamesPointsPerGame": 16,
+     "age": 23
+    },
+    "projection": {
+     "nextSeason": {
+      "earlier": 40.4,
+      "later": 91.7,
+      "change": 51.2,
+      "fromPointsPerGamePlayed": 28.1,
+      "fromGamesShare": 23.2
+     },
+     "twoSeason": {
+      "earlier": 74,
+      "later": 162.9,
+      "change": 88.9,
+      "fromPointsPerGamePlayed": 47.7,
+      "fromGamesShare": 41.2
+     }
+    },
+    "value": {
+     "earlier": 0,
+     "later": 44,
+     "change": 44,
+     "fromOwnProjection": 44.6,
+     "fromReplacementLevel": -0.5
+    },
+    "rank": {
+     "earlier": 67,
+     "later": 24
+    }
+   },
+   "missing": [
+    "No 2025 NFL games: F rests on 2026 games only."
+   ]
+  },
+  {
+   "gsis": "00-0041013",
+   "name": "Emmett Johnson",
+   "team": "KC",
+   "selectedBy": "Largest rise in F next-season projection (top-48 RB at either date)",
+   "injury": null,
+   "ledger1": [
+    {
+     "window": "2025 season",
+     "gamesPlayed": 0,
+     "teamGames": 0,
+     "gamesShare": null,
+     "missedGames": [],
+     "teams": [],
+     "snapShare": null,
+     "snapRowsMissing": 0,
+     "carriesPerGame": null,
+     "targetsPerGame": null,
+     "opportunitiesPerGame": null,
+     "carryShare": null,
+     "targetShare": null,
+     "yardsPerCarry": null,
+     "pprPerGamePlayed": null,
+     "pprTotal": 0
+    },
+    {
+     "window": "2026 Weeks 1–5",
+     "gamesPlayed": 4,
+     "teamGames": 4,
+     "gamesShare": 1,
+     "missedGames": [],
+     "teams": [
+      "KC"
+     ],
+     "snapShare": 0.27,
+     "snapRowsMissing": 0,
+     "carriesPerGame": 4,
+     "targetsPerGame": 1.25,
+     "opportunitiesPerGame": 5.25,
+     "carryShare": 0.13559322033898305,
+     "targetShare": 0.0423728813559322,
+     "yardsPerCarry": 3.5,
+     "pprPerGamePlayed": 4.5,
+     "pprTotal": 18
+    },
+    {
+     "window": "2026 Weeks 6–9",
+     "gamesPlayed": 4,
+     "teamGames": 4,
+     "gamesShare": 1,
+     "missedGames": [],
+     "teams": [
+      "KC"
+     ],
+     "snapShare": 0.2625,
+     "snapRowsMissing": 0,
+     "carriesPerGame": 2.5,
+     "targetsPerGame": 2.75,
+     "opportunitiesPerGame": 5.25,
+     "carryShare": 0.10101010101010101,
+     "targetShare": 0.0859375,
+     "yardsPerCarry": 5.5,
+     "pprPerGamePlayed": 10.700000000000001,
+     "pprTotal": 42.800000000000004
+    }
+   ],
+   "ledger2": {
+    "inputs": {
+     "earlier": {
+      "gamesShare": 1,
+      "pointsPerGamePlayed": 4.5
+     },
+     "later": {
+      "gamesShare": 1,
+      "pointsPerGamePlayed": 7.6
+     },
+     "newGamesInRecentWindow": 4,
+     "newGamesPointsPerGame": 10.7,
+     "age": 22.9
+    },
+    "projection": {
+     "nextSeason": {
+      "earlier": 89.9,
+      "later": 134.6,
+      "change": 44.7,
+      "fromPointsPerGamePlayed": 44.7,
+      "fromGamesShare": 0
+     },
+     "twoSeason": {
+      "earlier": 166.1,
+      "later": 240.8,
+      "change": 74.7,
+      "fromPointsPerGamePlayed": 74.7,
+      "fromGamesShare": 0
+     }
+    },
+    "value": {
+     "earlier": 47.7,
+     "later": 121.9,
+     "change": 74.2,
+     "fromOwnProjection": 74.7,
+     "fromReplacementLevel": -0.5
+    },
+    "rank": {
+     "earlier": 27,
+     "later": 8
+    }
+   },
+   "missing": [
+    "No 2025 NFL games: F rests on 2026 games only.",
+    "One game holds 6 of 10 recent-window carries: the carry-share change rests mostly on that game."
+   ]
+  },
+  {
+   "gsis": "00-0041027",
+   "name": "Jeremiyah Love",
+   "team": "ARI",
+   "selectedBy": "Largest fall in F next-season projection (top-48 RB at either date)",
+   "injury": null,
+   "ledger1": [
+    {
+     "window": "2025 season",
+     "gamesPlayed": 0,
+     "teamGames": 0,
+     "gamesShare": null,
+     "missedGames": [],
+     "teams": [],
+     "snapShare": null,
+     "snapRowsMissing": 0,
+     "carriesPerGame": null,
+     "targetsPerGame": null,
+     "opportunitiesPerGame": null,
+     "carryShare": null,
+     "targetShare": null,
+     "yardsPerCarry": null,
+     "pprPerGamePlayed": null,
+     "pprTotal": 0
+    },
+    {
+     "window": "2026 Weeks 1–5",
+     "gamesPlayed": 5,
+     "teamGames": 5,
+     "gamesShare": 1,
+     "missedGames": [],
+     "teams": [
+      "ARI"
+     ],
+     "snapShare": 0.48200000000000004,
+     "snapRowsMissing": 0,
+     "carriesPerGame": 13.4,
+     "targetsPerGame": 2.8,
+     "opportunitiesPerGame": 16.2,
+     "carryShare": 0.5491803278688525,
+     "targetShare": 0.07216494845360824,
+     "yardsPerCarry": 3.656716417910448,
+     "pprPerGamePlayed": 10.22,
+     "pprTotal": 51.1
+    },
+    {
+     "window": "2026 Weeks 6–9",
+     "gamesPlayed": 1,
+     "teamGames": 4,
+     "gamesShare": 0.25,
+     "missedGames": [
+      {
+       "week": 6,
+       "injuryReport": "Out (Ankle)"
+      },
+      {
+       "week": 7,
+       "injuryReport": "Out (Ankle)"
+      },
+      {
+       "week": 9,
+       "injuryReport": "no injury-report entry"
+      }
+     ],
+     "teams": [
+      "ARI"
+     ],
+     "snapShare": 0.19,
+     "snapRowsMissing": 0,
+     "carriesPerGame": 9,
+     "targetsPerGame": 0,
+     "opportunitiesPerGame": 9,
+     "carryShare": 0.3333333333333333,
+     "targetShare": 0,
+     "yardsPerCarry": 2.5555555555555554,
+     "pprPerGamePlayed": 2.3000000000000003,
+     "pprTotal": 2.3000000000000003
+    }
+   ],
+   "ledger2": {
+    "inputs": {
+     "earlier": {
+      "gamesShare": 1,
+      "pointsPerGamePlayed": 10.2
+     },
+     "later": {
+      "gamesShare": 0.667,
+      "pointsPerGamePlayed": 8.9
+     },
+     "newGamesInRecentWindow": 1,
+     "newGamesPointsPerGame": 2.3,
+     "age": 21.3
+    },
+    "projection": {
+     "nextSeason": {
+      "earlier": 146.5,
+      "later": 84.5,
+      "change": -62,
+      "fromPointsPerGamePlayed": -13.3,
+      "fromGamesShare": -48.7
+     },
+     "twoSeason": {
+      "earlier": 284.4,
+      "later": 165.8,
+      "change": -118.6,
+      "fromPointsPerGamePlayed": -24.4,
+      "fromGamesShare": -94.2
+     }
+    },
+    "value": {
+     "earlier": 166.1,
+     "later": 46.9,
+     "change": -119.2,
+     "fromOwnProjection": -118.6,
+     "fromReplacementLevel": -0.5
+    },
+    "rank": {
+     "earlier": 6,
+     "later": 27
+    }
+   },
+   "missing": [
+    "No 2025 NFL games: F rests on 2026 games only.",
+    "Only 1 game in 2026 Weeks 6–9: the recent window is a thin sample."
+   ]
+  },
+  {
+   "gsis": "00-0040236",
+   "name": "Kyle Monangai",
+   "team": "CHI",
+   "selectedBy": "Largest fall in F next-season projection (top-48 RB at either date)",
+   "injury": null,
+   "ledger1": [
+    {
+     "window": "2025 season",
+     "gamesPlayed": 17,
+     "teamGames": 17,
+     "gamesShare": 1,
+     "missedGames": [],
+     "teams": [
+      "CHI"
+     ],
+     "snapShare": 0.40882352941176475,
+     "snapRowsMissing": 0,
+     "carriesPerGame": 9.941176470588236,
+     "targetsPerGame": 1.7647058823529411,
+     "opportunitiesPerGame": 11.705882352941176,
+     "carryShare": 0.3346534653465347,
+     "targetShare": 0.05639097744360902,
+     "yardsPerCarry": 4.633136094674557,
+     "pprPerGamePlayed": 8.394117647058822,
+     "pprTotal": 142.7
+    },
+    {
+     "window": "2026 Weeks 1–5",
+     "gamesPlayed": 4,
+     "teamGames": 5,
+     "gamesShare": 0.8,
+     "missedGames": [
+      {
+       "week": 5,
+       "injuryReport": "Out (Thumb)"
+      }
+     ],
+     "teams": [
+      "CHI"
+     ],
+     "snapShare": 0.405,
+     "snapRowsMissing": 0,
+     "carriesPerGame": 15,
+     "targetsPerGame": 1.25,
+     "opportunitiesPerGame": 16.25,
+     "carryShare": 0.37735849056603776,
+     "targetShare": 0.04132231404958678,
+     "yardsPerCarry": 5.4,
+     "pprPerGamePlayed": 14.825,
+     "pprTotal": 59.3
+    },
+    {
+     "window": "2026 Weeks 6–9",
+     "gamesPlayed": 0,
+     "teamGames": 4,
+     "gamesShare": 0,
+     "missedGames": [
+      {
+       "week": 6,
+       "injuryReport": "Out (Thumb)"
+      },
+      {
+       "week": 7,
+       "injuryReport": "Out (Thumb)"
+      },
+      {
+       "week": 8,
+       "injuryReport": "Out (Thumb)"
+      },
+      {
+       "week": 9,
+       "injuryReport": "Questionable (Thumb)"
+      }
+     ],
+     "teams": [],
+     "snapShare": null,
+     "snapRowsMissing": 0,
+     "carriesPerGame": null,
+     "targetsPerGame": null,
+     "opportunitiesPerGame": null,
+     "carryShare": null,
+     "targetShare": null,
+     "yardsPerCarry": null,
+     "pprPerGamePlayed": null,
+     "pprTotal": 0
+    }
+   ],
+   "ledger2": {
+    "inputs": {
+     "earlier": {
+      "gamesShare": 0.926,
+      "pointsPerGamePlayed": 10.5
+     },
+     "later": {
+      "gamesShare": 0.714,
+      "pointsPerGamePlayed": 10.5
+     },
+     "newGamesInRecentWindow": 0,
+     "newGamesPointsPerGame": null,
+     "age": 24.2
+    },
+    "projection": {
+     "nextSeason": {
+      "earlier": 107.9,
+      "later": 81.8,
+      "change": -26.1,
+      "fromPointsPerGamePlayed": 0,
+      "fromGamesShare": -26.1
+     },
+     "twoSeason": {
+      "earlier": 192.2,
+      "later": 145.9,
+      "change": -46.3,
+      "fromPointsPerGamePlayed": 0,
+      "fromGamesShare": -46.3
+     }
+    },
+    "value": {
+     "earlier": 73.8,
+     "later": 27,
+     "change": -46.8,
+     "fromOwnProjection": -46.3,
+     "fromReplacementLevel": -0.5
+    },
+    "rank": {
+     "earlier": 17,
+     "later": 28
+    }
+   },
+   "missing": [
+    "No games in 2026 Weeks 6–9: no recent role or efficiency can be observed."
+   ]
+  },
+  {
+   "gsis": "00-0040878",
+   "name": "Mike Washington Jr.",
+   "team": "LV",
+   "selectedBy": "Rookie with the most 2026 carries + targets",
+   "injury": null,
+   "ledger1": [
+    {
+     "window": "2025 season",
+     "gamesPlayed": 0,
+     "teamGames": 0,
+     "gamesShare": null,
+     "missedGames": [],
+     "teams": [],
+     "snapShare": null,
+     "snapRowsMissing": 0,
+     "carriesPerGame": null,
+     "targetsPerGame": null,
+     "opportunitiesPerGame": null,
+     "carryShare": null,
+     "targetShare": null,
+     "yardsPerCarry": null,
+     "pprPerGamePlayed": null,
+     "pprTotal": 0
+    },
+    {
+     "window": "2026 Weeks 1–5",
+     "gamesPlayed": 5,
+     "teamGames": 5,
+     "gamesShare": 1,
+     "missedGames": [],
+     "teams": [
+      "LV"
+     ],
+     "snapShare": 0.16599999999999998,
+     "snapRowsMissing": 0,
+     "carriesPerGame": 5,
+     "targetsPerGame": 0.8,
+     "opportunitiesPerGame": 5.8,
+     "carryShare": 0.18248175182481752,
+     "targetShare": 0.023255813953488372,
+     "yardsPerCarry": 5,
+     "pprPerGamePlayed": 4.180000000000001,
+     "pprTotal": 20.900000000000002
+    },
+    {
+     "window": "2026 Weeks 6–9",
+     "gamesPlayed": 4,
+     "teamGames": 4,
+     "gamesShare": 1,
+     "missedGames": [],
+     "teams": [
+      "LV"
+     ],
+     "snapShare": 0.3875,
+     "snapRowsMissing": 0,
+     "carriesPerGame": 11.5,
+     "targetsPerGame": 0.5,
+     "opportunitiesPerGame": 12,
+     "carryShare": 0.5411764705882353,
+     "targetShare": 0.014388489208633094,
+     "yardsPerCarry": 3.260869565217391,
+     "pprPerGamePlayed": 4.175,
+     "pprTotal": 16.7
+    }
+   ],
+   "ledger2": {
+    "inputs": {
+     "earlier": {
+      "gamesShare": 1,
+      "pointsPerGamePlayed": 4.2
+     },
+     "later": {
+      "gamesShare": 1,
+      "pointsPerGamePlayed": 4.2
+     },
+     "newGamesInRecentWindow": 4,
+     "newGamesPointsPerGame": 4.2,
+     "age": 23.2
+    },
+    "projection": {
+     "nextSeason": {
+      "earlier": 71.3,
+      "later": 71.2,
+      "change": 0,
+      "fromPointsPerGamePlayed": 0,
+      "fromGamesShare": 0
+     },
+     "twoSeason": {
+      "earlier": 134.1,
+      "later": 134,
+      "change": 0,
+      "fromPointsPerGamePlayed": 0,
+      "fromGamesShare": 0
+     }
+    },
+    "value": {
+     "earlier": 15.7,
+     "later": 15.2,
+     "change": -0.6,
+     "fromOwnProjection": 0,
+     "fromReplacementLevel": -0.6
+    },
+    "rank": {
+     "earlier": 35,
+     "later": 34
+    }
+   },
+   "missing": [
+    "No 2025 NFL games: F rests on 2026 games only.",
+    "One game holds 25 of 46 recent-window carries: the carry-share change rests mostly on that game."
+   ]
+  },
+  {
+   "gsis": "00-0040734",
+   "name": "TreVeyon Henderson",
+   "team": "NE",
+   "selectedBy": "Highest F value among RBs listed Out on the Week 10 injury report",
+   "injury": {
+    "week": 10,
+    "reportStatus": "Out",
+    "primaryInjury": "Illness",
+    "practiceStatus": "Did Not Participate In Practice"
+   },
+   "ledger1": [
+    {
+     "window": "2025 season",
+     "gamesPlayed": 17,
+     "teamGames": 17,
+     "gamesShare": 1,
+     "missedGames": [],
+     "teams": [
+      "NE"
+     ],
+     "snapShare": 0.45882352941176474,
+     "snapRowsMissing": 0,
+     "carriesPerGame": 10.588235294117647,
+     "targetsPerGame": 2.4705882352941178,
+     "opportunitiesPerGame": 13.058823529411764,
+     "carryShare": 0.3643724696356275,
+     "targetShare": 0.08713692946058091,
+     "yardsPerCarry": 5.061111111111111,
+     "pprPerGamePlayed": 12.24705882352941,
+     "pprTotal": 208.2
+    },
+    {
+     "window": "2026 Weeks 1–5",
+     "gamesPlayed": 4,
+     "teamGames": 5,
+     "gamesShare": 0.8,
+     "missedGames": [
+      {
+       "week": 1,
+       "injuryReport": "Out (Ankle)"
+      }
+     ],
+     "teams": [
+      "NE"
+     ],
+     "snapShare": 0.37499999999999994,
+     "snapRowsMissing": 0,
+     "carriesPerGame": 10.5,
+     "targetsPerGame": 1,
+     "opportunitiesPerGame": 11.5,
+     "carryShare": 0.35,
+     "targetShare": 0.03389830508474576,
+     "yardsPerCarry": 3.880952380952381,
+     "pprPerGamePlayed": 6.625,
+     "pprTotal": 26.5
+    },
+    {
+     "window": "2026 Weeks 6–9",
+     "gamesPlayed": 2,
+     "teamGames": 4,
+     "gamesShare": 0.5,
+     "missedGames": [
+      {
+       "week": 8,
+       "injuryReport": "Questionable (Illness)"
+      },
+      {
+       "week": 9,
+       "injuryReport": "Out (Illness)"
+      }
+     ],
+     "teams": [
+      "NE"
+     ],
+     "snapShare": 0.24,
+     "snapRowsMissing": 0,
+     "carriesPerGame": 5,
+     "targetsPerGame": 1.5,
+     "opportunitiesPerGame": 6.5,
+     "carryShare": 0.18867924528301888,
+     "targetShare": 0.05,
+     "yardsPerCarry": 4,
+     "pprPerGamePlayed": 4.65,
+     "pprTotal": 9.3
+    }
+   ],
+   "ledger2": {
+    "inputs": {
+     "earlier": {
+      "gamesShare": 0.926,
+      "pointsPerGamePlayed": 10.4
+     },
+     "later": {
+      "gamesShare": 0.829,
+      "pointsPerGamePlayed": 9.6
+     },
+     "newGamesInRecentWindow": 2,
+     "newGamesPointsPerGame": 4.7,
+     "age": 23.9
+    },
+    "projection": {
+     "nextSeason": {
+      "earlier": 135.4,
+      "later": 112.4,
+      "change": -23,
+      "fromPointsPerGamePlayed": -8.4,
+      "fromGamesShare": -14.6
+     },
+     "twoSeason": {
+      "earlier": 241.5,
+      "later": 201.4,
+      "change": -40.1,
+      "fromPointsPerGamePlayed": -14.2,
+      "fromGamesShare": -25.9
+     }
+    },
+    "value": {
+     "earlier": 123.1,
+     "later": 82.5,
+     "change": -40.6,
+     "fromOwnProjection": -40.1,
+     "fromReplacementLevel": -0.5
+    },
+    "rank": {
+     "earlier": 8,
+     "later": 16
+    }
+   },
+   "missing": [
+    "Only 2 games in 2026 Weeks 6–9: the recent window is a thin sample.",
+    "One game holds 7 of 10 recent-window carries: the carry-share change rests mostly on that game."
+   ]
+  }
+ ]
+}
