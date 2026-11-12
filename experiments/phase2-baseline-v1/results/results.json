@@ -1,0 +1,7734 @@
+{
+ "sha256": "f9ba5f8c3faa5f63cad2e66017dd09f36e1f1bb717e0dd208e63d1f901564af4",
+ "experiment": "phase2-baseline-v1",
+ "sealed": true,
+ "unsealReason": null,
+ "lastOutcomeSeasonRead": 2023,
+ "bootstrap": {
+  "reps": 1000,
+  "seed": 20261112
+ },
+ "baselineConstants": {
+  "historySeasons": 3,
+  "recencyHalfLifeSeasons": 1,
+  "seasonGames": 17,
+  "ageCurve": {
+   "minBaselinePoints": 50,
+   "minPairs": 25,
+   "clamp": [
+    0.5,
+    1.5
+   ]
+  },
+  "efficiencyPriorOpportunities": 100
+ },
+ "predictionManifests": [
+  {
+   "id": "2019-OFFSEASON",
+   "asOf": "2019-08-30T00:20:00.000Z",
+   "codeSha": "e4dc3a0ee1ecde92897089986d33611dd05d33a8",
+   "valuationChecksum": "18ad103f48d0c6be973c6842165d4ee1906d4534ff45c01c07e0ae97ffaf6037"
+  },
+  {
+   "id": "2019-W4",
+   "asOf": "2019-10-01T12:15:00.000Z",
+   "codeSha": "e4dc3a0ee1ecde92897089986d33611dd05d33a8",
+   "valuationChecksum": "87ed2f58807e120da9879d52691e83337c174e4c89c7affb915f1dfd334f99e3"
+  },
+  {
+   "id": "2019-W8",
+   "asOf": "2019-10-29T12:15:00.000Z",
+   "codeSha": "e4dc3a0ee1ecde92897089986d33611dd05d33a8",
+   "valuationChecksum": "22185a805b04b68b57525cdfc9304a08cf4aff68497d97238935b662a17509da"
+  },
+  {
+   "id": "2019-W12",
+   "asOf": "2019-11-26T13:15:00.000Z",
+   "codeSha": "e4dc3a0ee1ecde92897089986d33611dd05d33a8",
+   "valuationChecksum": "98cf59188b088e8daa1bcccd5a505791b934d0b2e0380990bdd4679eaaf4fbce"
+  },
+  {
+   "id": "2020-OFFSEASON",
+   "asOf": "2020-09-04T00:20:00.000Z",
+   "codeSha": "e4dc3a0ee1ecde92897089986d33611dd05d33a8",
+   "valuationChecksum": "ecee16703d575cfc6fd480cad9f74771154a7374b32681e37eb590117db103e5"
+  },
+  {
+   "id": "2020-W4",
+   "asOf": "2020-10-06T13:00:00.000Z",
+   "codeSha": "e4dc3a0ee1ecde92897089986d33611dd05d33a8",
+   "valuationChecksum": "8a7de4012cc8f493a01770b250125527a00ad54672ff7ec9c4e3af59ae2b73ac"
+  },
+  {
+   "id": "2020-W8",
+   "asOf": "2020-11-03T13:15:00.000Z",
+   "codeSha": "e4dc3a0ee1ecde92897089986d33611dd05d33a8",
+   "valuationChecksum": "b0bcf8cbfc963f503c9b71a6e0a115acdb43e9d25076cfddad0649228f778f7f"
+  },
+  {
+   "id": "2020-W12",
+   "asOf": "2020-12-03T08:40:00.000Z",
+   "codeSha": "e4dc3a0ee1ecde92897089986d33611dd05d33a8",
+   "valuationChecksum": "67f1ab90a4874810f270934a7c8f6acf52e7b01e93a199e28a77845071dbd688"
+  },
+  {
+   "id": "2021-OFFSEASON",
+   "asOf": "2021-09-03T00:20:00.000Z",
+   "codeSha": "e4dc3a0ee1ecde92897089986d33611dd05d33a8",
+   "valuationChecksum": "d4d9433cf663f07339a20aa575a7f9e3bfa0ad7902e8ab625ed8999f917df1bc"
+  },
+  {
+   "id": "2021-W4",
+   "asOf": "2021-10-05T12:15:00.000Z",
+   "codeSha": "e4dc3a0ee1ecde92897089986d33611dd05d33a8",
+   "valuationChecksum": "31d88133bf2d2de27300aa1f72fba567d8933bbe461ebd838f82d8360c36cbbd"
+  },
+  {
+   "id": "2021-W8",
+   "asOf": "2021-11-02T12:15:00.000Z",
+   "codeSha": "e4dc3a0ee1ecde92897089986d33611dd05d33a8",
+   "valuationChecksum": "d83148a56713920ce8f699fd7cff66c2c1686bad2c2a4300d3bce4ac3564dfb0"
+  },
+  {
+   "id": "2021-W12",
+   "asOf": "2021-11-30T13:15:00.000Z",
+   "codeSha": "e4dc3a0ee1ecde92897089986d33611dd05d33a8",
+   "valuationChecksum": "4fbf484daa12e918df4c1a4111100575523d141b47559235799f424a344a9a20"
+  },
+  {
+   "id": "2022-OFFSEASON",
+   "asOf": "2022-09-02T00:20:00.000Z",
+   "codeSha": "e4dc3a0ee1ecde92897089986d33611dd05d33a8",
+   "valuationChecksum": "42b9e570549ac3bdfa2204e21710185baa7329424b4b681c65f9df990c406423"
+  },
+  {
+   "id": "2022-W4",
+   "asOf": "2022-10-04T12:15:00.000Z",
+   "codeSha": "b1966ee57132b0324f3ed07c89a073329581e153",
+   "valuationChecksum": "7329b4e4046e0ebab59d0a84e0127cc237c4ee9db75c05e7e11ea56913c27fe8"
+  },
+  {
+   "id": "2022-W8",
+   "asOf": "2022-11-01T12:15:00.000Z",
+   "codeSha": "b1966ee57132b0324f3ed07c89a073329581e153",
+   "valuationChecksum": "60cb5c60ce95ae6dbcc18dcc40c8dfc1793b732e8c27e873deac177d6f1a43f5"
+  },
+  {
+   "id": "2022-W12",
+   "asOf": "2022-11-29T13:15:00.000Z",
+   "codeSha": "b1966ee57132b0324f3ed07c89a073329581e153",
+   "valuationChecksum": "5e82f53a8b9550d6a9705c58ddd525294da2da9c1eddc5f1b601dee91964aae6"
+  },
+  {
+   "id": "2023-OFFSEASON",
+   "asOf": "2023-09-01T00:20:00.000Z",
+   "codeSha": "b1966ee57132b0324f3ed07c89a073329581e153",
+   "valuationChecksum": "766c1986c4fddebb279b7493437f839136ad1a8d05f1207821ea1e45f0064e62"
+  },
+  {
+   "id": "2023-W4",
+   "asOf": "2023-10-03T12:15:00.000Z",
+   "codeSha": "b1966ee57132b0324f3ed07c89a073329581e153",
+   "valuationChecksum": "f337ad73c36063a34f0463f8591b9fad8e311417bfc79cd1c7fcf2bb57bbc725"
+  },
+  {
+   "id": "2023-W8",
+   "asOf": "2023-10-31T12:15:00.000Z",
+   "codeSha": "b1966ee57132b0324f3ed07c89a073329581e153",
+   "valuationChecksum": "2dda644c14982075c480b4ec786cbccd2cb107a9df0bdb73bcab321bced873fc"
+  },
+  {
+   "id": "2023-W12",
+   "asOf": "2023-11-28T13:15:00.000Z",
+   "codeSha": "b1966ee57132b0324f3ed07c89a073329581e153",
+   "valuationChecksum": "5db61aeb6ee665f48d285d23ea9ef77d302e8f4f2ba85669b7ca5e8983d2c2fd"
+  }
+ ],
+ "skipped": [],
+ "positionReclassification": {
+  "playerDecisions": 18,
+  "examples": [
+   {
+    "decision": "2020-W8",
+    "boardPos": "TE",
+    "statPos": "WR",
+    "gsis": "00-0035529"
+   },
+   {
+    "decision": "2020-W12",
+    "boardPos": "TE",
+    "statPos": "WR",
+    "gsis": "00-0035529"
+   },
+   {
+    "decision": "2021-OFFSEASON",
+    "boardPos": "TE",
+    "statPos": "WR",
+    "gsis": "00-0035529"
+   },
+   {
+    "decision": "2021-W4",
+    "boardPos": "TE",
+    "statPos": "WR",
+    "gsis": "00-0035529"
+   },
+   {
+    "decision": "2021-W8",
+    "boardPos": "TE",
+    "statPos": "WR",
+    "gsis": "00-0035529"
+   },
+   {
+    "decision": "2021-W12",
+    "boardPos": "TE",
+    "statPos": "WR",
+    "gsis": "00-0035529"
+   },
+   {
+    "decision": "2022-OFFSEASON",
+    "boardPos": "TE",
+    "statPos": "WR",
+    "gsis": "00-0035529"
+   },
+   {
+    "decision": "2022-W4",
+    "boardPos": "RB",
+    "statPos": "WR",
+    "gsis": "00-0037745"
+   },
+   {
+    "decision": "2022-W4",
+    "boardPos": "TE",
+    "statPos": "WR",
+    "gsis": "00-0035529"
+   },
+   {
+    "decision": "2022-W8",
+    "boardPos": "RB",
+    "statPos": "WR",
+    "gsis": "00-0037745"
+   },
+   {
+    "decision": "2022-W8",
+    "boardPos": "TE",
+    "statPos": "WR",
+    "gsis": "00-0035529"
+   },
+   {
+    "decision": "2022-W12",
+    "boardPos": "RB",
+    "statPos": "WR",
+    "gsis": "00-0037745"
+   },
+   {
+    "decision": "2022-W12",
+    "boardPos": "TE",
+    "statPos": "WR",
+    "gsis": "00-0035529"
+   },
+   {
+    "decision": "2023-OFFSEASON",
+    "boardPos": "RB",
+    "statPos": "WR",
+    "gsis": "00-0037745"
+   },
+   {
+    "decision": "2023-OFFSEASON",
+    "boardPos": "TE",
+    "statPos": "WR",
+    "gsis": "00-0035529"
+   }
+  ]
+ },
+ "sampleSizes": {
+  "bySeasonPosition": {
+   "2019 QB": 411,
+   "2019 RB": 972,
+   "2019 TE": 731,
+   "2019 WR": 1311,
+   "2020 QB": 416,
+   "2020 RB": 965,
+   "2020 TE": 724,
+   "2020 WR": 1367,
+   "2021 QB": 428,
+   "2021 RB": 960,
+   "2021 TE": 728,
+   "2021 WR": 1326,
+   "2022 QB": 433,
+   "2022 RB": 990,
+   "2022 TE": 738,
+   "2022 WR": 1354,
+   "2023 QB": 434,
+   "2023 RB": 993,
+   "2023 TE": 727,
+   "2023 WR": 1399
+  },
+  "byExperiencePosition": {
+   "QB rookie (year 1)": 95,
+   "QB year 2": 195,
+   "QB year 5+": 1383,
+   "QB years 3-4": 449,
+   "RB rookie (year 1)": 371,
+   "RB year 2": 688,
+   "RB year 5+": 2379,
+   "RB years 3-4": 1442,
+   "TE rookie (year 1)": 197,
+   "TE year 2": 402,
+   "TE year 5+": 2053,
+   "TE years 3-4": 996,
+   "WR rookie (year 1)": 471,
+   "WR year 2": 908,
+   "WR year 5+": 3337,
+   "WR years 3-4": 2041
+  },
+  "withT1Outcome": {
+   "development QB": 1255,
+   "development RB": 2897,
+   "development TE": 2183,
+   "development WR": 4004,
+   "validation QB": 545,
+   "validation RB": 1245,
+   "validation TE": 927,
+   "validation WR": 1703
+  },
+  "withT2Outcome": {
+   "development QB": 1255,
+   "development RB": 2897,
+   "development TE": 2183,
+   "development WR": 4004,
+   "validation QB": 113,
+   "validation RB": 248,
+   "validation TE": 190,
+   "validation WR": 350
+  },
+  "ptTiers": {
+   "development QB FULL": 1122,
+   "development QB INSUFFICIENT": 133,
+   "development RB ACCESSIBLE": 2394,
+   "development RB INSUFFICIENT": 503,
+   "development TE ACCESSIBLE": 1832,
+   "development TE INSUFFICIENT": 351,
+   "development WR ACCESSIBLE": 3357,
+   "development WR INSUFFICIENT": 647,
+   "validation QB FULL": 728,
+   "validation QB INSUFFICIENT": 139,
+   "validation RB ACCESSIBLE": 1602,
+   "validation RB INSUFFICIENT": 381,
+   "validation TE ACCESSIBLE": 1217,
+   "validation TE INSUFFICIENT": 248,
+   "validation WR ACCESSIBLE": 2264,
+   "validation WR INSUFFICIENT": 489
+  }
+ },
+ "cells": [
+  {
+   "period": "development",
+   "population": "all",
+   "pos": "QB",
+   "target": "T1",
+   "decisions": 12,
+   "playerDecisions": 1255,
+   "uniquePlayers": 144,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.6161,
+     "ci": [
+      0.5177,
+      0.6971
+     ],
+     "pairwise": 0.8141,
+     "pairs": 39267,
+     "precisionAtN": 0.6215,
+     "pCi": [
+      0.5104,
+      0.7361
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.567,
+     "ci": [
+      0.4688,
+      0.649
+     ],
+     "pairwise": 0.7985,
+     "pairs": 39267,
+     "precisionAtN": 0.6701,
+     "pCi": [
+      0.5764,
+      0.7604
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.6388,
+     "ci": [
+      0.5262,
+      0.7285
+     ],
+     "pairwise": 0.8544,
+     "pairs": 39267,
+     "precisionAtN": 0.7465,
+     "pCi": [
+      0.6354,
+      0.8194
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.6416,
+     "ci": [
+      0.5281,
+      0.7314
+     ],
+     "pairwise": 0.8558,
+     "pairs": 39267,
+     "precisionAtN": 0.7465,
+     "pCi": [
+      0.6424,
+      0.8194
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.6263,
+     "ci": [
+      0.5058,
+      0.715
+     ],
+     "pairwise": 0.8503,
+     "pairs": 39267,
+     "precisionAtN": 0.7361,
+     "pCi": [
+      0.6284,
+      0.8125
+     ]
+    }
+   },
+   "bestBaseline": "C_age_adjusted",
+   "ptMinusBest": {
+    "spearman": -0.0255,
+    "ci": [
+     -0.0908,
+     0.0385
+    ]
+   }
+  },
+  {
+   "period": "development",
+   "population": "history",
+   "pos": "QB",
+   "target": "T1",
+   "decisions": 12,
+   "playerDecisions": 1179,
+   "uniquePlayers": 135,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.6069,
+     "ci": [
+      0.5091,
+      0.6892
+     ],
+     "pairwise": 0.8024,
+     "pairs": 36183,
+     "precisionAtN": 0.6215,
+     "pCi": [
+      0.5174,
+      0.7292
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.5582,
+     "ci": [
+      0.455,
+      0.6461
+     ],
+     "pairwise": 0.7873,
+     "pairs": 36183,
+     "precisionAtN": 0.6701,
+     "pCi": [
+      0.5833,
+      0.7604
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.6344,
+     "ci": [
+      0.5091,
+      0.7269
+     ],
+     "pairwise": 0.8444,
+     "pairs": 36183,
+     "precisionAtN": 0.7465,
+     "pCi": [
+      0.6389,
+      0.8125
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.6377,
+     "ci": [
+      0.5155,
+      0.7291
+     ],
+     "pairwise": 0.8459,
+     "pairs": 36183,
+     "precisionAtN": 0.7465,
+     "pCi": [
+      0.6424,
+      0.816
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.6195,
+     "ci": [
+      0.4974,
+      0.7131
+     ],
+     "pairwise": 0.8396,
+     "pairs": 36183,
+     "precisionAtN": 0.7361,
+     "pCi": [
+      0.6354,
+      0.809
+     ]
+    }
+   },
+   "bestBaseline": "C_age_adjusted",
+   "ptMinusBest": {
+    "spearman": -0.0308,
+    "ci": [
+     -0.1018,
+     0.0384
+    ]
+   }
+  },
+  {
+   "period": "development",
+   "population": "relevant",
+   "pos": "QB",
+   "target": "T1",
+   "decisions": 12,
+   "playerDecisions": 754,
+   "uniquePlayers": 95,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.4992,
+     "ci": [
+      0.3619,
+      0.6172
+     ],
+     "pairwise": 0.7252,
+     "pairs": 18059,
+     "precisionAtN": 0.6389,
+     "pCi": [
+      0.5451,
+      0.7431
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.5372,
+     "ci": [
+      0.4073,
+      0.6409
+     ],
+     "pairwise": 0.7475,
+     "pairs": 18059,
+     "precisionAtN": 0.6875,
+     "pCi": [
+      0.6076,
+      0.7779
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.6553,
+     "ci": [
+      0.5248,
+      0.7504
+     ],
+     "pairwise": 0.8094,
+     "pairs": 18059,
+     "precisionAtN": 0.7604,
+     "pCi": [
+      0.6632,
+      0.8264
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.6641,
+     "ci": [
+      0.5317,
+      0.7563
+     ],
+     "pairwise": 0.8118,
+     "pairs": 18059,
+     "precisionAtN": 0.7604,
+     "pCi": [
+      0.6667,
+      0.8264
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.6407,
+     "ci": [
+      0.5011,
+      0.7398
+     ],
+     "pairwise": 0.8031,
+     "pairs": 18059,
+     "precisionAtN": 0.7535,
+     "pCi": [
+      0.6528,
+      0.8194
+     ]
+    }
+   },
+   "bestBaseline": "C_age_adjusted",
+   "ptMinusBest": {
+    "spearman": -0.1649,
+    "ci": [
+     -0.2785,
+     -0.0511
+    ]
+   }
+  },
+  {
+   "period": "development",
+   "population": "all",
+   "pos": "QB",
+   "target": "T2",
+   "decisions": 12,
+   "playerDecisions": 1255,
+   "uniquePlayers": 144,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.6255,
+     "ci": [
+      0.5277,
+      0.7093
+     ],
+     "pairwise": 0.7994,
+     "pairs": 45436,
+     "precisionAtN": 0.6597,
+     "pCi": [
+      0.5139,
+      0.7569
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.5733,
+     "ci": [
+      0.4627,
+      0.6608
+     ],
+     "pairwise": 0.7747,
+     "pairs": 45436,
+     "precisionAtN": 0.6944,
+     "pCi": [
+      0.5764,
+      0.7708
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.6338,
+     "ci": [
+      0.5152,
+      0.7367
+     ],
+     "pairwise": 0.8249,
+     "pairs": 45436,
+     "precisionAtN": 0.7674,
+     "pCi": [
+      0.6249,
+      0.8196
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.6354,
+     "ci": [
+      0.5181,
+      0.7391
+     ],
+     "pairwise": 0.8262,
+     "pairs": 45436,
+     "precisionAtN": 0.7743,
+     "pCi": [
+      0.6319,
+      0.8264
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.6212,
+     "ci": [
+      0.4999,
+      0.726
+     ],
+     "pairwise": 0.8204,
+     "pairs": 45436,
+     "precisionAtN": 0.7535,
+     "pCi": [
+      0.6181,
+      0.8161
+     ]
+    }
+   },
+   "bestBaseline": "C_age_adjusted",
+   "ptMinusBest": {
+    "spearman": -0.0099,
+    "ci": [
+     -0.0815,
+     0.0626
+    ]
+   }
+  },
+  {
+   "period": "development",
+   "population": "history",
+   "pos": "QB",
+   "target": "T2",
+   "decisions": 12,
+   "playerDecisions": 1179,
+   "uniquePlayers": 135,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.6182,
+     "ci": [
+      0.5167,
+      0.7049
+     ],
+     "pairwise": 0.7879,
+     "pairs": 41559,
+     "precisionAtN": 0.6597,
+     "pCi": [
+      0.5346,
+      0.7569
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.5703,
+     "ci": [
+      0.4653,
+      0.6616
+     ],
+     "pairwise": 0.7645,
+     "pairs": 41559,
+     "precisionAtN": 0.6944,
+     "pCi": [
+      0.5903,
+      0.7674
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.6319,
+     "ci": [
+      0.4954,
+      0.7309
+     ],
+     "pairwise": 0.8141,
+     "pairs": 41559,
+     "precisionAtN": 0.7674,
+     "pCi": [
+      0.6319,
+      0.8229
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.6336,
+     "ci": [
+      0.4985,
+      0.7344
+     ],
+     "pairwise": 0.8155,
+     "pairs": 41559,
+     "precisionAtN": 0.7743,
+     "pCi": [
+      0.6354,
+      0.8264
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.6167,
+     "ci": [
+      0.4822,
+      0.7204
+     ],
+     "pairwise": 0.8094,
+     "pairs": 41559,
+     "precisionAtN": 0.7535,
+     "pCi": [
+      0.6285,
+      0.816
+     ]
+    }
+   },
+   "bestBaseline": "C_age_adjusted",
+   "ptMinusBest": {
+    "spearman": -0.0154,
+    "ci": [
+     -0.0912,
+     0.0615
+    ]
+   }
+  },
+  {
+   "period": "development",
+   "population": "relevant",
+   "pos": "QB",
+   "target": "T2",
+   "decisions": 12,
+   "playerDecisions": 755,
+   "uniquePlayers": 95,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.5295,
+     "ci": [
+      0.3843,
+      0.6502
+     ],
+     "pairwise": 0.726,
+     "pairs": 19829,
+     "precisionAtN": 0.6667,
+     "pCi": [
+      0.5624,
+      0.7744
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.5602,
+     "ci": [
+      0.4385,
+      0.6622
+     ],
+     "pairwise": 0.7376,
+     "pairs": 19829,
+     "precisionAtN": 0.7049,
+     "pCi": [
+      0.6076,
+      0.7883
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.6721,
+     "ci": [
+      0.5401,
+      0.7693
+     ],
+     "pairwise": 0.7959,
+     "pairs": 19829,
+     "precisionAtN": 0.7674,
+     "pCi": [
+      0.6563,
+      0.8438
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.6777,
+     "ci": [
+      0.5469,
+      0.7734
+     ],
+     "pairwise": 0.798,
+     "pairs": 19829,
+     "precisionAtN": 0.7743,
+     "pCi": [
+      0.6667,
+      0.8404
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.6573,
+     "ci": [
+      0.5214,
+      0.7615
+     ],
+     "pairwise": 0.7901,
+     "pairs": 19829,
+     "precisionAtN": 0.7535,
+     "pCi": [
+      0.6493,
+      0.8368
+     ]
+    }
+   },
+   "bestBaseline": "C_age_adjusted",
+   "ptMinusBest": {
+    "spearman": -0.1482,
+    "ci": [
+     -0.2747,
+     -0.0276
+    ]
+   }
+  },
+  {
+   "period": "development",
+   "population": "all",
+   "pos": "RB",
+   "target": "T1",
+   "decisions": 12,
+   "playerDecisions": 2897,
+   "uniquePlayers": 365,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.6674,
+     "ci": [
+      0.6105,
+      0.7173
+     ],
+     "pairwise": 0.8494,
+     "pairs": 184116,
+     "precisionAtN": 0.6238,
+     "pCi": [
+      0.5404,
+      0.7071
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.5575,
+     "ci": [
+      0.497,
+      0.6099
+     ],
+     "pairwise": 0.7851,
+     "pairs": 184116,
+     "precisionAtN": 0.5405,
+     "pCi": [
+      0.4571,
+      0.6214
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.584,
+     "ci": [
+      0.5177,
+      0.646
+     ],
+     "pairwise": 0.832,
+     "pairs": 184116,
+     "precisionAtN": 0.5881,
+     "pCi": [
+      0.5024,
+      0.6834
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.6127,
+     "ci": [
+      0.5489,
+      0.6713
+     ],
+     "pairwise": 0.842,
+     "pairs": 184116,
+     "precisionAtN": 0.6238,
+     "pCi": [
+      0.5429,
+      0.7167
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.572,
+     "ci": [
+      0.5038,
+      0.6365
+     ],
+     "pairwise": 0.8295,
+     "pairs": 184116,
+     "precisionAtN": 0.5786,
+     "pCi": [
+      0.4976,
+      0.6858
+     ]
+    }
+   },
+   "bestBaseline": "C_age_adjusted",
+   "ptMinusBest": {
+    "spearman": 0.0547,
+    "ci": [
+     0.0196,
+     0.0915
+    ]
+   }
+  },
+  {
+   "period": "development",
+   "population": "history",
+   "pos": "RB",
+   "target": "T1",
+   "decisions": 12,
+   "playerDecisions": 2790,
+   "uniquePlayers": 349,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.6777,
+     "ci": [
+      0.6225,
+      0.7268
+     ],
+     "pairwise": 0.851,
+     "pairs": 174000,
+     "precisionAtN": 0.6238,
+     "pCi": [
+      0.5405,
+      0.7095
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.5603,
+     "ci": [
+      0.5012,
+      0.6128
+     ],
+     "pairwise": 0.7846,
+     "pairs": 174000,
+     "precisionAtN": 0.5405,
+     "pCi": [
+      0.4571,
+      0.6262
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.5926,
+     "ci": [
+      0.5227,
+      0.6516
+     ],
+     "pairwise": 0.8335,
+     "pairs": 174000,
+     "precisionAtN": 0.5881,
+     "pCi": [
+      0.5048,
+      0.6762
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.6231,
+     "ci": [
+      0.5583,
+      0.6803
+     ],
+     "pairwise": 0.8441,
+     "pairs": 174000,
+     "precisionAtN": 0.6238,
+     "pCi": [
+      0.55,
+      0.7167
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.5801,
+     "ci": [
+      0.5076,
+      0.6429
+     ],
+     "pairwise": 0.8308,
+     "pairs": 174000,
+     "precisionAtN": 0.5786,
+     "pCi": [
+      0.4952,
+      0.6786
+     ]
+    }
+   },
+   "bestBaseline": "C_age_adjusted",
+   "ptMinusBest": {
+    "spearman": 0.0546,
+    "ci": [
+     0.019,
+     0.0941
+    ]
+   }
+  },
+  {
+   "period": "development",
+   "population": "relevant",
+   "pos": "RB",
+   "target": "T1",
+   "decisions": 12,
+   "playerDecisions": 1159,
+   "uniquePlayers": 160,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.5802,
+     "ci": [
+      0.4701,
+      0.6692
+     ],
+     "pairwise": 0.7436,
+     "pairs": 43751,
+     "precisionAtN": 0.6571,
+     "pCi": [
+      0.5833,
+      0.7381
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.4364,
+     "ci": [
+      0.3332,
+      0.5309
+     ],
+     "pairwise": 0.6802,
+     "pairs": 43751,
+     "precisionAtN": 0.5786,
+     "pCi": [
+      0.4999,
+      0.6524
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.5278,
+     "ci": [
+      0.4115,
+      0.6248
+     ],
+     "pairwise": 0.7259,
+     "pairs": 43751,
+     "precisionAtN": 0.6262,
+     "pCi": [
+      0.5548,
+      0.7167
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.5844,
+     "ci": [
+      0.4767,
+      0.6685
+     ],
+     "pairwise": 0.7456,
+     "pairs": 43751,
+     "precisionAtN": 0.6619,
+     "pCi": [
+      0.5976,
+      0.7452
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.5114,
+     "ci": [
+      0.3952,
+      0.6101
+     ],
+     "pairwise": 0.7192,
+     "pairs": 43751,
+     "precisionAtN": 0.6143,
+     "pCi": [
+      0.5429,
+      0.7119
+     ]
+    }
+   },
+   "bestBaseline": "C_age_adjusted",
+   "ptMinusBest": {
+    "spearman": -0.0042,
+    "ci": [
+     -0.0701,
+     0.0615
+    ]
+   }
+  },
+  {
+   "period": "development",
+   "population": "all",
+   "pos": "RB",
+   "target": "T2",
+   "decisions": 12,
+   "playerDecisions": 2897,
+   "uniquePlayers": 365,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.6839,
+     "ci": [
+      0.6264,
+      0.7313
+     ],
+     "pairwise": 0.8382,
+     "pairs": 210136,
+     "precisionAtN": 0.6381,
+     "pCi": [
+      0.5333,
+      0.7214
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.5587,
+     "ci": [
+      0.4974,
+      0.6093
+     ],
+     "pairwise": 0.7688,
+     "pairs": 210136,
+     "precisionAtN": 0.5405,
+     "pCi": [
+      0.4476,
+      0.6238
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.5866,
+     "ci": [
+      0.5162,
+      0.6493
+     ],
+     "pairwise": 0.811,
+     "pairs": 210136,
+     "precisionAtN": 0.6214,
+     "pCi": [
+      0.5167,
+      0.7095
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.6287,
+     "ci": [
+      0.5603,
+      0.6862
+     ],
+     "pairwise": 0.8271,
+     "pairs": 210136,
+     "precisionAtN": 0.6643,
+     "pCi": [
+      0.5643,
+      0.7453
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.5724,
+     "ci": [
+      0.5007,
+      0.6392
+     ],
+     "pairwise": 0.8056,
+     "pairs": 210136,
+     "precisionAtN": 0.6119,
+     "pCi": [
+      0.5048,
+      0.7048
+     ]
+    }
+   },
+   "bestBaseline": "C_age_adjusted",
+   "ptMinusBest": {
+    "spearman": 0.0553,
+    "ci": [
+     0.0181,
+     0.0927
+    ]
+   }
+  },
+  {
+   "period": "development",
+   "population": "history",
+   "pos": "RB",
+   "target": "T2",
+   "decisions": 12,
+   "playerDecisions": 2790,
+   "uniquePlayers": 349,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.6958,
+     "ci": [
+      0.642,
+      0.7436
+     ],
+     "pairwise": 0.8398,
+     "pairs": 198321,
+     "precisionAtN": 0.6381,
+     "pCi": [
+      0.5309,
+      0.7238
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.5616,
+     "ci": [
+      0.5045,
+      0.6129
+     ],
+     "pairwise": 0.7679,
+     "pairs": 198321,
+     "precisionAtN": 0.5405,
+     "pCi": [
+      0.4404,
+      0.6262
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.5959,
+     "ci": [
+      0.5272,
+      0.6585
+     ],
+     "pairwise": 0.8119,
+     "pairs": 198321,
+     "precisionAtN": 0.6214,
+     "pCi": [
+      0.5118,
+      0.7048
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.6407,
+     "ci": [
+      0.5748,
+      0.6999
+     ],
+     "pairwise": 0.829,
+     "pairs": 198321,
+     "precisionAtN": 0.6643,
+     "pCi": [
+      0.5643,
+      0.7477
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.5811,
+     "ci": [
+      0.5087,
+      0.647
+     ],
+     "pairwise": 0.8062,
+     "pairs": 198321,
+     "precisionAtN": 0.6119,
+     "pCi": [
+      0.5071,
+      0.7024
+     ]
+    }
+   },
+   "bestBaseline": "C_age_adjusted",
+   "ptMinusBest": {
+    "spearman": 0.0551,
+    "ci": [
+     0.0183,
+     0.0959
+    ]
+   }
+  },
+  {
+   "period": "development",
+   "population": "relevant",
+   "pos": "RB",
+   "target": "T2",
+   "decisions": 12,
+   "playerDecisions": 1163,
+   "uniquePlayers": 159,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.6062,
+     "ci": [
+      0.4872,
+      0.6937
+     ],
+     "pairwise": 0.7432,
+     "pairs": 47888,
+     "precisionAtN": 0.6786,
+     "pCi": [
+      0.5762,
+      0.7501
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.4264,
+     "ci": [
+      0.3104,
+      0.5238
+     ],
+     "pairwise": 0.6663,
+     "pairs": 47888,
+     "precisionAtN": 0.5643,
+     "pCi": [
+      0.4809,
+      0.6524
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.5339,
+     "ci": [
+      0.4061,
+      0.6312
+     ],
+     "pairwise": 0.7135,
+     "pairs": 47888,
+     "precisionAtN": 0.6381,
+     "pCi": [
+      0.5499,
+      0.7333
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.6176,
+     "ci": [
+      0.4961,
+      0.7059
+     ],
+     "pairwise": 0.747,
+     "pairs": 47888,
+     "precisionAtN": 0.6929,
+     "pCi": [
+      0.6024,
+      0.7738
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.5146,
+     "ci": [
+      0.3799,
+      0.6161
+     ],
+     "pairwise": 0.7059,
+     "pairs": 47888,
+     "precisionAtN": 0.6286,
+     "pCi": [
+      0.5429,
+      0.731
+     ]
+    }
+   },
+   "bestBaseline": "C_age_adjusted",
+   "ptMinusBest": {
+    "spearman": -0.0115,
+    "ci": [
+     -0.0865,
+     0.0607
+    ]
+   }
+  },
+  {
+   "period": "development",
+   "population": "all",
+   "pos": "WR",
+   "target": "T1",
+   "decisions": 12,
+   "playerDecisions": 4004,
+   "uniquePlayers": 488,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.6518,
+     "ci": [
+      0.6042,
+      0.696
+     ],
+     "pairwise": 0.8422,
+     "pairs": 377175,
+     "precisionAtN": 0.656,
+     "pCi": [
+      0.5691,
+      0.7164
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.5384,
+     "ci": [
+      0.4845,
+      0.5877
+     ],
+     "pairwise": 0.7693,
+     "pairs": 377175,
+     "precisionAtN": 0.6064,
+     "pCi": [
+      0.5089,
+      0.6684
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.5698,
+     "ci": [
+      0.505,
+      0.6257
+     ],
+     "pairwise": 0.8131,
+     "pairs": 377175,
+     "precisionAtN": 0.6241,
+     "pCi": [
+      0.5319,
+      0.7039
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.6026,
+     "ci": [
+      0.542,
+      0.6556
+     ],
+     "pairwise": 0.83,
+     "pairs": 377175,
+     "precisionAtN": 0.672,
+     "pCi": [
+      0.5957,
+      0.7429
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.5529,
+     "ci": [
+      0.4878,
+      0.6101
+     ],
+     "pairwise": 0.8051,
+     "pairs": 377175,
+     "precisionAtN": 0.6348,
+     "pCi": [
+      0.539,
+      0.7057
+     ]
+    }
+   },
+   "bestBaseline": "C_age_adjusted",
+   "ptMinusBest": {
+    "spearman": 0.0491,
+    "ci": [
+     0.0243,
+     0.0759
+    ]
+   }
+  },
+  {
+   "period": "development",
+   "population": "history",
+   "pos": "WR",
+   "target": "T1",
+   "decisions": 12,
+   "playerDecisions": 3768,
+   "uniquePlayers": 450,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.6644,
+     "ci": [
+      0.6142,
+      0.7075
+     ],
+     "pairwise": 0.8426,
+     "pairs": 344119,
+     "precisionAtN": 0.656,
+     "pCi": [
+      0.5727,
+      0.7181
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.5447,
+     "ci": [
+      0.4904,
+      0.5942
+     ],
+     "pairwise": 0.7685,
+     "pairs": 344119,
+     "precisionAtN": 0.6064,
+     "pCi": [
+      0.5141,
+      0.6684
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.584,
+     "ci": [
+      0.5187,
+      0.6379
+     ],
+     "pairwise": 0.8137,
+     "pairs": 344119,
+     "precisionAtN": 0.6241,
+     "pCi": [
+      0.5372,
+      0.7004
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.6206,
+     "ci": [
+      0.5567,
+      0.6697
+     ],
+     "pairwise": 0.8321,
+     "pairs": 344119,
+     "precisionAtN": 0.672,
+     "pCi": [
+      0.601,
+      0.7394
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.5644,
+     "ci": [
+      0.495,
+      0.622
+     ],
+     "pairwise": 0.8045,
+     "pairs": 344119,
+     "precisionAtN": 0.6348,
+     "pCi": [
+      0.5461,
+      0.7039
+     ]
+    }
+   },
+   "bestBaseline": "C_age_adjusted",
+   "ptMinusBest": {
+    "spearman": 0.0438,
+    "ci": [
+     0.0196,
+     0.072
+    ]
+   }
+  },
+  {
+   "period": "development",
+   "population": "relevant",
+   "pos": "WR",
+   "target": "T1",
+   "decisions": 12,
+   "playerDecisions": 1500,
+   "uniquePlayers": 206,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.6449,
+     "ci": [
+      0.5677,
+      0.7058
+     ],
+     "pairwise": 0.7719,
+     "pairs": 75239,
+     "precisionAtN": 0.6791,
+     "pCi": [
+      0.6223,
+      0.7411
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.4787,
+     "ci": [
+      0.3853,
+      0.5551
+     ],
+     "pairwise": 0.7008,
+     "pairs": 75239,
+     "precisionAtN": 0.6383,
+     "pCi": [
+      0.5638,
+      0.695
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.5776,
+     "ci": [
+      0.4846,
+      0.6518
+     ],
+     "pairwise": 0.7474,
+     "pairs": 75239,
+     "precisionAtN": 0.6613,
+     "pCi": [
+      0.5851,
+      0.7323
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.673,
+     "ci": [
+      0.5995,
+      0.7278
+     ],
+     "pairwise": 0.7901,
+     "pairs": 75239,
+     "precisionAtN": 0.7092,
+     "pCi": [
+      0.6472,
+      0.7677
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.552,
+     "ci": [
+      0.4647,
+      0.6298
+     ],
+     "pairwise": 0.7355,
+     "pairs": 75239,
+     "precisionAtN": 0.6631,
+     "pCi": [
+      0.5887,
+      0.7305
+     ]
+    }
+   },
+   "bestBaseline": "C_age_adjusted",
+   "ptMinusBest": {
+    "spearman": -0.028,
+    "ci": [
+     -0.0816,
+     0.0256
+    ]
+   }
+  },
+  {
+   "period": "development",
+   "population": "all",
+   "pos": "WR",
+   "target": "T2",
+   "decisions": 12,
+   "playerDecisions": 4004,
+   "uniquePlayers": 488,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.6641,
+     "ci": [
+      0.6147,
+      0.7092
+     ],
+     "pairwise": 0.8244,
+     "pairs": 420469,
+     "precisionAtN": 0.6525,
+     "pCi": [
+      0.5798,
+      0.7216
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.5551,
+     "ci": [
+      0.4986,
+      0.6047
+     ],
+     "pairwise": 0.7591,
+     "pairs": 420469,
+     "precisionAtN": 0.5887,
+     "pCi": [
+      0.4982,
+      0.6667
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.5775,
+     "ci": [
+      0.5109,
+      0.6353
+     ],
+     "pairwise": 0.7935,
+     "pairs": 420469,
+     "precisionAtN": 0.633,
+     "pCi": [
+      0.5426,
+      0.7074
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.6225,
+     "ci": [
+      0.5565,
+      0.6763
+     ],
+     "pairwise": 0.816,
+     "pairs": 420469,
+     "precisionAtN": 0.7074,
+     "pCi": [
+      0.6277,
+      0.7695
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.5588,
+     "ci": [
+      0.492,
+      0.6185
+     ],
+     "pairwise": 0.7849,
+     "pairs": 420469,
+     "precisionAtN": 0.6472,
+     "pCi": [
+      0.5514,
+      0.7092
+     ]
+    }
+   },
+   "bestBaseline": "C_age_adjusted",
+   "ptMinusBest": {
+    "spearman": 0.0416,
+    "ci": [
+     0.0157,
+     0.068
+    ]
+   }
+  },
+  {
+   "period": "development",
+   "population": "history",
+   "pos": "WR",
+   "target": "T2",
+   "decisions": 12,
+   "playerDecisions": 3768,
+   "uniquePlayers": 450,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.6797,
+     "ci": [
+      0.6294,
+      0.7228
+     ],
+     "pairwise": 0.8272,
+     "pairs": 381743,
+     "precisionAtN": 0.6525,
+     "pCi": [
+      0.5815,
+      0.7234
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.5636,
+     "ci": [
+      0.511,
+      0.6098
+     ],
+     "pairwise": 0.7605,
+     "pairs": 381743,
+     "precisionAtN": 0.5887,
+     "pCi": [
+      0.507,
+      0.6632
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.5944,
+     "ci": [
+      0.5293,
+      0.6512
+     ],
+     "pairwise": 0.7967,
+     "pairs": 381743,
+     "precisionAtN": 0.633,
+     "pCi": [
+      0.5478,
+      0.7074
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.6446,
+     "ci": [
+      0.5828,
+      0.6947
+     ],
+     "pairwise": 0.8214,
+     "pairs": 381743,
+     "precisionAtN": 0.7074,
+     "pCi": [
+      0.6348,
+      0.7642
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.573,
+     "ci": [
+      0.5039,
+      0.6338
+     ],
+     "pairwise": 0.7869,
+     "pairs": 381743,
+     "precisionAtN": 0.6472,
+     "pCi": [
+      0.5585,
+      0.711
+     ]
+    }
+   },
+   "bestBaseline": "C_age_adjusted",
+   "ptMinusBest": {
+    "spearman": 0.0351,
+    "ci": [
+     0.0097,
+     0.0643
+    ]
+   }
+  },
+  {
+   "period": "development",
+   "population": "relevant",
+   "pos": "WR",
+   "target": "T2",
+   "decisions": 12,
+   "playerDecisions": 1508,
+   "uniquePlayers": 208,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.6764,
+     "ci": [
+      0.6,
+      0.7377
+     ],
+     "pairwise": 0.7692,
+     "pairs": 82175,
+     "precisionAtN": 0.695,
+     "pCi": [
+      0.6258,
+      0.75
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.4826,
+     "ci": [
+      0.3881,
+      0.5659
+     ],
+     "pairwise": 0.6908,
+     "pairs": 82175,
+     "precisionAtN": 0.6223,
+     "pCi": [
+      0.5514,
+      0.688
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.5978,
+     "ci": [
+      0.4977,
+      0.6761
+     ],
+     "pairwise": 0.7379,
+     "pairs": 82175,
+     "precisionAtN": 0.6667,
+     "pCi": [
+      0.6011,
+      0.734
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.7256,
+     "ci": [
+      0.6551,
+      0.7755
+     ],
+     "pairwise": 0.7947,
+     "pairs": 82175,
+     "precisionAtN": 0.7571,
+     "pCi": [
+      0.6879,
+      0.8015
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.5681,
+     "ci": [
+      0.4661,
+      0.6497
+     ],
+     "pairwise": 0.7235,
+     "pairs": 82175,
+     "precisionAtN": 0.6755,
+     "pCi": [
+      0.601,
+      0.7359
+     ]
+    }
+   },
+   "bestBaseline": "C_age_adjusted",
+   "ptMinusBest": {
+    "spearman": -0.0492,
+    "ci": [
+     -0.0952,
+     0.0045
+    ]
+   }
+  },
+  {
+   "period": "development",
+   "population": "all",
+   "pos": "TE",
+   "target": "T1",
+   "decisions": 12,
+   "playerDecisions": 2183,
+   "uniquePlayers": 263,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.6056,
+     "ci": [
+      0.5338,
+      0.6721
+     ],
+     "pairwise": 0.8352,
+     "pairs": 99243,
+     "precisionAtN": 0.4702,
+     "pCi": [
+      0.3512,
+      0.625
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.5452,
+     "ci": [
+      0.4675,
+      0.6128
+     ],
+     "pairwise": 0.7826,
+     "pairs": 99243,
+     "precisionAtN": 0.4167,
+     "pCi": [
+      0.3034,
+      0.5655
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.5494,
+     "ci": [
+      0.4629,
+      0.6297
+     ],
+     "pairwise": 0.8291,
+     "pairs": 99243,
+     "precisionAtN": 0.4821,
+     "pCi": [
+      0.3512,
+      0.6548
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.5736,
+     "ci": [
+      0.4906,
+      0.6476
+     ],
+     "pairwise": 0.8399,
+     "pairs": 99243,
+     "precisionAtN": 0.5238,
+     "pCi": [
+      0.4107,
+      0.6726
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.5309,
+     "ci": [
+      0.4438,
+      0.6085
+     ],
+     "pairwise": 0.8172,
+     "pairs": 99243,
+     "precisionAtN": 0.4821,
+     "pCi": [
+      0.3452,
+      0.6488
+     ]
+    }
+   },
+   "bestBaseline": "C_age_adjusted",
+   "ptMinusBest": {
+    "spearman": 0.032,
+    "ci": [
+     -0.0176,
+     0.0803
+    ]
+   }
+  },
+  {
+   "period": "development",
+   "population": "history",
+   "pos": "TE",
+   "target": "T1",
+   "decisions": 12,
+   "playerDecisions": 2032,
+   "uniquePlayers": 244,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.6061,
+     "ci": [
+      0.5342,
+      0.6644
+     ],
+     "pairwise": 0.8261,
+     "pairs": 90199,
+     "precisionAtN": 0.4702,
+     "pCi": [
+      0.3452,
+      0.619
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.5379,
+     "ci": [
+      0.4582,
+      0.6053
+     ],
+     "pairwise": 0.7708,
+     "pairs": 90199,
+     "precisionAtN": 0.4167,
+     "pCi": [
+      0.3095,
+      0.5595
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.5465,
+     "ci": [
+      0.4533,
+      0.6277
+     ],
+     "pairwise": 0.8165,
+     "pairs": 90199,
+     "precisionAtN": 0.4821,
+     "pCi": [
+      0.375,
+      0.6429
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.574,
+     "ci": [
+      0.4875,
+      0.6528
+     ],
+     "pairwise": 0.8283,
+     "pairs": 90199,
+     "precisionAtN": 0.5238,
+     "pCi": [
+      0.4167,
+      0.6667
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.5242,
+     "ci": [
+      0.4294,
+      0.6083
+     ],
+     "pairwise": 0.8036,
+     "pairs": 90199,
+     "precisionAtN": 0.4821,
+     "pCi": [
+      0.3629,
+      0.643
+     ]
+    }
+   },
+   "bestBaseline": "C_age_adjusted",
+   "ptMinusBest": {
+    "spearman": 0.0321,
+    "ci": [
+     -0.0195,
+     0.0853
+    ]
+   }
+  },
+  {
+   "period": "development",
+   "population": "relevant",
+   "pos": "TE",
+   "target": "T1",
+   "decisions": 12,
+   "playerDecisions": 509,
+   "uniquePlayers": 77,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.5166,
+     "ci": [
+      0.358,
+      0.655
+     ],
+     "pairwise": 0.7283,
+     "pairs": 8344,
+     "precisionAtN": 0.5714,
+     "pCi": [
+      0.4583,
+      0.6845
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.3529,
+     "ci": [
+      0.1874,
+      0.5111
+     ],
+     "pairwise": 0.6575,
+     "pairs": 8344,
+     "precisionAtN": 0.5536,
+     "pCi": [
+      0.4167,
+      0.6369
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.5223,
+     "ci": [
+      0.3877,
+      0.6395
+     ],
+     "pairwise": 0.7359,
+     "pairs": 8344,
+     "precisionAtN": 0.631,
+     "pCi": [
+      0.5,
+      0.7321
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.5787,
+     "ci": [
+      0.4458,
+      0.6828
+     ],
+     "pairwise": 0.7612,
+     "pairs": 8344,
+     "precisionAtN": 0.6548,
+     "pCi": [
+      0.5298,
+      0.75
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.4865,
+     "ci": [
+      0.318,
+      0.6148
+     ],
+     "pairwise": 0.7157,
+     "pairs": 8344,
+     "precisionAtN": 0.631,
+     "pCi": [
+      0.4881,
+      0.7202
+     ]
+    }
+   },
+   "bestBaseline": "C_age_adjusted",
+   "ptMinusBest": {
+    "spearman": -0.0621,
+    "ci": [
+     -0.1745,
+     0.0592
+    ]
+   }
+  },
+  {
+   "period": "development",
+   "population": "all",
+   "pos": "TE",
+   "target": "T2",
+   "decisions": 12,
+   "playerDecisions": 2183,
+   "uniquePlayers": 263,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.605,
+     "ci": [
+      0.5295,
+      0.6737
+     ],
+     "pairwise": 0.8083,
+     "pairs": 116977,
+     "precisionAtN": 0.5417,
+     "pCi": [
+      0.3988,
+      0.6786
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.5464,
+     "ci": [
+      0.4684,
+      0.6167
+     ],
+     "pairwise": 0.767,
+     "pairs": 116977,
+     "precisionAtN": 0.4345,
+     "pCi": [
+      0.3214,
+      0.5954
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.533,
+     "ci": [
+      0.4375,
+      0.62
+     ],
+     "pairwise": 0.7928,
+     "pairs": 116977,
+     "precisionAtN": 0.5,
+     "pCi": [
+      0.3512,
+      0.6786
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.5691,
+     "ci": [
+      0.4775,
+      0.6534
+     ],
+     "pairwise": 0.8096,
+     "pairs": 116977,
+     "precisionAtN": 0.5714,
+     "pCi": [
+      0.4286,
+      0.7202
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.5189,
+     "ci": [
+      0.4249,
+      0.6059
+     ],
+     "pairwise": 0.7832,
+     "pairs": 116977,
+     "precisionAtN": 0.5,
+     "pCi": [
+      0.3512,
+      0.6786
+     ]
+    }
+   },
+   "bestBaseline": "C_age_adjusted",
+   "ptMinusBest": {
+    "spearman": 0.0359,
+    "ci": [
+     -0.016,
+     0.0905
+    ]
+   }
+  },
+  {
+   "period": "development",
+   "population": "history",
+   "pos": "TE",
+   "target": "T2",
+   "decisions": 12,
+   "playerDecisions": 2032,
+   "uniquePlayers": 244,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.6105,
+     "ci": [
+      0.5346,
+      0.6717
+     ],
+     "pairwise": 0.8009,
+     "pairs": 105782,
+     "precisionAtN": 0.5417,
+     "pCi": [
+      0.4107,
+      0.6726
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.5437,
+     "ci": [
+      0.4655,
+      0.613
+     ],
+     "pairwise": 0.7565,
+     "pairs": 105782,
+     "precisionAtN": 0.4345,
+     "pCi": [
+      0.3155,
+      0.5835
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.535,
+     "ci": [
+      0.4364,
+      0.6199
+     ],
+     "pairwise": 0.7807,
+     "pairs": 105782,
+     "precisionAtN": 0.5,
+     "pCi": [
+      0.3631,
+      0.6667
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.5759,
+     "ci": [
+      0.4848,
+      0.6581
+     ],
+     "pairwise": 0.7993,
+     "pairs": 105782,
+     "precisionAtN": 0.5714,
+     "pCi": [
+      0.4345,
+      0.7083
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.5181,
+     "ci": [
+      0.4202,
+      0.6045
+     ],
+     "pairwise": 0.7705,
+     "pairs": 105782,
+     "precisionAtN": 0.5,
+     "pCi": [
+      0.3571,
+      0.6667
+     ]
+    }
+   },
+   "bestBaseline": "C_age_adjusted",
+   "ptMinusBest": {
+    "spearman": 0.0346,
+    "ci": [
+     -0.0189,
+     0.089
+    ]
+   }
+  },
+  {
+   "period": "development",
+   "population": "relevant",
+   "pos": "TE",
+   "target": "T2",
+   "decisions": 12,
+   "playerDecisions": 510,
+   "uniquePlayers": 77,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.569,
+     "ci": [
+      0.4048,
+      0.697
+     ],
+     "pairwise": 0.7299,
+     "pairs": 9347,
+     "precisionAtN": 0.6071,
+     "pCi": [
+      0.494,
+      0.7263
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.3708,
+     "ci": [
+      0.2143,
+      0.5267
+     ],
+     "pairwise": 0.6473,
+     "pairs": 9347,
+     "precisionAtN": 0.5417,
+     "pCi": [
+      0.4107,
+      0.6429
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.511,
+     "ci": [
+      0.3479,
+      0.6467
+     ],
+     "pairwise": 0.7101,
+     "pairs": 9347,
+     "precisionAtN": 0.5833,
+     "pCi": [
+      0.4524,
+      0.7323
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.6366,
+     "ci": [
+      0.4998,
+      0.7371
+     ],
+     "pairwise": 0.7637,
+     "pairs": 9347,
+     "precisionAtN": 0.6726,
+     "pCi": [
+      0.5356,
+      0.7738
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.4715,
+     "ci": [
+      0.2794,
+      0.6179
+     ],
+     "pairwise": 0.6895,
+     "pairs": 9347,
+     "precisionAtN": 0.5833,
+     "pCi": [
+      0.4643,
+      0.7321
+     ]
+    }
+   },
+   "bestBaseline": "C_age_adjusted",
+   "ptMinusBest": {
+    "spearman": -0.0676,
+    "ci": [
+     -0.1699,
+     0.0319
+    ]
+   }
+  },
+  {
+   "period": "development",
+   "population": "all",
+   "pos": "ALL",
+   "target": "VOR2",
+   "decisions": 12,
+   "playerDecisions": 10339,
+   "uniquePlayers": 1260,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.4999,
+     "ci": [
+      0.4569,
+      0.5383
+     ],
+     "pairwise": null,
+     "pairs": 0,
+     "precisionAtN": 0.6313,
+     "pCi": [
+      0.5681,
+      0.6826
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.5373,
+     "ci": [
+      0.4779,
+      0.5917
+     ],
+     "pairwise": null,
+     "pairs": 0,
+     "precisionAtN": 0.5688,
+     "pCi": [
+      0.525,
+      0.6229
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.5954,
+     "ci": [
+      0.5317,
+      0.6476
+     ],
+     "pairwise": null,
+     "pairs": 0,
+     "precisionAtN": 0.6194,
+     "pCi": [
+      0.5632,
+      0.6736
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.6244,
+     "ci": [
+      0.5618,
+      0.677
+     ],
+     "pairwise": null,
+     "pairs": 0,
+     "precisionAtN": 0.5917,
+     "pCi": [
+      0.5298,
+      0.6736
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.5929,
+     "ci": [
+      0.5266,
+      0.6473
+     ],
+     "pairwise": null,
+     "pairs": 0,
+     "precisionAtN": 0.6194,
+     "pCi": [
+      0.566,
+      0.6744
+     ]
+    }
+   },
+   "bestBaseline": "C_age_adjusted",
+   "ptMinusBest": {
+    "spearman": -0.1245,
+    "ci": [
+     -0.1675,
+     -0.0798
+    ]
+   }
+  },
+  {
+   "period": "development",
+   "population": "history",
+   "pos": "ALL",
+   "target": "VOR2",
+   "decisions": 12,
+   "playerDecisions": 9769,
+   "uniquePlayers": 1178,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.5059,
+     "ci": [
+      0.4631,
+      0.5443
+     ],
+     "pairwise": null,
+     "pairs": 0,
+     "precisionAtN": 0.6313,
+     "pCi": [
+      0.5764,
+      0.6826
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.5357,
+     "ci": [
+      0.478,
+      0.587
+     ],
+     "pairwise": null,
+     "pairs": 0,
+     "precisionAtN": 0.5715,
+     "pCi": [
+      0.525,
+      0.6215
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.5949,
+     "ci": [
+      0.5316,
+      0.6505
+     ],
+     "pairwise": null,
+     "pairs": 0,
+     "precisionAtN": 0.6208,
+     "pCi": [
+      0.5673,
+      0.675
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.6245,
+     "ci": [
+      0.5629,
+      0.6769
+     ],
+     "pairwise": null,
+     "pairs": 0,
+     "precisionAtN": 0.5931,
+     "pCi": [
+      0.5375,
+      0.6715
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.5922,
+     "ci": [
+      0.529,
+      0.6475
+     ],
+     "pairwise": null,
+     "pairs": 0,
+     "precisionAtN": 0.6215,
+     "pCi": [
+      0.566,
+      0.6778
+     ]
+    }
+   },
+   "bestBaseline": "C_age_adjusted",
+   "ptMinusBest": {
+    "spearman": -0.1186,
+    "ci": [
+     -0.1629,
+     -0.0717
+    ]
+   }
+  },
+  {
+   "period": "development",
+   "population": "relevant",
+   "pos": "ALL",
+   "target": "VOR2",
+   "decisions": 12,
+   "playerDecisions": 4178,
+   "uniquePlayers": 561,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.55,
+     "ci": [
+      0.4893,
+      0.6033
+     ],
+     "pairwise": null,
+     "pairs": 0,
+     "precisionAtN": 0.6514,
+     "pCi": [
+      0.6014,
+      0.7056
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.4817,
+     "ci": [
+      0.4151,
+      0.5426
+     ],
+     "pairwise": null,
+     "pairs": 0,
+     "precisionAtN": 0.6278,
+     "pCi": [
+      0.5778,
+      0.6729
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.5717,
+     "ci": [
+      0.5026,
+      0.6348
+     ],
+     "pairwise": null,
+     "pairs": 0,
+     "precisionAtN": 0.666,
+     "pCi": [
+      0.6208,
+      0.7167
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.6154,
+     "ci": [
+      0.5524,
+      0.6757
+     ],
+     "pairwise": null,
+     "pairs": 0,
+     "precisionAtN": 0.65,
+     "pCi": [
+      0.6062,
+      0.7222
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.5637,
+     "ci": [
+      0.498,
+      0.6263
+     ],
+     "pairwise": null,
+     "pairs": 0,
+     "precisionAtN": 0.6674,
+     "pCi": [
+      0.6167,
+      0.7139
+     ]
+    }
+   },
+   "bestBaseline": "C_age_adjusted",
+   "ptMinusBest": {
+    "spearman": -0.0654,
+    "ci": [
+     -0.1128,
+     -0.0217
+    ]
+   }
+  },
+  {
+   "period": "validation",
+   "population": "all",
+   "pos": "QB",
+   "target": "T1",
+   "decisions": 5,
+   "playerDecisions": 545,
+   "uniquePlayers": 123,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.5304,
+     "ci": [
+      0.395,
+      0.6423
+     ],
+     "pairwise": 0.7659,
+     "pairs": 17726,
+     "precisionAtN": 0.5083,
+     "pCi": [
+      0.375,
+      0.6417
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.6138,
+     "ci": [
+      0.4955,
+      0.7103
+     ],
+     "pairwise": 0.8063,
+     "pairs": 17726,
+     "precisionAtN": 0.6417,
+     "pCi": [
+      0.4917,
+      0.7502
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.5832,
+     "ci": [
+      0.4572,
+      0.6923
+     ],
+     "pairwise": 0.8045,
+     "pairs": 17726,
+     "precisionAtN": 0.625,
+     "pCi": [
+      0.4917,
+      0.7333
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.5957,
+     "ci": [
+      0.4709,
+      0.702
+     ],
+     "pairwise": 0.8077,
+     "pairs": 17726,
+     "precisionAtN": 0.65,
+     "pCi": [
+      0.5,
+      0.7583
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.5697,
+     "ci": [
+      0.4357,
+      0.6869
+     ],
+     "pairwise": 0.7988,
+     "pairs": 17726,
+     "precisionAtN": 0.625,
+     "pCi": [
+      0.4833,
+      0.7333
+     ]
+    }
+   },
+   "bestBaseline": "A_prev_season",
+   "ptMinusBest": {
+    "spearman": -0.0834,
+    "ci": [
+     -0.1982,
+     0.0233
+    ]
+   }
+  },
+  {
+   "period": "validation",
+   "population": "history",
+   "pos": "QB",
+   "target": "T1",
+   "decisions": 5,
+   "playerDecisions": 516,
+   "uniquePlayers": 117,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.5307,
+     "ci": [
+      0.3808,
+      0.6501
+     ],
+     "pairwise": 0.7633,
+     "pairs": 16269,
+     "precisionAtN": 0.5083,
+     "pCi": [
+      0.375,
+      0.6583
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.6163,
+     "ci": [
+      0.4781,
+      0.7244
+     ],
+     "pairwise": 0.8044,
+     "pairs": 16269,
+     "precisionAtN": 0.6417,
+     "pCi": [
+      0.5,
+      0.7583
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.5861,
+     "ci": [
+      0.4371,
+      0.7051
+     ],
+     "pairwise": 0.8046,
+     "pairs": 16269,
+     "precisionAtN": 0.625,
+     "pCi": [
+      0.4917,
+      0.75
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.5998,
+     "ci": [
+      0.4592,
+      0.7124
+     ],
+     "pairwise": 0.8082,
+     "pairs": 16269,
+     "precisionAtN": 0.65,
+     "pCi": [
+      0.5,
+      0.7667
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.571,
+     "ci": [
+      0.4272,
+      0.6914
+     ],
+     "pairwise": 0.7986,
+     "pairs": 16269,
+     "precisionAtN": 0.625,
+     "pCi": [
+      0.4833,
+      0.75
+     ]
+    }
+   },
+   "bestBaseline": "A_prev_season",
+   "ptMinusBest": {
+    "spearman": -0.0856,
+    "ci": [
+     -0.2124,
+     0.029
+    ]
+   }
+  },
+  {
+   "period": "validation",
+   "population": "relevant",
+   "pos": "QB",
+   "target": "T1",
+   "decisions": 5,
+   "playerDecisions": 319,
+   "uniquePlayers": 78,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.4402,
+     "ci": [
+      0.2645,
+      0.5998
+     ],
+     "pairwise": 0.6933,
+     "pairs": 7637,
+     "precisionAtN": 0.5333,
+     "pCi": [
+      0.4333,
+      0.7
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.6022,
+     "ci": [
+      0.4288,
+      0.7369
+     ],
+     "pairwise": 0.7704,
+     "pairs": 7637,
+     "precisionAtN": 0.6583,
+     "pCi": [
+      0.55,
+      0.8
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.5412,
+     "ci": [
+      0.3572,
+      0.6839
+     ],
+     "pairwise": 0.7546,
+     "pairs": 7637,
+     "precisionAtN": 0.6417,
+     "pCi": [
+      0.5417,
+      0.7917
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.568,
+     "ci": [
+      0.3944,
+      0.6926
+     ],
+     "pairwise": 0.7603,
+     "pairs": 7637,
+     "precisionAtN": 0.675,
+     "pCi": [
+      0.5583,
+      0.8083
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.5297,
+     "ci": [
+      0.3466,
+      0.6752
+     ],
+     "pairwise": 0.7499,
+     "pairs": 7637,
+     "precisionAtN": 0.65,
+     "pCi": [
+      0.5417,
+      0.7835
+     ]
+    }
+   },
+   "bestBaseline": "A_prev_season",
+   "ptMinusBest": {
+    "spearman": -0.162,
+    "ci": [
+     -0.3355,
+     0.0165
+    ]
+   }
+  },
+  {
+   "period": "validation",
+   "population": "all",
+   "pos": "QB",
+   "target": "T2",
+   "decisions": 1,
+   "playerDecisions": 113,
+   "uniquePlayers": 113,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.5077,
+     "ci": [
+      0.3565,
+      0.6417
+     ],
+     "pairwise": 0.7422,
+     "pairs": 4525,
+     "precisionAtN": 0.5417,
+     "pCi": [
+      0.375,
+      0.7083
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.7581,
+     "ci": [
+      0.6564,
+      0.8314
+     ],
+     "pairwise": 0.8531,
+     "pairs": 4525,
+     "precisionAtN": 0.75,
+     "pCi": [
+      0.5417,
+      0.875
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.6628,
+     "ci": [
+      0.5331,
+      0.7643
+     ],
+     "pairwise": 0.8225,
+     "pairs": 4525,
+     "precisionAtN": 0.75,
+     "pCi": [
+      0.5417,
+      0.8333
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.6773,
+     "ci": [
+      0.5485,
+      0.7736
+     ],
+     "pairwise": 0.829,
+     "pairs": 4525,
+     "precisionAtN": 0.75,
+     "pCi": [
+      0.5833,
+      0.875
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.6467,
+     "ci": [
+      0.5096,
+      0.7503
+     ],
+     "pairwise": 0.8192,
+     "pairs": 4525,
+     "precisionAtN": 0.7917,
+     "pCi": [
+      0.5417,
+      0.8333
+     ]
+    }
+   },
+   "bestBaseline": "A_prev_season",
+   "ptMinusBest": {
+    "spearman": -0.2504,
+    "ci": [
+     -0.38,
+     -0.1286
+    ]
+   }
+  },
+  {
+   "period": "validation",
+   "population": "history",
+   "pos": "QB",
+   "target": "T2",
+   "decisions": 1,
+   "playerDecisions": 106,
+   "uniquePlayers": 106,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.5122,
+     "ci": [
+      0.344,
+      0.6579
+     ],
+     "pairwise": 0.7376,
+     "pairs": 4099,
+     "precisionAtN": 0.5417,
+     "pCi": [
+      0.375,
+      0.7083
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.7746,
+     "ci": [
+      0.6597,
+      0.8505
+     ],
+     "pairwise": 0.8506,
+     "pairs": 4099,
+     "precisionAtN": 0.75,
+     "pCi": [
+      0.5417,
+      0.875
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.6746,
+     "ci": [
+      0.5316,
+      0.7821
+     ],
+     "pairwise": 0.819,
+     "pairs": 4099,
+     "precisionAtN": 0.75,
+     "pCi": [
+      0.5417,
+      0.8333
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.6909,
+     "ci": [
+      0.5482,
+      0.7916
+     ],
+     "pairwise": 0.8261,
+     "pairs": 4099,
+     "precisionAtN": 0.75,
+     "pCi": [
+      0.5417,
+      0.8333
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.6559,
+     "ci": [
+      0.5036,
+      0.7659
+     ],
+     "pairwise": 0.8156,
+     "pairs": 4099,
+     "precisionAtN": 0.7917,
+     "pCi": [
+      0.5417,
+      0.8333
+     ]
+    }
+   },
+   "bestBaseline": "A_prev_season",
+   "ptMinusBest": {
+    "spearman": -0.2624,
+    "ci": [
+     -0.4223,
+     -0.1284
+    ]
+   }
+  },
+  {
+   "period": "validation",
+   "population": "relevant",
+   "pos": "QB",
+   "target": "T2",
+   "decisions": 1,
+   "playerDecisions": 65,
+   "uniquePlayers": 65,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.3584,
+     "ci": [
+      0.1277,
+      0.5737
+     ],
+     "pairwise": 0.6522,
+     "pairs": 1807,
+     "precisionAtN": 0.5833,
+     "pCi": [
+      0.375,
+      0.7083
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.7805,
+     "ci": [
+      0.6568,
+      0.8654
+     ],
+     "pairwise": 0.8218,
+     "pairs": 1807,
+     "precisionAtN": 0.75,
+     "pCi": [
+      0.5833,
+      0.875
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.6485,
+     "ci": [
+      0.4642,
+      0.7695
+     ],
+     "pairwise": 0.7775,
+     "pairs": 1807,
+     "precisionAtN": 0.75,
+     "pCi": [
+      0.5417,
+      0.875
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.6854,
+     "ci": [
+      0.5177,
+      0.7952
+     ],
+     "pairwise": 0.7908,
+     "pairs": 1807,
+     "precisionAtN": 0.75,
+     "pCi": [
+      0.5833,
+      0.875
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.6457,
+     "ci": [
+      0.4618,
+      0.7645
+     ],
+     "pairwise": 0.7764,
+     "pairs": 1807,
+     "precisionAtN": 0.7917,
+     "pCi": [
+      0.5833,
+      0.875
+     ]
+    }
+   },
+   "bestBaseline": "A_prev_season",
+   "ptMinusBest": {
+    "spearman": -0.4221,
+    "ci": [
+     -0.6375,
+     -0.2132
+    ]
+   }
+  },
+  {
+   "period": "validation",
+   "population": "all",
+   "pos": "RB",
+   "target": "T1",
+   "decisions": 5,
+   "playerDecisions": 1245,
+   "uniquePlayers": 284,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.5924,
+     "ci": [
+      0.509,
+      0.665
+     ],
+     "pairwise": 0.8295,
+     "pairs": 74930,
+     "precisionAtN": 0.6457,
+     "pCi": [
+      0.52,
+      0.7257
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.5145,
+     "ci": [
+      0.4231,
+      0.5936
+     ],
+     "pairwise": 0.7623,
+     "pairs": 74930,
+     "precisionAtN": 0.5486,
+     "pCi": [
+      0.44,
+      0.6629
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.5468,
+     "ci": [
+      0.4482,
+      0.6283
+     ],
+     "pairwise": 0.8219,
+     "pairs": 74930,
+     "precisionAtN": 0.6171,
+     "pCi": [
+      0.4914,
+      0.7086
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.5701,
+     "ci": [
+      0.4738,
+      0.652
+     ],
+     "pairwise": 0.8325,
+     "pairs": 74930,
+     "precisionAtN": 0.6571,
+     "pCi": [
+      0.5314,
+      0.7371
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.5484,
+     "ci": [
+      0.4517,
+      0.6281
+     ],
+     "pairwise": 0.8233,
+     "pairs": 74930,
+     "precisionAtN": 0.6114,
+     "pCi": [
+      0.5027,
+      0.7143
+     ]
+    }
+   },
+   "bestBaseline": "C_age_adjusted",
+   "ptMinusBest": {
+    "spearman": 0.0223,
+    "ci": [
+     -0.02,
+     0.0685
+    ]
+   }
+  },
+  {
+   "period": "validation",
+   "population": "history",
+   "pos": "RB",
+   "target": "T1",
+   "decisions": 5,
+   "playerDecisions": 1166,
+   "uniquePlayers": 268,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.5966,
+     "ci": [
+      0.5141,
+      0.6668
+     ],
+     "pairwise": 0.8338,
+     "pairs": 67941,
+     "precisionAtN": 0.6571,
+     "pCi": [
+      0.5371,
+      0.7371
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.5095,
+     "ci": [
+      0.4123,
+      0.5977
+     ],
+     "pairwise": 0.7618,
+     "pairs": 67941,
+     "precisionAtN": 0.5543,
+     "pCi": [
+      0.4514,
+      0.6743
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.5485,
+     "ci": [
+      0.456,
+      0.6327
+     ],
+     "pairwise": 0.8258,
+     "pairs": 67941,
+     "precisionAtN": 0.6286,
+     "pCi": [
+      0.5086,
+      0.7143
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.5747,
+     "ci": [
+      0.4819,
+      0.6575
+     ],
+     "pairwise": 0.8375,
+     "pairs": 67941,
+     "precisionAtN": 0.6686,
+     "pCi": [
+      0.5486,
+      0.7429
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.5501,
+     "ci": [
+      0.4557,
+      0.634
+     ],
+     "pairwise": 0.8279,
+     "pairs": 67941,
+     "precisionAtN": 0.6229,
+     "pCi": [
+      0.5199,
+      0.72
+     ]
+    }
+   },
+   "bestBaseline": "C_age_adjusted",
+   "ptMinusBest": {
+    "spearman": 0.0218,
+    "ci": [
+     -0.0239,
+     0.068
+    ]
+   }
+  },
+  {
+   "period": "validation",
+   "population": "relevant",
+   "pos": "RB",
+   "target": "T1",
+   "decisions": 5,
+   "playerDecisions": 463,
+   "uniquePlayers": 117,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.5681,
+     "ci": [
+      0.4367,
+      0.6636
+     ],
+     "pairwise": 0.7365,
+     "pairs": 16462,
+     "precisionAtN": 0.6686,
+     "pCi": [
+      0.5713,
+      0.7486
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.4098,
+     "ci": [
+      0.2579,
+      0.5543
+     ],
+     "pairwise": 0.6657,
+     "pairs": 16462,
+     "precisionAtN": 0.56,
+     "pCi": [
+      0.4743,
+      0.6971
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.5343,
+     "ci": [
+      0.4086,
+      0.641
+     ],
+     "pairwise": 0.7205,
+     "pairs": 16462,
+     "precisionAtN": 0.64,
+     "pCi": [
+      0.5429,
+      0.7314
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.6043,
+     "ci": [
+      0.4999,
+      0.6971
+     ],
+     "pairwise": 0.7467,
+     "pairs": 16462,
+     "precisionAtN": 0.6857,
+     "pCi": [
+      0.5829,
+      0.7657
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.5356,
+     "ci": [
+      0.4095,
+      0.6448
+     ],
+     "pairwise": 0.7202,
+     "pairs": 16462,
+     "precisionAtN": 0.64,
+     "pCi": [
+      0.5543,
+      0.7429
+     ]
+    }
+   },
+   "bestBaseline": "C_age_adjusted",
+   "ptMinusBest": {
+    "spearman": -0.0362,
+    "ci": [
+     -0.1322,
+     0.0465
+    ]
+   }
+  },
+  {
+   "period": "validation",
+   "population": "all",
+   "pos": "RB",
+   "target": "T2",
+   "decisions": 1,
+   "playerDecisions": 248,
+   "uniquePlayers": 248,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.6193,
+     "ci": [
+      0.5243,
+      0.7033
+     ],
+     "pairwise": 0.8336,
+     "pairs": 17121,
+     "precisionAtN": 0.7143,
+     "pCi": [
+      0.5429,
+      0.8
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.7569,
+     "ci": [
+      0.6782,
+      0.8219
+     ],
+     "pairwise": 0.8533,
+     "pairs": 17121,
+     "precisionAtN": 0.6,
+     "pCi": [
+      0.4857,
+      0.7714
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.6684,
+     "ci": [
+      0.5848,
+      0.7403
+     ],
+     "pairwise": 0.8483,
+     "pairs": 17121,
+     "precisionAtN": 0.6286,
+     "pCi": [
+      0.4857,
+      0.7429
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.6922,
+     "ci": [
+      0.6117,
+      0.764
+     ],
+     "pairwise": 0.859,
+     "pairs": 17121,
+     "precisionAtN": 0.6571,
+     "pCi": [
+      0.5429,
+      0.8
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.6629,
+     "ci": [
+      0.5758,
+      0.7359
+     ],
+     "pairwise": 0.8475,
+     "pairs": 17121,
+     "precisionAtN": 0.6286,
+     "pCi": [
+      0.5143,
+      0.7714
+     ]
+    }
+   },
+   "bestBaseline": "A_prev_season",
+   "ptMinusBest": {
+    "spearman": -0.1377,
+    "ci": [
+     -0.2177,
+     -0.0601
+    ]
+   }
+  },
+  {
+   "period": "validation",
+   "population": "history",
+   "pos": "RB",
+   "target": "T2",
+   "decisions": 1,
+   "playerDecisions": 232,
+   "uniquePlayers": 232,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.6055,
+     "ci": [
+      0.5061,
+      0.6928
+     ],
+     "pairwise": 0.8276,
+     "pairs": 15607,
+     "precisionAtN": 0.7143,
+     "pCi": [
+      0.5429,
+      0.8
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.7465,
+     "ci": [
+      0.6636,
+      0.8154
+     ],
+     "pairwise": 0.848,
+     "pairs": 15607,
+     "precisionAtN": 0.6,
+     "pCi": [
+      0.4857,
+      0.7429
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.6544,
+     "ci": [
+      0.5628,
+      0.7358
+     ],
+     "pairwise": 0.8421,
+     "pairs": 15607,
+     "precisionAtN": 0.6286,
+     "pCi": [
+      0.4571,
+      0.7429
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.681,
+     "ci": [
+      0.5957,
+      0.7541
+     ],
+     "pairwise": 0.8538,
+     "pairs": 15607,
+     "precisionAtN": 0.6571,
+     "pCi": [
+      0.5429,
+      0.8
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.6491,
+     "ci": [
+      0.5535,
+      0.7284
+     ],
+     "pairwise": 0.8416,
+     "pairs": 15607,
+     "precisionAtN": 0.6286,
+     "pCi": [
+      0.5143,
+      0.7714
+     ]
+    }
+   },
+   "bestBaseline": "A_prev_season",
+   "ptMinusBest": {
+    "spearman": -0.1409,
+    "ci": [
+     -0.2363,
+     -0.052
+    ]
+   }
+  },
+  {
+   "period": "validation",
+   "population": "relevant",
+   "pos": "RB",
+   "target": "T2",
+   "decisions": 1,
+   "playerDecisions": 90,
+   "uniquePlayers": 90,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.6174,
+     "ci": [
+      0.455,
+      0.7389
+     ],
+     "pairwise": 0.7569,
+     "pairs": 3430,
+     "precisionAtN": 0.7143,
+     "pCi": [
+      0.5714,
+      0.8286
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.6406,
+     "ci": [
+      0.4697,
+      0.7688
+     ],
+     "pairwise": 0.7538,
+     "pairs": 3430,
+     "precisionAtN": 0.6,
+     "pCi": [
+      0.4857,
+      0.7714
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.604,
+     "ci": [
+      0.4386,
+      0.7411
+     ],
+     "pairwise": 0.7379,
+     "pairs": 3430,
+     "precisionAtN": 0.6286,
+     "pCi": [
+      0.4857,
+      0.7429
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.6571,
+     "ci": [
+      0.5053,
+      0.7808
+     ],
+     "pairwise": 0.7633,
+     "pairs": 3430,
+     "precisionAtN": 0.6571,
+     "pCi": [
+      0.5429,
+      0.8
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.6142,
+     "ci": [
+      0.447,
+      0.7457
+     ],
+     "pairwise": 0.7426,
+     "pairs": 3430,
+     "precisionAtN": 0.6286,
+     "pCi": [
+      0.5143,
+      0.7714
+     ]
+    }
+   },
+   "bestBaseline": "C_age_adjusted",
+   "ptMinusBest": {
+    "spearman": -0.0396,
+    "ci": [
+     -0.1692,
+     0.082
+    ]
+   }
+  },
+  {
+   "period": "validation",
+   "population": "all",
+   "pos": "WR",
+   "target": "T1",
+   "decisions": 5,
+   "playerDecisions": 1703,
+   "uniquePlayers": 398,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.6856,
+     "ci": [
+      0.6278,
+      0.7414
+     ],
+     "pairwise": 0.8757,
+     "pairs": 155086,
+     "precisionAtN": 0.7532,
+     "pCi": [
+      0.6468,
+      0.8383
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.6049,
+     "ci": [
+      0.5334,
+      0.6674
+     ],
+     "pairwise": 0.8167,
+     "pairs": 155086,
+     "precisionAtN": 0.7191,
+     "pCi": [
+      0.5872,
+      0.8128
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.6678,
+     "ci": [
+      0.6017,
+      0.7306
+     ],
+     "pairwise": 0.8726,
+     "pairs": 155086,
+     "precisionAtN": 0.7745,
+     "pCi": [
+      0.6255,
+      0.8512
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.6925,
+     "ci": [
+      0.6293,
+      0.7515
+     ],
+     "pairwise": 0.8859,
+     "pairs": 155086,
+     "precisionAtN": 0.783,
+     "pCi": [
+      0.6638,
+      0.8383
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.6581,
+     "ci": [
+      0.5905,
+      0.7208
+     ],
+     "pairwise": 0.8677,
+     "pairs": 155086,
+     "precisionAtN": 0.7787,
+     "pCi": [
+      0.6213,
+      0.8511
+     ]
+    }
+   },
+   "bestBaseline": "C_age_adjusted",
+   "ptMinusBest": {
+    "spearman": -0.0069,
+    "ci": [
+     -0.0365,
+     0.0226
+    ]
+   }
+  },
+  {
+   "period": "validation",
+   "population": "history",
+   "pos": "WR",
+   "target": "T1",
+   "decisions": 5,
+   "playerDecisions": 1573,
+   "uniquePlayers": 371,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.6896,
+     "ci": [
+      0.6274,
+      0.744
+     ],
+     "pairwise": 0.8664,
+     "pairs": 139671,
+     "precisionAtN": 0.7532,
+     "pCi": [
+      0.6426,
+      0.834
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.5985,
+     "ci": [
+      0.5233,
+      0.6704
+     ],
+     "pairwise": 0.8065,
+     "pairs": 139671,
+     "precisionAtN": 0.7191,
+     "pCi": [
+      0.5915,
+      0.8085
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.6696,
+     "ci": [
+      0.6003,
+      0.726
+     ],
+     "pairwise": 0.862,
+     "pairs": 139671,
+     "precisionAtN": 0.7745,
+     "pCi": [
+      0.6213,
+      0.8511
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.6979,
+     "ci": [
+      0.6314,
+      0.7504
+     ],
+     "pairwise": 0.8767,
+     "pairs": 139671,
+     "precisionAtN": 0.783,
+     "pCi": [
+      0.6553,
+      0.834
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.6591,
+     "ci": [
+      0.5896,
+      0.7167
+     ],
+     "pairwise": 0.8567,
+     "pairs": 139671,
+     "precisionAtN": 0.7787,
+     "pCi": [
+      0.6212,
+      0.8468
+     ]
+    }
+   },
+   "bestBaseline": "C_age_adjusted",
+   "ptMinusBest": {
+    "spearman": -0.0083,
+    "ci": [
+     -0.0433,
+     0.0242
+    ]
+   }
+  },
+  {
+   "period": "validation",
+   "population": "relevant",
+   "pos": "WR",
+   "target": "T1",
+   "decisions": 5,
+   "playerDecisions": 619,
+   "uniquePlayers": 150,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.6986,
+     "ci": [
+      0.6002,
+      0.7664
+     ],
+     "pairwise": 0.799,
+     "pairs": 31225,
+     "precisionAtN": 0.7574,
+     "pCi": [
+      0.6681,
+      0.8341
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.549,
+     "ci": [
+      0.4135,
+      0.6596
+     ],
+     "pairwise": 0.7301,
+     "pairs": 31225,
+     "precisionAtN": 0.7277,
+     "pCi": [
+      0.6127,
+      0.8043
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.661,
+     "ci": [
+      0.551,
+      0.7417
+     ],
+     "pairwise": 0.7835,
+     "pairs": 31225,
+     "precisionAtN": 0.7787,
+     "pCi": [
+      0.6511,
+      0.8553
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.7316,
+     "ci": [
+      0.6494,
+      0.7976
+     ],
+     "pairwise": 0.8175,
+     "pairs": 31225,
+     "precisionAtN": 0.783,
+     "pCi": [
+      0.6851,
+      0.8468
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.6551,
+     "ci": [
+      0.5463,
+      0.7364
+     ],
+     "pairwise": 0.7809,
+     "pairs": 31225,
+     "precisionAtN": 0.783,
+     "pCi": [
+      0.6468,
+      0.8511
+     ]
+    }
+   },
+   "bestBaseline": "C_age_adjusted",
+   "ptMinusBest": {
+    "spearman": -0.033,
+    "ci": [
+     -0.0985,
+     0.0249
+    ]
+   }
+  },
+  {
+   "period": "validation",
+   "population": "all",
+   "pos": "WR",
+   "target": "T2",
+   "decisions": 1,
+   "playerDecisions": 350,
+   "uniquePlayers": 350,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.6352,
+     "ci": [
+      0.5559,
+      0.7023
+     ],
+     "pairwise": 0.852,
+     "pairs": 35793,
+     "precisionAtN": 0.6809,
+     "pCi": [
+      0.5739,
+      0.7872
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.7627,
+     "ci": [
+      0.6948,
+      0.817
+     ],
+     "pairwise": 0.8792,
+     "pairs": 35793,
+     "precisionAtN": 0.7234,
+     "pCi": [
+      0.5957,
+      0.8511
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.6482,
+     "ci": [
+      0.5687,
+      0.7101
+     ],
+     "pairwise": 0.8574,
+     "pairs": 35793,
+     "precisionAtN": 0.7021,
+     "pCi": [
+      0.5532,
+      0.8298
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.6845,
+     "ci": [
+      0.607,
+      0.7439
+     ],
+     "pairwise": 0.8767,
+     "pairs": 35793,
+     "precisionAtN": 0.7447,
+     "pCi": [
+      0.5957,
+      0.8298
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.6402,
+     "ci": [
+      0.5619,
+      0.7056
+     ],
+     "pairwise": 0.8536,
+     "pairs": 35793,
+     "precisionAtN": 0.7021,
+     "pCi": [
+      0.5319,
+      0.8298
+     ]
+    }
+   },
+   "bestBaseline": "A_prev_season",
+   "ptMinusBest": {
+    "spearman": -0.1275,
+    "ci": [
+     -0.1864,
+     -0.0709
+    ]
+   }
+  },
+  {
+   "period": "validation",
+   "population": "history",
+   "pos": "WR",
+   "target": "T2",
+   "decisions": 1,
+   "playerDecisions": 325,
+   "uniquePlayers": 325,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.6473,
+     "ci": [
+      0.5656,
+      0.7178
+     ],
+     "pairwise": 0.8454,
+     "pairs": 32363,
+     "precisionAtN": 0.6809,
+     "pCi": [
+      0.5745,
+      0.8085
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.7706,
+     "ci": [
+      0.7058,
+      0.8216
+     ],
+     "pairwise": 0.8753,
+     "pairs": 32363,
+     "precisionAtN": 0.7234,
+     "pCi": [
+      0.5957,
+      0.8511
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.6577,
+     "ci": [
+      0.5777,
+      0.7244
+     ],
+     "pairwise": 0.8506,
+     "pairs": 32363,
+     "precisionAtN": 0.7021,
+     "pCi": [
+      0.5532,
+      0.8298
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.6991,
+     "ci": [
+      0.6274,
+      0.7588
+     ],
+     "pairwise": 0.8719,
+     "pairs": 32363,
+     "precisionAtN": 0.7447,
+     "pCi": [
+      0.617,
+      0.8511
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.649,
+     "ci": [
+      0.5697,
+      0.7183
+     ],
+     "pairwise": 0.8464,
+     "pairs": 32363,
+     "precisionAtN": 0.7021,
+     "pCi": [
+      0.5319,
+      0.8298
+     ]
+    }
+   },
+   "bestBaseline": "A_prev_season",
+   "ptMinusBest": {
+    "spearman": -0.1233,
+    "ci": [
+     -0.1865,
+     -0.0629
+    ]
+   }
+  },
+  {
+   "period": "validation",
+   "population": "relevant",
+   "pos": "WR",
+   "target": "T2",
+   "decisions": 1,
+   "playerDecisions": 124,
+   "uniquePlayers": 124,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.6613,
+     "ci": [
+      0.5412,
+      0.757
+     ],
+     "pairwise": 0.7594,
+     "pairs": 6791,
+     "precisionAtN": 0.7021,
+     "pCi": [
+      0.5957,
+      0.8085
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.7092,
+     "ci": [
+      0.5902,
+      0.7984
+     ],
+     "pairwise": 0.7822,
+     "pairs": 6791,
+     "precisionAtN": 0.7234,
+     "pCi": [
+      0.5957,
+      0.8511
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.6478,
+     "ci": [
+      0.5138,
+      0.7569
+     ],
+     "pairwise": 0.7589,
+     "pairs": 6791,
+     "precisionAtN": 0.7021,
+     "pCi": [
+      0.5745,
+      0.8298
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.7823,
+     "ci": [
+      0.6912,
+      0.8532
+     ],
+     "pairwise": 0.8226,
+     "pairs": 6791,
+     "precisionAtN": 0.7447,
+     "pCi": [
+      0.617,
+      0.8298
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.6384,
+     "ci": [
+      0.5081,
+      0.7431
+     ],
+     "pairwise": 0.7536,
+     "pairs": 6791,
+     "precisionAtN": 0.7021,
+     "pCi": [
+      0.5745,
+      0.8298
+     ]
+    }
+   },
+   "bestBaseline": "C_age_adjusted",
+   "ptMinusBest": {
+    "spearman": -0.121,
+    "ci": [
+     -0.225,
+     -0.0298
+    ]
+   }
+  },
+  {
+   "period": "validation",
+   "population": "all",
+   "pos": "TE",
+   "target": "T1",
+   "decisions": 5,
+   "playerDecisions": 927,
+   "uniquePlayers": 214,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.6179,
+     "ci": [
+      0.524,
+      0.6914
+     ],
+     "pairwise": 0.8554,
+     "pairs": 41372,
+     "precisionAtN": 0.5429,
+     "pCi": [
+      0.3,
+      0.6714
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.6033,
+     "ci": [
+      0.495,
+      0.6866
+     ],
+     "pairwise": 0.8355,
+     "pairs": 41372,
+     "precisionAtN": 0.5143,
+     "pCi": [
+      0.3143,
+      0.6714
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.5825,
+     "ci": [
+      0.4664,
+      0.6743
+     ],
+     "pairwise": 0.8584,
+     "pairs": 41372,
+     "precisionAtN": 0.5,
+     "pCi": [
+      0.2857,
+      0.6714
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.6064,
+     "ci": [
+      0.4948,
+      0.6931
+     ],
+     "pairwise": 0.8685,
+     "pairs": 41372,
+     "precisionAtN": 0.5429,
+     "pCi": [
+      0.3143,
+      0.7
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.5759,
+     "ci": [
+      0.4603,
+      0.6679
+     ],
+     "pairwise": 0.8547,
+     "pairs": 41372,
+     "precisionAtN": 0.4857,
+     "pCi": [
+      0.2568,
+      0.6571
+     ]
+    }
+   },
+   "bestBaseline": "C_age_adjusted",
+   "ptMinusBest": {
+    "spearman": 0.0115,
+    "ci": [
+     -0.0494,
+     0.0789
+    ]
+   }
+  },
+  {
+   "period": "validation",
+   "population": "history",
+   "pos": "TE",
+   "target": "T1",
+   "decisions": 5,
+   "playerDecisions": 869,
+   "uniquePlayers": 199,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.6089,
+     "ci": [
+      0.5126,
+      0.6847
+     ],
+     "pairwise": 0.8474,
+     "pairs": 37823,
+     "precisionAtN": 0.5429,
+     "pCi": [
+      0.3143,
+      0.6714
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.596,
+     "ci": [
+      0.481,
+      0.6871
+     ],
+     "pairwise": 0.8308,
+     "pairs": 37823,
+     "precisionAtN": 0.5143,
+     "pCi": [
+      0.3282,
+      0.6857
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.5724,
+     "ci": [
+      0.4567,
+      0.6651
+     ],
+     "pairwise": 0.8535,
+     "pairs": 37823,
+     "precisionAtN": 0.5,
+     "pCi": [
+      0.3,
+      0.6857
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.5992,
+     "ci": [
+      0.4831,
+      0.6865
+     ],
+     "pairwise": 0.8645,
+     "pairs": 37823,
+     "precisionAtN": 0.5429,
+     "pCi": [
+      0.3286,
+      0.6857
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.564,
+     "ci": [
+      0.4424,
+      0.6571
+     ],
+     "pairwise": 0.8481,
+     "pairs": 37823,
+     "precisionAtN": 0.4857,
+     "pCi": [
+      0.2571,
+      0.6429
+     ]
+    }
+   },
+   "bestBaseline": "C_age_adjusted",
+   "ptMinusBest": {
+    "spearman": 0.0096,
+    "ci": [
+     -0.0569,
+     0.0793
+    ]
+   }
+  },
+  {
+   "period": "validation",
+   "population": "relevant",
+   "pos": "TE",
+   "target": "T1",
+   "decisions": 5,
+   "playerDecisions": 197,
+   "uniquePlayers": 51,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.416,
+     "ci": [
+      0.1765,
+      0.6067
+     ],
+     "pairwise": 0.6748,
+     "pairs": 2998,
+     "precisionAtN": 0.5571,
+     "pCi": [
+      0.3857,
+      0.7286
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.5712,
+     "ci": [
+      0.3652,
+      0.745
+     ],
+     "pairwise": 0.736,
+     "pairs": 2998,
+     "precisionAtN": 0.5286,
+     "pCi": [
+      0.3996,
+      0.7429
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.5347,
+     "ci": [
+      0.2771,
+      0.744
+     ],
+     "pairwise": 0.7277,
+     "pairs": 2998,
+     "precisionAtN": 0.5,
+     "pCi": [
+      0.3714,
+      0.7286
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.6159,
+     "ci": [
+      0.4069,
+      0.7694
+     ],
+     "pairwise": 0.7578,
+     "pairs": 2998,
+     "precisionAtN": 0.5429,
+     "pCi": [
+      0.3857,
+      0.7571
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.4479,
+     "ci": [
+      0.1654,
+      0.6891
+     ],
+     "pairwise": 0.6941,
+     "pairs": 2998,
+     "precisionAtN": 0.4857,
+     "pCi": [
+      0.3286,
+      0.7
+     ]
+    }
+   },
+   "bestBaseline": "C_age_adjusted",
+   "ptMinusBest": {
+    "spearman": -0.1999,
+    "ci": [
+     -0.4274,
+     0.0167
+    ]
+   }
+  },
+  {
+   "period": "validation",
+   "population": "all",
+   "pos": "TE",
+   "target": "T2",
+   "decisions": 1,
+   "playerDecisions": 190,
+   "uniquePlayers": 190,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.4876,
+     "ci": [
+      0.3562,
+      0.6022
+     ],
+     "pairwise": 0.7724,
+     "pairs": 10085,
+     "precisionAtN": 0.5714,
+     "pCi": [
+      0.2857,
+      0.7857
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.7527,
+     "ci": [
+      0.6673,
+      0.8277
+     ],
+     "pairwise": 0.8687,
+     "pairs": 10085,
+     "precisionAtN": 0.4286,
+     "pCi": [
+      0.2857,
+      0.7857
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.5602,
+     "ci": [
+      0.4352,
+      0.6632
+     ],
+     "pairwise": 0.8126,
+     "pairs": 10085,
+     "precisionAtN": 0.4286,
+     "pCi": [
+      0.2143,
+      0.7857
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.5926,
+     "ci": [
+      0.4733,
+      0.6882
+     ],
+     "pairwise": 0.8259,
+     "pairs": 10085,
+     "precisionAtN": 0.4286,
+     "pCi": [
+      0.2857,
+      0.7857
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.5531,
+     "ci": [
+      0.4318,
+      0.6502
+     ],
+     "pairwise": 0.8092,
+     "pairs": 10085,
+     "precisionAtN": 0.4286,
+     "pCi": [
+      0.2143,
+      0.7857
+     ]
+    }
+   },
+   "bestBaseline": "A_prev_season",
+   "ptMinusBest": {
+    "spearman": -0.265,
+    "ci": [
+     -0.3724,
+     -0.1625
+    ]
+   }
+  },
+  {
+   "period": "validation",
+   "population": "history",
+   "pos": "TE",
+   "target": "T2",
+   "decisions": 1,
+   "playerDecisions": 176,
+   "uniquePlayers": 176,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.4694,
+     "ci": [
+      0.3329,
+      0.5863
+     ],
+     "pairwise": 0.7586,
+     "pairs": 9065,
+     "precisionAtN": 0.5714,
+     "pCi": [
+      0.2857,
+      0.7857
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.7571,
+     "ci": [
+      0.6647,
+      0.8292
+     ],
+     "pairwise": 0.8638,
+     "pairs": 9065,
+     "precisionAtN": 0.4286,
+     "pCi": [
+      0.2857,
+      0.7857
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.5544,
+     "ci": [
+      0.4322,
+      0.6672
+     ],
+     "pairwise": 0.8022,
+     "pairs": 9065,
+     "precisionAtN": 0.4286,
+     "pCi": [
+      0.2143,
+      0.7857
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.5914,
+     "ci": [
+      0.4755,
+      0.6914
+     ],
+     "pairwise": 0.817,
+     "pairs": 9065,
+     "precisionAtN": 0.4286,
+     "pCi": [
+      0.2857,
+      0.7857
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.5437,
+     "ci": [
+      0.4233,
+      0.6539
+     ],
+     "pairwise": 0.7985,
+     "pairs": 9065,
+     "precisionAtN": 0.4286,
+     "pCi": [
+      0.2143,
+      0.7143
+     ]
+    }
+   },
+   "bestBaseline": "A_prev_season",
+   "ptMinusBest": {
+    "spearman": -0.2878,
+    "ci": [
+     -0.4019,
+     -0.1756
+    ]
+   }
+  },
+  {
+   "period": "validation",
+   "population": "relevant",
+   "pos": "TE",
+   "target": "T2",
+   "decisions": 1,
+   "playerDecisions": 38,
+   "uniquePlayers": 38,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.4056,
+     "ci": [
+      0.0809,
+      0.6703
+     ],
+     "pairwise": 0.6431,
+     "pairs": 636,
+     "precisionAtN": 0.5714,
+     "pCi": [
+      0.3571,
+      0.7857
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.5617,
+     "ci": [
+      0.2664,
+      0.7638
+     ],
+     "pairwise": 0.7107,
+     "pairs": 636,
+     "precisionAtN": 0.5,
+     "pCi": [
+      0.2857,
+      0.7143
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.522,
+     "ci": [
+      0.222,
+      0.7424
+     ],
+     "pairwise": 0.7028,
+     "pairs": 636,
+     "precisionAtN": 0.5,
+     "pCi": [
+      0.2857,
+      0.7161
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.5903,
+     "ci": [
+      0.3282,
+      0.7671
+     ],
+     "pairwise": 0.7311,
+     "pairs": 636,
+     "precisionAtN": 0.5,
+     "pCi": [
+      0.3571,
+      0.7857
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.4229,
+     "ci": [
+      0.0867,
+      0.6955
+     ],
+     "pairwise": 0.6682,
+     "pairs": 636,
+     "precisionAtN": 0.5,
+     "pCi": [
+      0.2857,
+      0.7143
+     ]
+    }
+   },
+   "bestBaseline": "C_age_adjusted",
+   "ptMinusBest": {
+    "spearman": -0.1847,
+    "ci": [
+     -0.4082,
+     0.0251
+    ]
+   }
+  },
+  {
+   "period": "validation",
+   "population": "all",
+   "pos": "ALL",
+   "target": "VOR2",
+   "decisions": 1,
+   "playerDecisions": 901,
+   "uniquePlayers": 901,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.489,
+     "ci": [
+      0.4394,
+      0.5371
+     ],
+     "pairwise": null,
+     "pairs": 0,
+     "precisionAtN": 0.65,
+     "pCi": [
+      0.55,
+      0.7083
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.6412,
+     "ci": [
+      0.5644,
+      0.7129
+     ],
+     "pairwise": null,
+     "pairs": 0,
+     "precisionAtN": 0.65,
+     "pCi": [
+      0.575,
+      0.7167
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.6316,
+     "ci": [
+      0.55,
+      0.7005
+     ],
+     "pairwise": null,
+     "pairs": 0,
+     "precisionAtN": 0.6417,
+     "pCi": [
+      0.5583,
+      0.7167
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.6504,
+     "ci": [
+      0.5695,
+      0.7226
+     ],
+     "pairwise": null,
+     "pairs": 0,
+     "precisionAtN": 0.575,
+     "pCi": [
+      0.5167,
+      0.6917
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.6394,
+     "ci": [
+      0.5639,
+      0.7085
+     ],
+     "pairwise": null,
+     "pairs": 0,
+     "precisionAtN": 0.65,
+     "pCi": [
+      0.5833,
+      0.725
+     ]
+    }
+   },
+   "bestBaseline": "C_age_adjusted",
+   "ptMinusBest": {
+    "spearman": -0.1614,
+    "ci": [
+     -0.2336,
+     -0.0895
+    ]
+   }
+  },
+  {
+   "period": "validation",
+   "population": "history",
+   "pos": "ALL",
+   "target": "VOR2",
+   "decisions": 1,
+   "playerDecisions": 839,
+   "uniquePlayers": 839,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.4949,
+     "ci": [
+      0.4447,
+      0.544
+     ],
+     "pairwise": null,
+     "pairs": 0,
+     "precisionAtN": 0.65,
+     "pCi": [
+      0.55,
+      0.725
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.6396,
+     "ci": [
+      0.5577,
+      0.712
+     ],
+     "pairwise": null,
+     "pairs": 0,
+     "precisionAtN": 0.65,
+     "pCi": [
+      0.5667,
+      0.7167
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.6298,
+     "ci": [
+      0.5463,
+      0.7002
+     ],
+     "pairwise": null,
+     "pairs": 0,
+     "precisionAtN": 0.6417,
+     "pCi": [
+      0.5667,
+      0.7167
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.6488,
+     "ci": [
+      0.5663,
+      0.7179
+     ],
+     "pairwise": null,
+     "pairs": 0,
+     "precisionAtN": 0.575,
+     "pCi": [
+      0.5167,
+      0.7
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.6376,
+     "ci": [
+      0.5531,
+      0.7086
+     ],
+     "pairwise": null,
+     "pairs": 0,
+     "precisionAtN": 0.65,
+     "pCi": [
+      0.575,
+      0.7333
+     ]
+    }
+   },
+   "bestBaseline": "C_age_adjusted",
+   "ptMinusBest": {
+    "spearman": -0.1539,
+    "ci": [
+     -0.2257,
+     -0.0796
+    ]
+   }
+  },
+  {
+   "period": "validation",
+   "population": "relevant",
+   "pos": "ALL",
+   "target": "VOR2",
+   "decisions": 1,
+   "playerDecisions": 335,
+   "uniquePlayers": 335,
+   "model": {
+    "E_playerticker": {
+     "spearman": 0.5332,
+     "ci": [
+      0.4425,
+      0.6158
+     ],
+     "pairwise": null,
+     "pairs": 0,
+     "precisionAtN": 0.65,
+     "pCi": [
+      0.575,
+      0.725
+     ]
+    },
+    "A_prev_season": {
+     "spearman": 0.6063,
+     "ci": [
+      0.5122,
+      0.6879
+     ],
+     "pairwise": null,
+     "pairs": 0,
+     "precisionAtN": 0.6833,
+     "pCi": [
+      0.5917,
+      0.7333
+     ]
+    },
+    "B_recency": {
+     "spearman": 0.5952,
+     "ci": [
+      0.5053,
+      0.6803
+     ],
+     "pairwise": null,
+     "pairs": 0,
+     "precisionAtN": 0.675,
+     "pCi": [
+      0.6,
+      0.7333
+     ]
+    },
+    "C_age_adjusted": {
+     "spearman": 0.6188,
+     "ci": [
+      0.5246,
+      0.7069
+     ],
+     "pairwise": null,
+     "pairs": 0,
+     "precisionAtN": 0.6417,
+     "pCi": [
+      0.575,
+      0.75
+     ]
+    },
+    "D_opportunity": {
+     "spearman": 0.6009,
+     "ci": [
+      0.5097,
+      0.6852
+     ],
+     "pairwise": null,
+     "pairs": 0,
+     "precisionAtN": 0.6833,
+     "pCi": [
+      0.6167,
+      0.75
+     ]
+    }
+   },
+   "bestBaseline": "C_age_adjusted",
+   "ptMinusBest": {
+    "spearman": -0.0857,
+    "ci": [
+     -0.1827,
+     -0.0004
+    ]
+   }
+  }
+ ],
+ "stability": [
+  {
+   "period": "development",
+   "pos": "QB",
+   "model": "E_playerticker",
+   "transitions": 9,
+   "meanSpearman": 0.9278
+  },
+  {
+   "period": "development",
+   "pos": "QB",
+   "model": "A_prev_season",
+   "transitions": 9,
+   "meanSpearman": 1
+  },
+  {
+   "period": "development",
+   "pos": "QB",
+   "model": "B_recency",
+   "transitions": 9,
+   "meanSpearman": 0.9859
+  },
+  {
+   "period": "development",
+   "pos": "QB",
+   "model": "C_age_adjusted",
+   "transitions": 9,
+   "meanSpearman": 0.9858
+  },
+  {
+   "period": "development",
+   "pos": "QB",
+   "model": "D_opportunity",
+   "transitions": 9,
+   "meanSpearman": 0.9873
+  },
+  {
+   "period": "development",
+   "pos": "RB",
+   "model": "E_playerticker",
+   "transitions": 9,
+   "meanSpearman": 0.9112
+  },
+  {
+   "period": "development",
+   "pos": "RB",
+   "model": "A_prev_season",
+   "transitions": 9,
+   "meanSpearman": 1
+  },
+  {
+   "period": "development",
+   "pos": "RB",
+   "model": "B_recency",
+   "transitions": 9,
+   "meanSpearman": 0.9835
+  },
+  {
+   "period": "development",
+   "pos": "RB",
+   "model": "C_age_adjusted",
+   "transitions": 9,
+   "meanSpearman": 0.9803
+  },
+  {
+   "period": "development",
+   "pos": "RB",
+   "model": "D_opportunity",
+   "transitions": 9,
+   "meanSpearman": 0.9861
+  },
+  {
+   "period": "development",
+   "pos": "WR",
+   "model": "E_playerticker",
+   "transitions": 9,
+   "meanSpearman": 0.9172
+  },
+  {
+   "period": "development",
+   "pos": "WR",
+   "model": "A_prev_season",
+   "transitions": 9,
+   "meanSpearman": 1
+  },
+  {
+   "period": "development",
+   "pos": "WR",
+   "model": "B_recency",
+   "transitions": 9,
+   "meanSpearman": 0.9825
+  },
+  {
+   "period": "development",
+   "pos": "WR",
+   "model": "C_age_adjusted",
+   "transitions": 9,
+   "meanSpearman": 0.9795
+  },
+  {
+   "period": "development",
+   "pos": "WR",
+   "model": "D_opportunity",
+   "transitions": 9,
+   "meanSpearman": 0.9849
+  },
+  {
+   "period": "development",
+   "pos": "TE",
+   "model": "E_playerticker",
+   "transitions": 9,
+   "meanSpearman": 0.892
+  },
+  {
+   "period": "development",
+   "pos": "TE",
+   "model": "A_prev_season",
+   "transitions": 9,
+   "meanSpearman": 1
+  },
+  {
+   "period": "development",
+   "pos": "TE",
+   "model": "B_recency",
+   "transitions": 9,
+   "meanSpearman": 0.9803
+  },
+  {
+   "period": "development",
+   "pos": "TE",
+   "model": "C_age_adjusted",
+   "transitions": 9,
+   "meanSpearman": 0.9789
+  },
+  {
+   "period": "development",
+   "pos": "TE",
+   "model": "D_opportunity",
+   "transitions": 9,
+   "meanSpearman": 0.9821
+  },
+  {
+   "period": "validation",
+   "pos": "QB",
+   "model": "E_playerticker",
+   "transitions": 6,
+   "meanSpearman": 0.8919
+  },
+  {
+   "period": "validation",
+   "pos": "QB",
+   "model": "A_prev_season",
+   "transitions": 6,
+   "meanSpearman": 1
+  },
+  {
+   "period": "validation",
+   "pos": "QB",
+   "model": "B_recency",
+   "transitions": 6,
+   "meanSpearman": 0.9864
+  },
+  {
+   "period": "validation",
+   "pos": "QB",
+   "model": "C_age_adjusted",
+   "transitions": 6,
+   "meanSpearman": 0.9864
+  },
+  {
+   "period": "validation",
+   "pos": "QB",
+   "model": "D_opportunity",
+   "transitions": 6,
+   "meanSpearman": 0.9841
+  },
+  {
+   "period": "validation",
+   "pos": "RB",
+   "model": "E_playerticker",
+   "transitions": 6,
+   "meanSpearman": 0.878
+  },
+  {
+   "period": "validation",
+   "pos": "RB",
+   "model": "A_prev_season",
+   "transitions": 6,
+   "meanSpearman": 1
+  },
+  {
+   "period": "validation",
+   "pos": "RB",
+   "model": "B_recency",
+   "transitions": 6,
+   "meanSpearman": 0.9829
+  },
+  {
+   "period": "validation",
+   "pos": "RB",
+   "model": "C_age_adjusted",
+   "transitions": 6,
+   "meanSpearman": 0.9798
+  },
+  {
+   "period": "validation",
+   "pos": "RB",
+   "model": "D_opportunity",
+   "transitions": 6,
+   "meanSpearman": 0.9864
+  },
+  {
+   "period": "validation",
+   "pos": "WR",
+   "model": "E_playerticker",
+   "transitions": 6,
+   "meanSpearman": 0.9098
+  },
+  {
+   "period": "validation",
+   "pos": "WR",
+   "model": "A_prev_season",
+   "transitions": 6,
+   "meanSpearman": 1
+  },
+  {
+   "period": "validation",
+   "pos": "WR",
+   "model": "B_recency",
+   "transitions": 6,
+   "meanSpearman": 0.9882
+  },
+  {
+   "period": "validation",
+   "pos": "WR",
+   "model": "C_age_adjusted",
+   "transitions": 6,
+   "meanSpearman": 0.9865
+  },
+  {
+   "period": "validation",
+   "pos": "WR",
+   "model": "D_opportunity",
+   "transitions": 6,
+   "meanSpearman": 0.9897
+  },
+  {
+   "period": "validation",
+   "pos": "TE",
+   "model": "E_playerticker",
+   "transitions": 6,
+   "meanSpearman": 0.8866
+  },
+  {
+   "period": "validation",
+   "pos": "TE",
+   "model": "A_prev_season",
+   "transitions": 6,
+   "meanSpearman": 1
+  },
+  {
+   "period": "validation",
+   "pos": "TE",
+   "model": "B_recency",
+   "transitions": 6,
+   "meanSpearman": 0.9851
+  },
+  {
+   "period": "validation",
+   "pos": "TE",
+   "model": "C_age_adjusted",
+   "transitions": 6,
+   "meanSpearman": 0.9837
+  },
+  {
+   "period": "validation",
+   "pos": "TE",
+   "model": "D_opportunity",
+   "transitions": 6,
+   "meanSpearman": 0.9869
+  }
+ ],
+ "subgroups": [
+  {
+   "period": "development",
+   "pos": "QB",
+   "experience": "rookie (year 1)",
+   "playerDecisions": 54,
+   "model": {
+    "E_playerticker": 0.5272,
+    "A_prev_season": null,
+    "B_recency": 0.6502,
+    "C_age_adjusted": 0.694,
+    "D_opportunity": 0.7297
+   }
+  },
+  {
+   "period": "development",
+   "pos": "QB",
+   "experience": "year 2",
+   "playerDecisions": 127,
+   "model": {
+    "E_playerticker": 0.7254,
+    "A_prev_season": 0.7201,
+    "B_recency": 0.774,
+    "C_age_adjusted": 0.779,
+    "D_opportunity": 0.7697
+   }
+  },
+  {
+   "period": "development",
+   "pos": "QB",
+   "experience": "year 5+",
+   "playerDecisions": 807,
+   "model": {
+    "E_playerticker": 0.6347,
+    "A_prev_season": 0.625,
+    "B_recency": 0.584,
+    "C_age_adjusted": 0.5843,
+    "D_opportunity": 0.57
+   }
+  },
+  {
+   "period": "development",
+   "pos": "QB",
+   "experience": "years 3-4",
+   "playerDecisions": 267,
+   "model": {
+    "E_playerticker": 0.6836,
+    "A_prev_season": 0.6677,
+    "B_recency": 0.7189,
+    "C_age_adjusted": 0.7158,
+    "D_opportunity": 0.7064
+   }
+  },
+  {
+   "period": "development",
+   "pos": "RB",
+   "experience": "rookie (year 1)",
+   "playerDecisions": 218,
+   "model": {
+    "E_playerticker": 0.6287,
+    "A_prev_season": null,
+    "B_recency": 0.6642,
+    "C_age_adjusted": 0.6637,
+    "D_opportunity": 0.6692
+   }
+  },
+  {
+   "period": "development",
+   "pos": "RB",
+   "experience": "year 2",
+   "playerDecisions": 430,
+   "model": {
+    "E_playerticker": 0.6374,
+    "A_prev_season": 0.6575,
+    "B_recency": 0.7401,
+    "C_age_adjusted": 0.7442,
+    "D_opportunity": 0.7339
+   }
+  },
+  {
+   "period": "development",
+   "pos": "RB",
+   "experience": "year 5+",
+   "playerDecisions": 1379,
+   "model": {
+    "E_playerticker": 0.6418,
+    "A_prev_season": 0.638,
+    "B_recency": 0.5456,
+    "C_age_adjusted": 0.5499,
+    "D_opportunity": 0.5302
+   }
+  },
+  {
+   "period": "development",
+   "pos": "RB",
+   "experience": "years 3-4",
+   "playerDecisions": 870,
+   "model": {
+    "E_playerticker": 0.672,
+    "A_prev_season": 0.6908,
+    "B_recency": 0.6982,
+    "C_age_adjusted": 0.6965,
+    "D_opportunity": 0.6793
+   }
+  },
+  {
+   "period": "development",
+   "pos": "TE",
+   "experience": "rookie (year 1)",
+   "playerDecisions": 102,
+   "model": {
+    "E_playerticker": 0.5444,
+    "A_prev_season": null,
+    "B_recency": 0.6593,
+    "C_age_adjusted": 0.6425,
+    "D_opportunity": 0.6503
+   }
+  },
+  {
+   "period": "development",
+   "pos": "TE",
+   "experience": "year 2",
+   "playerDecisions": 234,
+   "model": {
+    "E_playerticker": 0.5275,
+    "A_prev_season": 0.5659,
+    "B_recency": 0.5789,
+    "C_age_adjusted": 0.581,
+    "D_opportunity": 0.5822
+   }
+  },
+  {
+   "period": "development",
+   "pos": "TE",
+   "experience": "year 5+",
+   "playerDecisions": 1228,
+   "model": {
+    "E_playerticker": 0.6058,
+    "A_prev_season": 0.6211,
+    "B_recency": 0.5403,
+    "C_age_adjusted": 0.5571,
+    "D_opportunity": 0.5214
+   }
+  },
+  {
+   "period": "development",
+   "pos": "TE",
+   "experience": "years 3-4",
+   "playerDecisions": 619,
+   "model": {
+    "E_playerticker": 0.6673,
+    "A_prev_season": 0.6526,
+    "B_recency": 0.7133,
+    "C_age_adjusted": 0.7136,
+    "D_opportunity": 0.6972
+   }
+  },
+  {
+   "period": "development",
+   "pos": "WR",
+   "experience": "rookie (year 1)",
+   "playerDecisions": 281,
+   "model": {
+    "E_playerticker": 0.6792,
+    "A_prev_season": null,
+    "B_recency": 0.6928,
+    "C_age_adjusted": 0.6983,
+    "D_opportunity": 0.6835
+   }
+  },
+  {
+   "period": "development",
+   "pos": "WR",
+   "experience": "year 2",
+   "playerDecisions": 573,
+   "model": {
+    "E_playerticker": 0.5941,
+    "A_prev_season": 0.5131,
+    "B_recency": 0.6089,
+    "C_age_adjusted": 0.6164,
+    "D_opportunity": 0.6044
+   }
+  },
+  {
+   "period": "development",
+   "pos": "WR",
+   "experience": "year 5+",
+   "playerDecisions": 1890,
+   "model": {
+    "E_playerticker": 0.701,
+    "A_prev_season": 0.713,
+    "B_recency": 0.627,
+    "C_age_adjusted": 0.6493,
+    "D_opportunity": 0.6111
+   }
+  },
+  {
+   "period": "development",
+   "pos": "WR",
+   "experience": "years 3-4",
+   "playerDecisions": 1260,
+   "model": {
+    "E_playerticker": 0.6317,
+    "A_prev_season": 0.6547,
+    "B_recency": 0.6353,
+    "C_age_adjusted": 0.6348,
+    "D_opportunity": 0.6068
+   }
+  },
+  {
+   "period": "validation",
+   "pos": "QB",
+   "experience": "year 2",
+   "playerDecisions": 44,
+   "model": {
+    "E_playerticker": -0.0341,
+    "A_prev_season": 0.6989,
+    "B_recency": 0.772,
+    "C_age_adjusted": 0.7984,
+    "D_opportunity": 0.7481
+   }
+  },
+  {
+   "period": "validation",
+   "pos": "QB",
+   "experience": "year 5+",
+   "playerDecisions": 366,
+   "model": {
+    "E_playerticker": 0.6181,
+    "A_prev_season": 0.5928,
+    "B_recency": 0.5493,
+    "C_age_adjusted": 0.5663,
+    "D_opportunity": 0.5416
+   }
+  },
+  {
+   "period": "validation",
+   "pos": "QB",
+   "experience": "years 3-4",
+   "playerDecisions": 122,
+   "model": {
+    "E_playerticker": 0.5967,
+    "A_prev_season": 0.7432,
+    "B_recency": 0.6352,
+    "C_age_adjusted": 0.6379,
+    "D_opportunity": 0.6053
+   }
+  },
+  {
+   "period": "validation",
+   "pos": "RB",
+   "experience": "rookie (year 1)",
+   "playerDecisions": 77,
+   "model": {
+    "E_playerticker": 0.4347,
+    "A_prev_season": null,
+    "B_recency": 0.4628,
+    "C_age_adjusted": 0.4636,
+    "D_opportunity": 0.4477
+   }
+  },
+  {
+   "period": "validation",
+   "pos": "RB",
+   "experience": "year 2",
+   "playerDecisions": 157,
+   "model": {
+    "E_playerticker": 0.6386,
+    "A_prev_season": 0.6298,
+    "B_recency": 0.6898,
+    "C_age_adjusted": 0.6894,
+    "D_opportunity": 0.6914
+   }
+  },
+  {
+   "period": "validation",
+   "pos": "RB",
+   "experience": "year 5+",
+   "playerDecisions": 634,
+   "model": {
+    "E_playerticker": 0.6196,
+    "A_prev_season": 0.627,
+    "B_recency": 0.5561,
+    "C_age_adjusted": 0.5558,
+    "D_opportunity": 0.5438
+   }
+  },
+  {
+   "period": "validation",
+   "pos": "RB",
+   "experience": "years 3-4",
+   "playerDecisions": 377,
+   "model": {
+    "E_playerticker": 0.5977,
+    "A_prev_season": 0.6616,
+    "B_recency": 0.696,
+    "C_age_adjusted": 0.6948,
+    "D_opportunity": 0.7028
+   }
+  },
+  {
+   "period": "validation",
+   "pos": "TE",
+   "experience": "rookie (year 1)",
+   "playerDecisions": 49,
+   "model": {
+    "E_playerticker": 0.3864,
+    "A_prev_season": null,
+    "B_recency": 0.3284,
+    "C_age_adjusted": 0.3031,
+    "D_opportunity": 0.4185
+   }
+  },
+  {
+   "period": "validation",
+   "pos": "TE",
+   "experience": "year 2",
+   "playerDecisions": 96,
+   "model": {
+    "E_playerticker": 0.7273,
+    "A_prev_season": 0.7596,
+    "B_recency": 0.8021,
+    "C_age_adjusted": 0.797,
+    "D_opportunity": 0.7904
+   }
+  },
+  {
+   "period": "validation",
+   "pos": "TE",
+   "experience": "year 5+",
+   "playerDecisions": 528,
+   "model": {
+    "E_playerticker": 0.6564,
+    "A_prev_season": 0.7216,
+    "B_recency": 0.6319,
+    "C_age_adjusted": 0.6467,
+    "D_opportunity": 0.6026
+   }
+  },
+  {
+   "period": "validation",
+   "pos": "TE",
+   "experience": "years 3-4",
+   "playerDecisions": 254,
+   "model": {
+    "E_playerticker": 0.6267,
+    "A_prev_season": 0.6374,
+    "B_recency": 0.6458,
+    "C_age_adjusted": 0.6465,
+    "D_opportunity": 0.6518
+   }
+  },
+  {
+   "period": "validation",
+   "pos": "WR",
+   "experience": "rookie (year 1)",
+   "playerDecisions": 85,
+   "model": {
+    "E_playerticker": 0.7476,
+    "A_prev_season": null,
+    "B_recency": 0.8074,
+    "C_age_adjusted": 0.8042,
+    "D_opportunity": 0.7464
+   }
+  },
+  {
+   "period": "validation",
+   "pos": "WR",
+   "experience": "year 2",
+   "playerDecisions": 202,
+   "model": {
+    "E_playerticker": 0.753,
+    "A_prev_season": 0.7408,
+    "B_recency": 0.7888,
+    "C_age_adjusted": 0.7914,
+    "D_opportunity": 0.7856
+   }
+  },
+  {
+   "period": "validation",
+   "pos": "WR",
+   "experience": "year 5+",
+   "playerDecisions": 910,
+   "model": {
+    "E_playerticker": 0.6867,
+    "A_prev_season": 0.6573,
+    "B_recency": 0.6569,
+    "C_age_adjusted": 0.6818,
+    "D_opportunity": 0.6439
+   }
+  },
+  {
+   "period": "validation",
+   "pos": "WR",
+   "experience": "years 3-4",
+   "playerDecisions": 506,
+   "model": {
+    "E_playerticker": 0.709,
+    "A_prev_season": 0.7333,
+    "B_recency": 0.7332,
+    "C_age_adjusted": 0.7355,
+    "D_opportunity": 0.7283
+   }
+  }
+ ],
+ "availability": [
+  {
+   "period": "development",
+   "pos": "QB",
+   "experience": "no games last season",
+   "playerDecisions": 355,
+   "model": {
+    "E_playerticker": 0.2868,
+    "A_prev_season": null,
+    "B_recency": 0.3133,
+    "C_age_adjusted": 0.3201,
+    "D_opportunity": 0.3036
+   }
+  },
+  {
+   "period": "development",
+   "pos": "QB",
+   "experience": "played 40-75%",
+   "playerDecisions": 128,
+   "model": {
+    "E_playerticker": 0.2907,
+    "A_prev_season": 0.5104,
+    "B_recency": 0.4406,
+    "C_age_adjusted": 0.4047,
+    "D_opportunity": 0.3696
+   }
+  },
+  {
+   "period": "development",
+   "pos": "QB",
+   "experience": "played 75%+",
+   "playerDecisions": 316,
+   "model": {
+    "E_playerticker": 0.3184,
+    "A_prev_season": 0.4172,
+    "B_recency": 0.5396,
+    "C_age_adjusted": 0.5541,
+    "D_opportunity": 0.5037
+   }
+  },
+  {
+   "period": "development",
+   "pos": "QB",
+   "experience": "played <40%",
+   "playerDecisions": 456,
+   "model": {
+    "E_playerticker": 0.4468,
+    "A_prev_season": 0.1944,
+    "B_recency": 0.3644,
+    "C_age_adjusted": 0.3599,
+    "D_opportunity": 0.3519
+   }
+  },
+  {
+   "period": "development",
+   "pos": "RB",
+   "experience": "no games last season",
+   "playerDecisions": 905,
+   "model": {
+    "E_playerticker": 0.5521,
+    "A_prev_season": null,
+    "B_recency": 0.302,
+    "C_age_adjusted": 0.3489,
+    "D_opportunity": 0.3009
+   }
+  },
+  {
+   "period": "development",
+   "pos": "RB",
+   "experience": "played 40-75%",
+   "playerDecisions": 544,
+   "model": {
+    "E_playerticker": 0.5489,
+    "A_prev_season": 0.4479,
+    "B_recency": 0.5239,
+    "C_age_adjusted": 0.5342,
+    "D_opportunity": 0.5131
+   }
+  },
+  {
+   "period": "development",
+   "pos": "RB",
+   "experience": "played 75%+",
+   "playerDecisions": 820,
+   "model": {
+    "E_playerticker": 0.6223,
+    "A_prev_season": 0.5727,
+    "B_recency": 0.587,
+    "C_age_adjusted": 0.6067,
+    "D_opportunity": 0.5728
+   }
+  },
+  {
+   "period": "development",
+   "pos": "RB",
+   "experience": "played <40%",
+   "playerDecisions": 628,
+   "model": {
+    "E_playerticker": 0.4016,
+    "A_prev_season": 0.1146,
+    "B_recency": 0.2182,
+    "C_age_adjusted": 0.2546,
+    "D_opportunity": 0.1795
+   }
+  },
+  {
+   "period": "development",
+   "pos": "TE",
+   "experience": "no games last season",
+   "playerDecisions": 647,
+   "model": {
+    "E_playerticker": 0.4096,
+    "A_prev_season": null,
+    "B_recency": 0.2346,
+    "C_age_adjusted": 0.2667,
+    "D_opportunity": 0.2295
+   }
+  },
+  {
+   "period": "development",
+   "pos": "TE",
+   "experience": "played 40-75%",
+   "playerDecisions": 448,
+   "model": {
+    "E_playerticker": 0.5,
+    "A_prev_season": 0.3677,
+    "B_recency": 0.3537,
+    "C_age_adjusted": 0.3914,
+    "D_opportunity": 0.3241
+   }
+  },
+  {
+   "period": "development",
+   "pos": "TE",
+   "experience": "played 75%+",
+   "playerDecisions": 552,
+   "model": {
+    "E_playerticker": 0.6145,
+    "A_prev_season": 0.5345,
+    "B_recency": 0.5889,
+    "C_age_adjusted": 0.626,
+    "D_opportunity": 0.5506
+   }
+  },
+  {
+   "period": "development",
+   "pos": "TE",
+   "experience": "played <40%",
+   "playerDecisions": 536,
+   "model": {
+    "E_playerticker": 0.3788,
+    "A_prev_season": 0.2745,
+    "B_recency": 0.3491,
+    "C_age_adjusted": 0.3655,
+    "D_opportunity": 0.3532
+   }
+  },
+  {
+   "period": "development",
+   "pos": "WR",
+   "experience": "no games last season",
+   "playerDecisions": 1244,
+   "model": {
+    "E_playerticker": 0.4666,
+    "A_prev_season": null,
+    "B_recency": 0.2471,
+    "C_age_adjusted": 0.2914,
+    "D_opportunity": 0.2383
+   }
+  },
+  {
+   "period": "development",
+   "pos": "WR",
+   "experience": "played 40-75%",
+   "playerDecisions": 692,
+   "model": {
+    "E_playerticker": 0.4284,
+    "A_prev_season": 0.2616,
+    "B_recency": 0.3118,
+    "C_age_adjusted": 0.3509,
+    "D_opportunity": 0.2756
+   }
+  },
+  {
+   "period": "development",
+   "pos": "WR",
+   "experience": "played 75%+",
+   "playerDecisions": 1280,
+   "model": {
+    "E_playerticker": 0.6886,
+    "A_prev_season": 0.6278,
+    "B_recency": 0.6483,
+    "C_age_adjusted": 0.6941,
+    "D_opportunity": 0.6365
+   }
+  },
+  {
+   "period": "development",
+   "pos": "WR",
+   "experience": "played <40%",
+   "playerDecisions": 788,
+   "model": {
+    "E_playerticker": 0.273,
+    "A_prev_season": 0.1503,
+    "B_recency": 0.1485,
+    "C_age_adjusted": 0.166,
+    "D_opportunity": 0.1293
+   }
+  },
+  {
+   "period": "validation",
+   "pos": "QB",
+   "experience": "no games last season",
+   "playerDecisions": 138,
+   "model": {
+    "E_playerticker": 0.2221,
+    "A_prev_season": null,
+    "B_recency": 0.0291,
+    "C_age_adjusted": 0.0346,
+    "D_opportunity": 0.0281
+   }
+  },
+  {
+   "period": "validation",
+   "pos": "QB",
+   "experience": "played 40-75%",
+   "playerDecisions": 61,
+   "model": {
+    "E_playerticker": 0.4015,
+    "A_prev_season": 0.6362,
+    "B_recency": 0.6029,
+    "C_age_adjusted": 0.6246,
+    "D_opportunity": 0.6185
+   }
+  },
+  {
+   "period": "validation",
+   "pos": "QB",
+   "experience": "played 75%+",
+   "playerDecisions": 130,
+   "model": {
+    "E_playerticker": 0.2805,
+    "A_prev_season": 0.3267,
+    "B_recency": 0.4073,
+    "C_age_adjusted": 0.4215,
+    "D_opportunity": 0.3435
+   }
+  },
+  {
+   "period": "validation",
+   "pos": "QB",
+   "experience": "played <40%",
+   "playerDecisions": 216,
+   "model": {
+    "E_playerticker": 0.3628,
+    "A_prev_season": 0.4378,
+    "B_recency": 0.4464,
+    "C_age_adjusted": 0.4512,
+    "D_opportunity": 0.4181
+   }
+  },
+  {
+   "period": "validation",
+   "pos": "RB",
+   "experience": "no games last season",
+   "playerDecisions": 355,
+   "model": {
+    "E_playerticker": 0.4331,
+    "A_prev_season": null,
+    "B_recency": 0.2548,
+    "C_age_adjusted": 0.2867,
+    "D_opportunity": 0.2658
+   }
+  },
+  {
+   "period": "validation",
+   "pos": "RB",
+   "experience": "played 40-75%",
+   "playerDecisions": 268,
+   "model": {
+    "E_playerticker": 0.5593,
+    "A_prev_season": 0.4655,
+    "B_recency": 0.4701,
+    "C_age_adjusted": 0.4966,
+    "D_opportunity": 0.4682
+   }
+  },
+  {
+   "period": "validation",
+   "pos": "RB",
+   "experience": "played 75%+",
+   "playerDecisions": 320,
+   "model": {
+    "E_playerticker": 0.6602,
+    "A_prev_season": 0.6238,
+    "B_recency": 0.6356,
+    "C_age_adjusted": 0.6563,
+    "D_opportunity": 0.6278
+   }
+  },
+  {
+   "period": "validation",
+   "pos": "RB",
+   "experience": "played <40%",
+   "playerDecisions": 302,
+   "model": {
+    "E_playerticker": 0.2484,
+    "A_prev_season": 0.1491,
+    "B_recency": 0.194,
+    "C_age_adjusted": 0.2256,
+    "D_opportunity": 0.2098
+   }
+  },
+  {
+   "period": "validation",
+   "pos": "TE",
+   "experience": "no games last season",
+   "playerDecisions": 275,
+   "model": {
+    "E_playerticker": 0.463,
+    "A_prev_season": null,
+    "B_recency": 0.2356,
+    "C_age_adjusted": 0.2534,
+    "D_opportunity": 0.2428
+   }
+  },
+  {
+   "period": "validation",
+   "pos": "TE",
+   "experience": "played 40-75%",
+   "playerDecisions": 215,
+   "model": {
+    "E_playerticker": 0.3625,
+    "A_prev_season": 0.3492,
+    "B_recency": 0.3688,
+    "C_age_adjusted": 0.4095,
+    "D_opportunity": 0.3366
+   }
+  },
+  {
+   "period": "validation",
+   "pos": "TE",
+   "experience": "played 75%+",
+   "playerDecisions": 211,
+   "model": {
+    "E_playerticker": 0.6895,
+    "A_prev_season": 0.6488,
+    "B_recency": 0.6809,
+    "C_age_adjusted": 0.7147,
+    "D_opportunity": 0.6538
+   }
+  },
+  {
+   "period": "validation",
+   "pos": "TE",
+   "experience": "played <40%",
+   "playerDecisions": 226,
+   "model": {
+    "E_playerticker": 0.223,
+    "A_prev_season": 0.2138,
+    "B_recency": 0.2149,
+    "C_age_adjusted": 0.2361,
+    "D_opportunity": 0.218
+   }
+  },
+  {
+   "period": "validation",
+   "pos": "WR",
+   "experience": "no games last season",
+   "playerDecisions": 441,
+   "model": {
+    "E_playerticker": 0.5061,
+    "A_prev_season": null,
+    "B_recency": 0.3811,
+    "C_age_adjusted": 0.4163,
+    "D_opportunity": 0.3655
+   }
+  },
+  {
+   "period": "validation",
+   "pos": "WR",
+   "experience": "played 40-75%",
+   "playerDecisions": 345,
+   "model": {
+    "E_playerticker": 0.6322,
+    "A_prev_season": 0.5362,
+    "B_recency": 0.5347,
+    "C_age_adjusted": 0.57,
+    "D_opportunity": 0.5312
+   }
+  },
+  {
+   "period": "validation",
+   "pos": "WR",
+   "experience": "played 75%+",
+   "playerDecisions": 494,
+   "model": {
+    "E_playerticker": 0.7795,
+    "A_prev_season": 0.7421,
+    "B_recency": 0.7719,
+    "C_age_adjusted": 0.7934,
+    "D_opportunity": 0.7628
+   }
+  },
+  {
+   "period": "validation",
+   "pos": "WR",
+   "experience": "played <40%",
+   "playerDecisions": 423,
+   "model": {
+    "E_playerticker": 0.2851,
+    "A_prev_season": 0.2439,
+    "B_recency": 0.3399,
+    "C_age_adjusted": 0.3518,
+    "D_opportunity": 0.3271
+   }
+  }
+ ],
+ "byCheckpoint": [
+  {
+   "period": "development",
+   "pos": "QB",
+   "checkpoint": "OFFSEASON",
+   "decisions": 3,
+   "model": {
+    "E_playerticker": 0.4506,
+    "A_prev_season": 0.6984,
+    "B_recency": 0.6324,
+    "C_age_adjusted": 0.6371,
+    "D_opportunity": 0.6087
+   }
+  },
+  {
+   "period": "development",
+   "pos": "QB",
+   "checkpoint": "W4",
+   "decisions": 3,
+   "model": {
+    "E_playerticker": 0.5111,
+    "A_prev_season": 0.4978,
+    "B_recency": 0.6371,
+    "C_age_adjusted": 0.6492,
+    "D_opportunity": 0.6297
+   }
+  },
+  {
+   "period": "development",
+   "pos": "QB",
+   "checkpoint": "W8",
+   "decisions": 3,
+   "model": {
+    "E_playerticker": 0.5061,
+    "A_prev_season": 0.4835,
+    "B_recency": 0.6689,
+    "C_age_adjusted": 0.6764,
+    "D_opportunity": 0.6508
+   }
+  },
+  {
+   "period": "development",
+   "pos": "QB",
+   "checkpoint": "W12",
+   "decisions": 3,
+   "model": {
+    "E_playerticker": 0.529,
+    "A_prev_season": 0.4692,
+    "B_recency": 0.683,
+    "C_age_adjusted": 0.6936,
+    "D_opportunity": 0.6736
+   }
+  },
+  {
+   "period": "development",
+   "pos": "RB",
+   "checkpoint": "OFFSEASON",
+   "decisions": 3,
+   "model": {
+    "E_playerticker": 0.554,
+    "A_prev_season": 0.6821,
+    "B_recency": 0.5485,
+    "C_age_adjusted": 0.6106,
+    "D_opportunity": 0.5287
+   }
+  },
+  {
+   "period": "development",
+   "pos": "RB",
+   "checkpoint": "W4",
+   "decisions": 3,
+   "model": {
+    "E_playerticker": 0.581,
+    "A_prev_season": 0.3681,
+    "B_recency": 0.4948,
+    "C_age_adjusted": 0.5548,
+    "D_opportunity": 0.4779
+   }
+  },
+  {
+   "period": "development",
+   "pos": "RB",
+   "checkpoint": "W8",
+   "decisions": 3,
+   "model": {
+    "E_playerticker": 0.5938,
+    "A_prev_season": 0.3557,
+    "B_recency": 0.5328,
+    "C_age_adjusted": 0.5879,
+    "D_opportunity": 0.5171
+   }
+  },
+  {
+   "period": "development",
+   "pos": "RB",
+   "checkpoint": "W12",
+   "decisions": 3,
+   "model": {
+    "E_playerticker": 0.5919,
+    "A_prev_season": 0.34,
+    "B_recency": 0.5351,
+    "C_age_adjusted": 0.5843,
+    "D_opportunity": 0.522
+   }
+  },
+  {
+   "period": "development",
+   "pos": "WR",
+   "checkpoint": "OFFSEASON",
+   "decisions": 3,
+   "model": {
+    "E_playerticker": 0.6222,
+    "A_prev_season": 0.7132,
+    "B_recency": 0.5746,
+    "C_age_adjusted": 0.661,
+    "D_opportunity": 0.5372
+   }
+  },
+  {
+   "period": "development",
+   "pos": "WR",
+   "checkpoint": "W4",
+   "decisions": 3,
+   "model": {
+    "E_playerticker": 0.6248,
+    "A_prev_season": 0.4196,
+    "B_recency": 0.5574,
+    "C_age_adjusted": 0.664,
+    "D_opportunity": 0.5318
+   }
+  },
+  {
+   "period": "development",
+   "pos": "WR",
+   "checkpoint": "W8",
+   "decisions": 3,
+   "model": {
+    "E_playerticker": 0.6601,
+    "A_prev_season": 0.3989,
+    "B_recency": 0.5845,
+    "C_age_adjusted": 0.6796,
+    "D_opportunity": 0.5614
+   }
+  },
+  {
+   "period": "development",
+   "pos": "WR",
+   "checkpoint": "W12",
+   "decisions": 3,
+   "model": {
+    "E_playerticker": 0.6727,
+    "A_prev_season": 0.3833,
+    "B_recency": 0.5939,
+    "C_age_adjusted": 0.6873,
+    "D_opportunity": 0.5775
+   }
+  },
+  {
+   "period": "development",
+   "pos": "TE",
+   "checkpoint": "OFFSEASON",
+   "decisions": 3,
+   "model": {
+    "E_playerticker": 0.4374,
+    "A_prev_season": 0.471,
+    "B_recency": 0.4851,
+    "C_age_adjusted": 0.5274,
+    "D_opportunity": 0.4529
+   }
+  },
+  {
+   "period": "development",
+   "pos": "TE",
+   "checkpoint": "W4",
+   "decisions": 3,
+   "model": {
+    "E_playerticker": 0.4798,
+    "A_prev_season": 0.3315,
+    "B_recency": 0.5096,
+    "C_age_adjusted": 0.5828,
+    "D_opportunity": 0.4609
+   }
+  },
+  {
+   "period": "development",
+   "pos": "TE",
+   "checkpoint": "W8",
+   "decisions": 3,
+   "model": {
+    "E_playerticker": 0.5633,
+    "A_prev_season": 0.3232,
+    "B_recency": 0.5267,
+    "C_age_adjusted": 0.5866,
+    "D_opportunity": 0.5099
+   }
+  },
+  {
+   "period": "development",
+   "pos": "TE",
+   "checkpoint": "W12",
+   "decisions": 3,
+   "model": {
+    "E_playerticker": 0.5858,
+    "A_prev_season": 0.2858,
+    "B_recency": 0.5677,
+    "C_age_adjusted": 0.618,
+    "D_opportunity": 0.5224
+   }
+  },
+  {
+   "period": "validation",
+   "pos": "QB",
+   "checkpoint": "OFFSEASON",
+   "decisions": 2,
+   "model": {
+    "E_playerticker": 0.2899,
+    "A_prev_season": 0.726,
+    "B_recency": 0.5688,
+    "C_age_adjusted": 0.605,
+    "D_opportunity": 0.553
+   }
+  },
+  {
+   "period": "validation",
+   "pos": "QB",
+   "checkpoint": "W4",
+   "decisions": 1,
+   "model": {
+    "E_playerticker": 0.5424,
+    "A_prev_season": 0.5471,
+    "B_recency": 0.5259,
+    "C_age_adjusted": 0.5399,
+    "D_opportunity": 0.5178
+   }
+  },
+  {
+   "period": "validation",
+   "pos": "QB",
+   "checkpoint": "W8",
+   "decisions": 1,
+   "model": {
+    "E_playerticker": 0.5684,
+    "A_prev_season": 0.499,
+    "B_recency": 0.4964,
+    "C_age_adjusted": 0.5225,
+    "D_opportunity": 0.5007
+   }
+  },
+  {
+   "period": "validation",
+   "pos": "QB",
+   "checkpoint": "W12",
+   "decisions": 1,
+   "model": {
+    "E_playerticker": 0.5102,
+    "A_prev_season": 0.5126,
+    "B_recency": 0.5462,
+    "C_age_adjusted": 0.5677,
+    "D_opportunity": 0.524
+   }
+  },
+  {
+   "period": "validation",
+   "pos": "RB",
+   "checkpoint": "OFFSEASON",
+   "decisions": 2,
+   "model": {
+    "E_playerticker": 0.5825,
+    "A_prev_season": 0.676,
+    "B_recency": 0.6003,
+    "C_age_adjusted": 0.647,
+    "D_opportunity": 0.6037
+   }
+  },
+  {
+   "period": "validation",
+   "pos": "RB",
+   "checkpoint": "W4",
+   "decisions": 1,
+   "model": {
+    "E_playerticker": 0.5391,
+    "A_prev_season": 0.3331,
+    "B_recency": 0.4921,
+    "C_age_adjusted": 0.5872,
+    "D_opportunity": 0.4937
+   }
+  },
+  {
+   "period": "validation",
+   "pos": "RB",
+   "checkpoint": "W8",
+   "decisions": 1,
+   "model": {
+    "E_playerticker": 0.5475,
+    "A_prev_season": 0.2145,
+    "B_recency": 0.4643,
+    "C_age_adjusted": 0.5511,
+    "D_opportunity": 0.4622
+   }
+  },
+  {
+   "period": "validation",
+   "pos": "RB",
+   "checkpoint": "W12",
+   "decisions": 1,
+   "model": {
+    "E_playerticker": 0.5887,
+    "A_prev_season": 0.1496,
+    "B_recency": 0.5144,
+    "C_age_adjusted": 0.5893,
+    "D_opportunity": 0.5145
+   }
+  },
+  {
+   "period": "validation",
+   "pos": "WR",
+   "checkpoint": "OFFSEASON",
+   "decisions": 2,
+   "model": {
+    "E_playerticker": 0.6634,
+    "A_prev_season": 0.7221,
+    "B_recency": 0.6488,
+    "C_age_adjusted": 0.7234,
+    "D_opportunity": 0.6371
+   }
+  },
+  {
+   "period": "validation",
+   "pos": "WR",
+   "checkpoint": "W4",
+   "decisions": 1,
+   "model": {
+    "E_playerticker": 0.6816,
+    "A_prev_season": 0.4526,
+    "B_recency": 0.6539,
+    "C_age_adjusted": 0.7288,
+    "D_opportunity": 0.6595
+   }
+  },
+  {
+   "period": "validation",
+   "pos": "WR",
+   "checkpoint": "W8",
+   "decisions": 1,
+   "model": {
+    "E_playerticker": 0.7253,
+    "A_prev_season": 0.4365,
+    "B_recency": 0.6807,
+    "C_age_adjusted": 0.7363,
+    "D_opportunity": 0.6749
+   }
+  },
+  {
+   "period": "validation",
+   "pos": "WR",
+   "checkpoint": "W12",
+   "decisions": 1,
+   "model": {
+    "E_playerticker": 0.7594,
+    "A_prev_season": 0.4118,
+    "B_recency": 0.6727,
+    "C_age_adjusted": 0.7459,
+    "D_opportunity": 0.6667
+   }
+  },
+  {
+   "period": "validation",
+   "pos": "TE",
+   "checkpoint": "OFFSEASON",
+   "decisions": 2,
+   "model": {
+    "E_playerticker": 0.3438,
+    "A_prev_season": 0.6502,
+    "B_recency": 0.5364,
+    "C_age_adjusted": 0.6252,
+    "D_opportunity": 0.4271
+   }
+  },
+  {
+   "period": "validation",
+   "pos": "TE",
+   "checkpoint": "W4",
+   "decisions": 1,
+   "model": {
+    "E_playerticker": 0.4593,
+    "A_prev_season": 0.5489,
+    "B_recency": 0.5555,
+    "C_age_adjusted": 0.6185,
+    "D_opportunity": 0.4872
+   }
+  },
+  {
+   "period": "validation",
+   "pos": "TE",
+   "checkpoint": "W8",
+   "decisions": 1,
+   "model": {
+    "E_playerticker": 0.4454,
+    "A_prev_season": 0.5223,
+    "B_recency": 0.5279,
+    "C_age_adjusted": 0.603,
+    "D_opportunity": 0.4579
+   }
+  },
+  {
+   "period": "validation",
+   "pos": "TE",
+   "checkpoint": "W12",
+   "decisions": 1,
+   "model": {
+    "E_playerticker": 0.4876,
+    "A_prev_season": 0.4842,
+    "B_recency": 0.5172,
+    "C_age_adjusted": 0.6077,
+    "D_opportunity": 0.4403
+   }
+  }
+ ],
+ "largestMisses": {
+  "development": [
+   {
+    "pos": "QB",
+    "decision": "2021-W8",
+    "name": "Trevor Lawrence",
+    "ptRank": 61,
+    "realisedRank": 4,
+    "bestBaselineRank": 5,
+    "T2": 582.16
+   },
+   {
+    "pos": "QB",
+    "decision": "2021-W4",
+    "name": "Trevor Lawrence",
+    "ptRank": 63,
+    "realisedRank": 4,
+    "bestBaselineRank": 14,
+    "T2": 582.16
+   },
+   {
+    "pos": "QB",
+    "decision": "2021-W12",
+    "name": "Trevor Lawrence",
+    "ptRank": 62,
+    "realisedRank": 4,
+    "bestBaselineRank": 15,
+    "T2": 582.16
+   },
+   {
+    "pos": "QB",
+    "decision": "2019-W12",
+    "name": "Tom Brady",
+    "ptRank": 47,
+    "realisedRank": 3,
+    "bestBaselineRank": 13,
+    "T2": 720.66
+   },
+   {
+    "pos": "QB",
+    "decision": "2020-OFFSEASON",
+    "name": "Tom Brady",
+    "ptRank": 51,
+    "realisedRank": 3,
+    "bestBaselineRank": 17,
+    "T2": 720.66
+   },
+   {
+    "pos": "QB",
+    "decision": "2020-W4",
+    "name": "Joe Burrow",
+    "ptRank": 42,
+    "realisedRank": 3,
+    "bestBaselineRank": 8,
+    "T2": 666.94
+   },
+   {
+    "pos": "QB",
+    "decision": "2020-W4",
+    "name": "Justin Herbert",
+    "ptRank": 44,
+    "realisedRank": 5,
+    "bestBaselineRank": 11,
+    "T2": 656.02
+   },
+   {
+    "pos": "QB",
+    "decision": "2019-W12",
+    "name": "Paxton Lynch",
+    "ptRank": 25,
+    "realisedRank": 59,
+    "bestBaselineRank": 61,
+    "T2": 0
+   },
+   {
+    "pos": "RB",
+    "decision": "2019-OFFSEASON",
+    "name": "Elijah McGuire",
+    "ptRank": 18,
+    "realisedRank": 92,
+    "bestBaselineRank": 66,
+    "T2": 0
+   },
+   {
+    "pos": "RB",
+    "decision": "2019-W4",
+    "name": "Elijah McGuire",
+    "ptRank": 21,
+    "realisedRank": 98,
+    "bestBaselineRank": 68,
+    "T2": 0
+   },
+   {
+    "pos": "RB",
+    "decision": "2019-W8",
+    "name": "Elijah McGuire",
+    "ptRank": 20,
+    "realisedRank": 98,
+    "bestBaselineRank": 65,
+    "T2": 0
+   },
+   {
+    "pos": "RB",
+    "decision": "2020-OFFSEASON",
+    "name": "Mark Walton",
+    "ptRank": 44,
+    "realisedRank": 95,
+    "bestBaselineRank": 89,
+    "T2": 0
+   },
+   {
+    "pos": "RB",
+    "decision": "2019-W12",
+    "name": "Elijah McGuire",
+    "ptRank": 21,
+    "realisedRank": 99,
+    "bestBaselineRank": 65,
+    "T2": 0
+   },
+   {
+    "pos": "RB",
+    "decision": "2020-W12",
+    "name": "DeAndre Washington",
+    "ptRank": 42,
+    "realisedRank": 101,
+    "bestBaselineRank": 86,
+    "T2": 0
+   },
+   {
+    "pos": "RB",
+    "decision": "2019-OFFSEASON",
+    "name": "Carlos Hyde",
+    "ptRank": 76,
+    "realisedRank": 29,
+    "bestBaselineRank": 33,
+    "T2": 242.1
+   },
+   {
+    "pos": "RB",
+    "decision": "2020-OFFSEASON",
+    "name": "Elijah McGuire",
+    "ptRank": 24,
+    "realisedRank": 94,
+    "bestBaselineRank": 67,
+    "T2": 0
+   },
+   {
+    "pos": "WR",
+    "decision": "2020-W4",
+    "name": "Gabe Davis",
+    "ptRank": 113,
+    "realisedRank": 32,
+    "bestBaselineRank": 23,
+    "T2": 299.5
+   },
+   {
+    "pos": "WR",
+    "decision": "2019-OFFSEASON",
+    "name": "Cameron Meredith",
+    "ptRank": 43,
+    "realisedRank": 112,
+    "bestBaselineRank": 114,
+    "T2": 0
+   },
+   {
+    "pos": "WR",
+    "decision": "2020-W12",
+    "name": "Gabe Davis",
+    "ptRank": 101,
+    "realisedRank": 33,
+    "bestBaselineRank": 32,
+    "T2": 299.5
+   },
+   {
+    "pos": "WR",
+    "decision": "2021-W12",
+    "name": "Will Fuller",
+    "ptRank": 33,
+    "realisedRank": 111,
+    "bestBaselineRank": 99,
+    "T2": 0
+   },
+   {
+    "pos": "WR",
+    "decision": "2020-W4",
+    "name": "Chase Claypool",
+    "ptRank": 104,
+    "realisedRank": 36,
+    "bestBaselineRank": 30,
+    "T2": 273.64
+   },
+   {
+    "pos": "WR",
+    "decision": "2020-W4",
+    "name": "Alshon Jeffery",
+    "ptRank": 31,
+    "realisedRank": 103,
+    "bestBaselineRank": 88,
+    "T2": 0
+   },
+   {
+    "pos": "WR",
+    "decision": "2019-OFFSEASON",
+    "name": "Taywan Taylor",
+    "ptRank": 46,
+    "realisedRank": 117,
+    "bestBaselineRank": 101,
+    "T2": 0
+   },
+   {
+    "pos": "WR",
+    "decision": "2020-W4",
+    "name": "Brandon Aiyuk",
+    "ptRank": 82,
+    "realisedRank": 21,
+    "bestBaselineRank": 27,
+    "T2": 400.1
+   },
+   {
+    "pos": "TE",
+    "decision": "2019-W8",
+    "name": "Rob Gronkowski",
+    "ptRank": 46,
+    "realisedRank": 6,
+    "bestBaselineRank": 11,
+    "T2": 320.5
+   },
+   {
+    "pos": "TE",
+    "decision": "2019-W12",
+    "name": "Rob Gronkowski",
+    "ptRank": 47,
+    "realisedRank": 6,
+    "bestBaselineRank": 12,
+    "T2": 320.5
+   },
+   {
+    "pos": "TE",
+    "decision": "2019-W4",
+    "name": "Rob Gronkowski",
+    "ptRank": 43,
+    "realisedRank": 5,
+    "bestBaselineRank": 12,
+    "T2": 320.5
+   },
+   {
+    "pos": "TE",
+    "decision": "2020-W8",
+    "name": "Jordan Reed",
+    "ptRank": 15,
+    "realisedRank": 42,
+    "bestBaselineRank": 37,
+    "T2": 0
+   },
+   {
+    "pos": "TE",
+    "decision": "2019-W4",
+    "name": "Jeff Heuerman",
+    "ptRank": 16,
+    "realisedRank": 40,
+    "bestBaselineRank": 43,
+    "T2": 0
+   },
+   {
+    "pos": "TE",
+    "decision": "2020-W4",
+    "name": "Foster Moreau",
+    "ptRank": 39,
+    "realisedRank": 19,
+    "bestBaselineRank": 19,
+    "T2": 172.5
+   },
+   {
+    "pos": "TE",
+    "decision": "2021-OFFSEASON",
+    "name": "Taysom Hill",
+    "ptRank": 38,
+    "realisedRank": 13,
+    "bestBaselineRank": 18,
+    "T2": 267.52
+   },
+   {
+    "pos": "TE",
+    "decision": "2021-W4",
+    "name": "Taysom Hill",
+    "ptRank": 38,
+    "realisedRank": 8,
+    "bestBaselineRank": 18,
+    "T2": 291.32
+   }
+  ],
+  "validation": [
+   {
+    "pos": "QB",
+    "decision": "2022-OFFSEASON",
+    "name": "Trevor Lawrence",
+    "ptRank": 64,
+    "realisedRank": 4,
+    "bestBaselineRank": 13,
+    "T2": 582.16
+   },
+   {
+    "pos": "QB",
+    "decision": "2022-OFFSEASON",
+    "name": "Zach Wilson",
+    "ptRank": 54,
+    "realisedRank": 26,
+    "bestBaselineRank": 28,
+    "T2": 230.86
+   },
+   {
+    "pos": "QB",
+    "decision": "2022-OFFSEASON",
+    "name": "Davis Mills",
+    "ptRank": 51,
+    "realisedRank": 27,
+    "bestBaselineRank": 27,
+    "T2": 201.34
+   },
+   {
+    "pos": "QB",
+    "decision": "2022-OFFSEASON",
+    "name": "Jalen Hurts",
+    "ptRank": 41,
+    "realisedRank": 2,
+    "bestBaselineRank": 17,
+    "T2": 744.86
+   },
+   {
+    "pos": "QB",
+    "decision": "2022-OFFSEASON",
+    "name": "Ian Book",
+    "ptRank": 39,
+    "realisedRank": 64,
+    "bestBaselineRank": 65,
+    "T2": 0
+   },
+   {
+    "pos": "QB",
+    "decision": "2022-OFFSEASON",
+    "name": "Mac Jones",
+    "ptRank": 45,
+    "realisedRank": 20,
+    "bestBaselineRank": 15,
+    "T2": 280.48
+   },
+   {
+    "pos": "QB",
+    "decision": "2022-OFFSEASON",
+    "name": "Jameis Winston",
+    "ptRank": 17,
+    "realisedRank": 41,
+    "bestBaselineRank": 37,
+    "T2": 53.88
+   },
+   {
+    "pos": "QB",
+    "decision": "2022-OFFSEASON",
+    "name": "Jacoby Brissett",
+    "ptRank": 59,
+    "realisedRank": 28,
+    "bestBaselineRank": 39,
+    "T2": 199.48
+   },
+   {
+    "pos": "RB",
+    "decision": "2022-OFFSEASON",
+    "name": "DeAndre Washington",
+    "ptRank": 41,
+    "realisedRank": 90,
+    "bestBaselineRank": 89,
+    "T2": 0
+   },
+   {
+    "pos": "RB",
+    "decision": "2022-OFFSEASON",
+    "name": "Latavius Murray",
+    "ptRank": 85,
+    "realisedRank": 29,
+    "bestBaselineRank": 57,
+    "T2": 235.1
+   },
+   {
+    "pos": "RB",
+    "decision": "2022-OFFSEASON",
+    "name": "DeeJay Dallas",
+    "ptRank": 86,
+    "realisedRank": 57,
+    "bestBaselineRank": 59,
+    "T2": 58.4
+   },
+   {
+    "pos": "RB",
+    "decision": "2022-OFFSEASON",
+    "name": "Duke Johnson",
+    "ptRank": 37,
+    "realisedRank": 74,
+    "bestBaselineRank": 63,
+    "T2": 0.4
+   },
+   {
+    "pos": "RB",
+    "decision": "2022-OFFSEASON",
+    "name": "Tarik Cohen",
+    "ptRank": 51,
+    "realisedRank": 81,
+    "bestBaselineRank": 76,
+    "T2": 0
+   },
+   {
+    "pos": "RB",
+    "decision": "2022-OFFSEASON",
+    "name": "Mark Walton",
+    "ptRank": 58,
+    "realisedRank": 87,
+    "bestBaselineRank": 83,
+    "T2": 0
+   },
+   {
+    "pos": "RB",
+    "decision": "2022-OFFSEASON",
+    "name": "Khalil Herbert",
+    "ptRank": 75,
+    "realisedRank": 31,
+    "bestBaselineRank": 51,
+    "T2": 230.3
+   },
+   {
+    "pos": "RB",
+    "decision": "2022-OFFSEASON",
+    "name": "Devontae Booker",
+    "ptRank": 45,
+    "realisedRank": 79,
+    "bestBaselineRank": 68,
+    "T2": 0
+   },
+   {
+    "pos": "WR",
+    "decision": "2022-OFFSEASON",
+    "name": "Will Fuller",
+    "ptRank": 34,
+    "realisedRank": 108,
+    "bestBaselineRank": 112,
+    "T2": 0
+   },
+   {
+    "pos": "WR",
+    "decision": "2022-OFFSEASON",
+    "name": "Antonio Brown",
+    "ptRank": 45,
+    "realisedRank": 118,
+    "bestBaselineRank": 109,
+    "T2": 0
+   },
+   {
+    "pos": "WR",
+    "decision": "2022-OFFSEASON",
+    "name": "Josh Palmer",
+    "ptRank": 111,
+    "realisedRank": 38,
+    "bestBaselineRank": 56,
+    "T2": 276
+   },
+   {
+    "pos": "WR",
+    "decision": "2022-OFFSEASON",
+    "name": "Gabe Davis",
+    "ptRank": 85,
+    "realisedRank": 32,
+    "bestBaselineRank": 40,
+    "T2": 335
+   },
+   {
+    "pos": "WR",
+    "decision": "2022-OFFSEASON",
+    "name": "Kristian Wilkerson",
+    "ptRank": 76,
+    "realisedRank": 120,
+    "bestBaselineRank": 123,
+    "T2": 0
+   },
+   {
+    "pos": "WR",
+    "decision": "2022-OFFSEASON",
+    "name": "Sterling Shepard",
+    "ptRank": 37,
+    "realisedRank": 86,
+    "bestBaselineRank": 77,
+    "T2": 56.7
+   },
+   {
+    "pos": "WR",
+    "decision": "2022-OFFSEASON",
+    "name": "Darius Slayton",
+    "ptRank": 101,
+    "realisedRank": 37,
+    "bestBaselineRank": 62,
+    "T2": 281.4
+   },
+   {
+    "pos": "WR",
+    "decision": "2022-OFFSEASON",
+    "name": "Jauan Jennings",
+    "ptRank": 122,
+    "realisedRank": 63,
+    "bestBaselineRank": 86,
+    "T2": 134.1
+   },
+   {
+    "pos": "TE",
+    "decision": "2022-OFFSEASON",
+    "name": "Taysom Hill",
+    "ptRank": 38,
+    "realisedRank": 9,
+    "bestBaselineRank": 18,
+    "T2": 291.32
+   },
+   {
+    "pos": "TE",
+    "decision": "2022-OFFSEASON",
+    "name": "Dan Arnold",
+    "ptRank": 17,
+    "realisedRank": 32,
+    "bestBaselineRank": 32,
+    "T2": 22.5
+   },
+   {
+    "pos": "TE",
+    "decision": "2022-OFFSEASON",
+    "name": "Rob Gronkowski",
+    "ptRank": 4,
+    "realisedRank": 37,
+    "bestBaselineRank": 14,
+    "T2": 0
+   },
+   {
+    "pos": "TE",
+    "decision": "2022-OFFSEASON",
+    "name": "Jonnu Smith",
+    "ptRank": 35,
+    "realisedRank": 21,
+    "bestBaselineRank": 25,
+    "T2": 178.2
+   },
+   {
+    "pos": "TE",
+    "decision": "2022-OFFSEASON",
+    "name": "James O'Shaughnessy",
+    "ptRank": 22,
+    "realisedRank": 34,
+    "bestBaselineRank": 37,
+    "T2": 0
+   },
+   {
+    "pos": "TE",
+    "decision": "2022-OFFSEASON",
+    "name": "Hayden Hurst",
+    "ptRank": 36,
+    "realisedRank": 24,
+    "bestBaselineRank": 27,
+    "T2": 147.8
+   },
+   {
+    "pos": "TE",
+    "decision": "2022-OFFSEASON",
+    "name": "Evan Engram",
+    "ptRank": 25,
+    "realisedRank": 3,
+    "bestBaselineRank": 19,
+    "T2": 409.2
+   },
+   {
+    "pos": "TE",
+    "decision": "2022-OFFSEASON",
+    "name": "C.J. Uzomah",
+    "ptRank": 24,
+    "realisedRank": 30,
+    "bestBaselineRank": 28,
+    "T2": 76
+   }
+  ]
+ },
+ "calibratedMae": [
+  {
+   "pos": "QB",
+   "model": "E_playerticker",
+   "validationRows": 545,
+   "mae": 64.7248
+  },
+  {
+   "pos": "QB",
+   "model": "A_prev_season",
+   "validationRows": 545,
+   "mae": 57.0878
+  },
+  {
+   "pos": "QB",
+   "model": "B_recency",
+   "validationRows": 545,
+   "mae": 55.5427
+  },
+  {
+   "pos": "QB",
+   "model": "C_age_adjusted",
+   "validationRows": 545,
+   "mae": 54.1853
+  },
+  {
+   "pos": "QB",
+   "model": "D_opportunity",
+   "validationRows": 545,
+   "mae": 57.078
+  },
+  {
+   "pos": "RB",
+   "model": "E_playerticker",
+   "validationRows": 1245,
+   "mae": 33.4845
+  },
+  {
+   "pos": "RB",
+   "model": "A_prev_season",
+   "validationRows": 1245,
+   "mae": 39.0261
+  },
+  {
+   "pos": "RB",
+   "model": "B_recency",
+   "validationRows": 1245,
+   "mae": 34.3551
+  },
+  {
+   "pos": "RB",
+   "model": "C_age_adjusted",
+   "validationRows": 1245,
+   "mae": 32.7507
+  },
+  {
+   "pos": "RB",
+   "model": "D_opportunity",
+   "validationRows": 1245,
+   "mae": 34.9775
+  },
+  {
+   "pos": "WR",
+   "model": "E_playerticker",
+   "validationRows": 1703,
+   "mae": 30.1231
+  },
+  {
+   "pos": "WR",
+   "model": "A_prev_season",
+   "validationRows": 1703,
+   "mae": 35.54
+  },
+  {
+   "pos": "WR",
+   "model": "B_recency",
+   "validationRows": 1703,
+   "mae": 31.1234
+  },
+  {
+   "pos": "WR",
+   "model": "C_age_adjusted",
+   "validationRows": 1703,
+   "mae": 29.1296
+  },
+  {
+   "pos": "WR",
+   "model": "D_opportunity",
+   "validationRows": 1703,
+   "mae": 31.5856
+  },
+  {
+   "pos": "TE",
+   "model": "E_playerticker",
+   "validationRows": 927,
+   "mae": 24.5436
+  },
+  {
+   "pos": "TE",
+   "model": "A_prev_season",
+   "validationRows": 927,
+   "mae": 25.8409
+  },
+  {
+   "pos": "TE",
+   "model": "B_recency",
+   "validationRows": 927,
+   "mae": 24.6876
+  },
+  {
+   "pos": "TE",
+   "model": "C_age_adjusted",
+   "validationRows": 927,
+   "mae": 23.9617
+  },
+  {
+   "pos": "TE",
+   "model": "D_opportunity",
+   "validationRows": 927,
+   "mae": 25.2848
+  }
+ ],
+ "crossPositionMix": [
+  {
+   "period": "development",
+   "source": "realised",
+   "decisions": 12,
+   "mix": {
+    "QB": 25.3333,
+    "RB": 33,
+    "WR": 45.6667,
+    "TE": 16
+   }
+  },
+  {
+   "period": "development",
+   "source": "E_playerticker",
+   "decisions": 12,
+   "mix": {
+    "QB": 27.3333,
+    "RB": 33,
+    "WR": 46.6667,
+    "TE": 13
+   }
+  },
+  {
+   "period": "development",
+   "source": "A_prev_season",
+   "decisions": 12,
+   "mix": {
+    "QB": 23,
+    "RB": 35,
+    "WR": 48.25,
+    "TE": 13.75
+   }
+  },
+  {
+   "period": "development",
+   "source": "B_recency",
+   "decisions": 12,
+   "mix": {
+    "QB": 23,
+    "RB": 35,
+    "WR": 48.25,
+    "TE": 13.75
+   }
+  },
+  {
+   "period": "development",
+   "source": "C_age_adjusted",
+   "decisions": 12,
+   "mix": {
+    "QB": 20.75,
+    "RB": 33.6667,
+    "WR": 48.75,
+    "TE": 16.8333
+   }
+  },
+  {
+   "period": "development",
+   "source": "D_opportunity",
+   "decisions": 12,
+   "mix": {
+    "QB": 23,
+    "RB": 35,
+    "WR": 48.25,
+    "TE": 13.75
+   }
+  },
+  {
+   "period": "validation",
+   "source": "realised",
+   "decisions": 1,
+   "mix": {
+    "QB": 28,
+    "RB": 33,
+    "WR": 45,
+    "TE": 14
+   }
+  },
+  {
+   "period": "validation",
+   "source": "E_playerticker",
+   "decisions": 1,
+   "mix": {
+    "QB": 28,
+    "RB": 33,
+    "WR": 46,
+    "TE": 13
+   }
+  },
+  {
+   "period": "validation",
+   "source": "A_prev_season",
+   "decisions": 1,
+   "mix": {
+    "QB": 23,
+    "RB": 35,
+    "WR": 49,
+    "TE": 13
+   }
+  },
+  {
+   "period": "validation",
+   "source": "B_recency",
+   "decisions": 1,
+   "mix": {
+    "QB": 23,
+    "RB": 35,
+    "WR": 49,
+    "TE": 13
+   }
+  },
+  {
+   "period": "validation",
+   "source": "C_age_adjusted",
+   "decisions": 1,
+   "mix": {
+    "QB": 22,
+    "RB": 32,
+    "WR": 53,
+    "TE": 13
+   }
+  },
+  {
+   "period": "validation",
+   "source": "D_opportunity",
+   "decisions": 1,
+   "mix": {
+    "QB": 23,
+    "RB": 35,
+    "WR": 49,
+    "TE": 13
+   }
+  }
+ ],
+ "rookies": [
+  {
+   "decision": "2019-OFFSEASON",
+   "period": "development",
+   "pos": "QB",
+   "draftees": 11,
+   "onBoard": 0,
+   "ranked": 0,
+   "withT2": 11,
+   "draftPickSpearmanT2": 0.6,
+   "ptSpearmanT2OnRanked": null,
+   "draftPickSpearmanOnRanked": null
+  },
+  {
+   "decision": "2019-OFFSEASON",
+   "period": "development",
+   "pos": "RB",
+   "draftees": 25,
+   "onBoard": 0,
+   "ranked": 0,
+   "withT2": 25,
+   "draftPickSpearmanT2": 0.6043,
+   "ptSpearmanT2OnRanked": null,
+   "draftPickSpearmanOnRanked": null
+  },
+  {
+   "decision": "2019-OFFSEASON",
+   "period": "development",
+   "pos": "WR",
+   "draftees": 28,
+   "onBoard": 0,
+   "ranked": 0,
+   "withT2": 28,
+   "draftPickSpearmanT2": 0.4609,
+   "ptSpearmanT2OnRanked": null,
+   "draftPickSpearmanOnRanked": null
+  },
+  {
+   "decision": "2019-OFFSEASON",
+   "period": "development",
+   "pos": "TE",
+   "draftees": 16,
+   "onBoard": 0,
+   "ranked": 0,
+   "withT2": 16,
+   "draftPickSpearmanT2": 0.6873,
+   "ptSpearmanT2OnRanked": null,
+   "draftPickSpearmanOnRanked": null
+  },
+  {
+   "decision": "2020-OFFSEASON",
+   "period": "development",
+   "pos": "QB",
+   "draftees": 12,
+   "onBoard": 0,
+   "ranked": 0,
+   "withT2": 12,
+   "draftPickSpearmanT2": 0.676,
+   "ptSpearmanT2OnRanked": null,
+   "draftPickSpearmanOnRanked": null
+  },
+  {
+   "decision": "2020-OFFSEASON",
+   "period": "development",
+   "pos": "RB",
+   "draftees": 18,
+   "onBoard": 0,
+   "ranked": 0,
+   "withT2": 18,
+   "draftPickSpearmanT2": 0.8101,
+   "ptSpearmanT2OnRanked": null,
+   "draftPickSpearmanOnRanked": null
+  },
+  {
+   "decision": "2020-OFFSEASON",
+   "period": "development",
+   "pos": "WR",
+   "draftees": 35,
+   "onBoard": 0,
+   "ranked": 0,
+   "withT2": 35,
+   "draftPickSpearmanT2": 0.6281,
+   "ptSpearmanT2OnRanked": null,
+   "draftPickSpearmanOnRanked": null
+  },
+  {
+   "decision": "2020-OFFSEASON",
+   "period": "development",
+   "pos": "TE",
+   "draftees": 12,
+   "onBoard": 0,
+   "ranked": 0,
+   "withT2": 12,
+   "draftPickSpearmanT2": 0.5534,
+   "ptSpearmanT2OnRanked": null,
+   "draftPickSpearmanOnRanked": null
+  },
+  {
+   "decision": "2021-OFFSEASON",
+   "period": "development",
+   "pos": "QB",
+   "draftees": 10,
+   "onBoard": 0,
+   "ranked": 0,
+   "withT2": 10,
+   "draftPickSpearmanT2": 0.5758,
+   "ptSpearmanT2OnRanked": null,
+   "draftPickSpearmanOnRanked": null
+  },
+  {
+   "decision": "2021-OFFSEASON",
+   "period": "development",
+   "pos": "RB",
+   "draftees": 19,
+   "onBoard": 0,
+   "ranked": 0,
+   "withT2": 19,
+   "draftPickSpearmanT2": 0.6877,
+   "ptSpearmanT2OnRanked": null,
+   "draftPickSpearmanOnRanked": null
+  },
+  {
+   "decision": "2021-OFFSEASON",
+   "period": "development",
+   "pos": "WR",
+   "draftees": 35,
+   "onBoard": 0,
+   "ranked": 0,
+   "withT2": 35,
+   "draftPickSpearmanT2": 0.7456,
+   "ptSpearmanT2OnRanked": null,
+   "draftPickSpearmanOnRanked": null
+  },
+  {
+   "decision": "2021-OFFSEASON",
+   "period": "development",
+   "pos": "TE",
+   "draftees": 11,
+   "onBoard": 0,
+   "ranked": 0,
+   "withT2": 11,
+   "draftPickSpearmanT2": 0.4909,
+   "ptSpearmanT2OnRanked": null,
+   "draftPickSpearmanOnRanked": null
+  },
+  {
+   "decision": "2022-OFFSEASON",
+   "period": "validation",
+   "pos": "QB",
+   "draftees": 9,
+   "onBoard": 0,
+   "ranked": 0,
+   "withT2": 9,
+   "draftPickSpearmanT2": -0.0084,
+   "ptSpearmanT2OnRanked": null,
+   "draftPickSpearmanOnRanked": null
+  },
+  {
+   "decision": "2022-OFFSEASON",
+   "period": "validation",
+   "pos": "RB",
+   "draftees": 23,
+   "onBoard": 0,
+   "ranked": 0,
+   "withT2": 23,
+   "draftPickSpearmanT2": 0.5652,
+   "ptSpearmanT2OnRanked": null,
+   "draftPickSpearmanOnRanked": null
+  },
+  {
+   "decision": "2022-OFFSEASON",
+   "period": "validation",
+   "pos": "WR",
+   "draftees": 28,
+   "onBoard": 0,
+   "ranked": 0,
+   "withT2": 28,
+   "draftPickSpearmanT2": 0.7039,
+   "ptSpearmanT2OnRanked": null,
+   "draftPickSpearmanOnRanked": null
+  },
+  {
+   "decision": "2022-OFFSEASON",
+   "period": "validation",
+   "pos": "TE",
+   "draftees": 19,
+   "onBoard": 0,
+   "ranked": 0,
+   "withT2": 19,
+   "draftPickSpearmanT2": 0.6386,
+   "ptSpearmanT2OnRanked": null,
+   "draftPickSpearmanOnRanked": null
+  },
+  {
+   "decision": "2023-OFFSEASON",
+   "period": "validation",
+   "pos": "QB",
+   "draftees": 14,
+   "onBoard": 0,
+   "ranked": 0,
+   "withT2": 0,
+   "draftPickSpearmanT2": null,
+   "ptSpearmanT2OnRanked": null,
+   "draftPickSpearmanOnRanked": null
+  },
+  {
+   "decision": "2023-OFFSEASON",
+   "period": "validation",
+   "pos": "RB",
+   "draftees": 18,
+   "onBoard": 0,
+   "ranked": 0,
+   "withT2": 0,
+   "draftPickSpearmanT2": null,
+   "ptSpearmanT2OnRanked": null,
+   "draftPickSpearmanOnRanked": null
+  },
+  {
+   "decision": "2023-OFFSEASON",
+   "period": "validation",
+   "pos": "WR",
+   "draftees": 33,
+   "onBoard": 0,
+   "ranked": 0,
+   "withT2": 0,
+   "draftPickSpearmanT2": null,
+   "ptSpearmanT2OnRanked": null,
+   "draftPickSpearmanOnRanked": null
+  },
+  {
+   "decision": "2023-OFFSEASON",
+   "period": "validation",
+   "pos": "TE",
+   "draftees": 15,
+   "onBoard": 0,
+   "ranked": 0,
+   "withT2": 0,
+   "draftPickSpearmanT2": null,
+   "ptSpearmanT2OnRanked": null,
+   "draftPickSpearmanOnRanked": null
+  }
+ ]
+}
