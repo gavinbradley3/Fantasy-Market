@@ -55,8 +55,19 @@ function main(): number {
     mkdirSync(dir, { recursive: true });
     const db = join(dir, 'pt.db');
     const t0 = Date.now();
-    run('npm', ['run', '-s', 'ingest', '--', '--as-of', date.asOf, '--seasons', seasons.join(','), '--career-seasons', careerSeasons.join(','),
-      '--db', db, '--captures', resolve(config.capturesDir), '--no-sleeper'], join(dir, 'ingest.log'));
+    const ingestArgs = ['run', '-s', 'ingest', '--', '--as-of', date.asOf, '--seasons', seasons.join(','), '--career-seasons', careerSeasons.join(','),
+      '--db', db, '--captures', resolve(config.capturesDir), '--no-sleeper'];
+    try {
+      run('npm', ingestArgs, join(dir, 'ingest.log'));
+    } catch (err) {
+      // nflverse replaces a release asset by delete-then-upload, so a request inside that
+      // window gets a 404. One retry after a pause; a second failure stops the batch.
+      console.log(`${date.id}: ingest failed (${String((err as Error).message).split('\n')[1] ?? 'see log'}); retrying once in 90s`);
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 90_000);
+      rmSync(dir, { recursive: true, force: true });
+      mkdirSync(dir, { recursive: true });
+      run('npm', ingestArgs, join(dir, 'ingest.log'));
+    }
     run('npm', ['run', '-s', 'export:site-data', '--', '--db', db, '--out', join(dir, 'export')], join(dir, 'export.log'));
 
     const board = JSON.parse(readFileSync(join(dir, 'export', 'board.json'), 'utf8')) as { publication: Record<string, unknown>; entries: Record<string, any>[] };
