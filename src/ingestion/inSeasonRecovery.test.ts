@@ -119,7 +119,8 @@ describe('counting facts are stamped with the game date, not the capture date (B
     expect(stamps.length).toBeGreaterThan(0);
     // Every stamp is the newest game's kickoff, and none is after the as-of.
     for (const ts of stamps) {
-      expect(ts).toBe('2024-09-15T00:00:00.000Z');
+      // The newest game's final box score: kickoff + 5 hours.
+      expect(ts).toBe('2024-09-15T05:00:00.000Z');
       expect(Date.parse(ts)).toBeLessThanOrEqual(Date.parse(AS_OF));
     }
   });

@@ -22,6 +22,7 @@ import { adaptPublication } from '@/services/publication/adapter';
 import type { RefreshPipeline } from '@/scheduler';
 import type { ApiPublicationResponse } from '@/services/api';
 import type { FreshnessMeta } from '@/ingestion';
+import { syntheticScheduleFor } from '@/ingestion/__fixtures';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const readExport = (...p: string[]) => JSON.parse(readFileSync(join(ROOT, ...p), 'utf8')) as unknown[];
@@ -44,6 +45,7 @@ function authenticSnapshot() {
       payloads: {
         identity: readExport('fixtures', 'pipeline', 'raw', 'nflverse.players.sample.json'),
         games: readExport('fixtures', 'pipeline', 'stats', 'raw', 'nflverse.player_stats.sample.json'),
+        schedule: syntheticScheduleFor(readExport('fixtures', 'pipeline', 'stats', 'raw', 'nflverse.player_stats.sample.json') as Record<string, unknown>[]),
       },
     },
   ]).snapshot;

@@ -96,11 +96,12 @@ jobs:
           # provider error or schema mismatch leaves the run `partial` and still publishes the
           # nflverse board. No flag is needed to get enrichment, and none is needed to survive
           # losing it.
+          set -o pipefail
           npm run ingest -- \
             $SEASON_ARGS \
             --career-seasons 2017,2018,2019,2020,2021,2022,2023,2024,2025 \
             --db "$RUNNER_TEMP/playerticker.db" \
-            --captures "$RUNNER_TEMP/captures"
+            --captures "$RUNNER_TEMP/captures" 2>&1 | tee "$RUNNER_TEMP/run-log.txt"
 
       # RANKING-CHANGE GUARD. The candidate is exported to a scratch directory and compared with
       # the board currently on site-data. A large change is NOT published unless an owner has
@@ -115,7 +116,10 @@ jobs:
           if [ -n "${{ inputs.approve_ranking_change }}" ]; then APPROVE_ARGS=(--approve "${{ inputs.approve_ranking_change }}"); fi
           REF_ARGS=()
           if [ -f ../site-data/board.json ]; then REF_ARGS=(--reference ../site-data/board.json); fi
-          npm run stage:board -- --candidate "$RUNNER_TEMP/export" "${REF_ARGS[@]}" --out "$RUNNER_TEMP/staged" "${APPROVE_ARGS[@]}"
+          npm run verify:staging -- --db "$RUNNER_TEMP/playerticker.db" --board "$RUNNER_TEMP/export/board.json" --out "$RUNNER_TEMP/verification.json"
+          npm run stage:board -- --candidate "$RUNNER_TEMP/export" "${REF_ARGS[@]}" \
+            --verification "$RUNNER_TEMP/verification.json" --run-log "$RUNNER_TEMP/run-log.txt" \
+            --out "$RUNNER_TEMP/staged" "${APPROVE_ARGS[@]}"
           cp "$RUNNER_TEMP/staged/board.json" "$RUNNER_TEMP/staged/status.json" ../site-data/
 
       # Commits ONLY when the ingest published a board and the export wrote one. A failed run

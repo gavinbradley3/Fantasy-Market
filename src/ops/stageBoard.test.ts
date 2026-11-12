@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -20,11 +20,14 @@ function setup(candidateOrder: string[]) {
   mkdirSync(join(dir, 'candidate'));
   writeFileSync(join(dir, 'candidate', 'board.json'), JSON.stringify(board(candidateOrder, '2026-11-12T14:00:00.000Z')));
   writeFileSync(join(dir, 'reference.json'), JSON.stringify(board(ids, '2026-09-12T00:00:00.000Z')));
+  writeFileSync(join(dir, 'verification.json'), JSON.stringify({ publicationId: 'board-x', hardPass: true, checks: {} }));
+  writeFileSync(join(dir, 'run.log'), 'ingest output\n');
   return dir;
 }
 
 function run(dir: string, extra: string[] = []) {
-  return spawnSync('npx', ['tsx', 'scripts/stage-board.ts', '--candidate', join(dir, 'candidate'), '--reference', join(dir, 'reference.json'), '--out', join(dir, 'out'), ...extra], {
+  return spawnSync('npx', ['tsx', 'scripts/stage-board.ts', '--candidate', join(dir, 'candidate'), '--reference', join(dir, 'reference.json'),
+    '--verification', join(dir, 'verification.json'), '--run-log', join(dir, 'run.log'), '--out', join(dir, 'out'), ...extra], {
     encoding: 'utf8', env: { ...process.env, TSX_TSCONFIG_PATH: './tsconfig.app.json' },
   });
 }
@@ -74,5 +77,35 @@ describe('stage:board', () => {
     const second = manifest(dir);
     expect(second.valuation.checksum).toBe(first.valuation.checksum);
     expect(second.metadata.publishedAt).not.toBe(first.metadata.publishedAt);
+  });
+
+  it('writes a complete, matching artifact set and removes anything left from an earlier run', () => {
+    const dir = setup(ids);
+    mkdirSync(join(dir, 'out'), { recursive: true });
+    writeFileSync(join(dir, 'out', 'REVIEW.md'), 'an OLD review for another board');
+    writeFileSync(join(dir, 'out', 'stale.json'), '{}');
+    expect(run(dir).status).toBe(0);
+    const m = manifest(dir);
+    expect(Object.keys(m.artifacts).sort()).toEqual(['REVIEW.md', 'board.json', 'run-log.txt', 'verification.json']);
+    expect(existsSync(join(dir, 'out', 'stale.json'))).toBe(false);
+    const review = readFileSync(join(dir, 'out', 'REVIEW.md'), 'utf8');
+    expect(review).toContain(m.valuation.checksum);
+    expect(review).not.toContain('an OLD review');
+  });
+
+  it('refuses a verification report written for a different board', () => {
+    const dir = setup(ids);
+    writeFileSync(join(dir, 'verification.json'), JSON.stringify({ publicationId: 'board-other', hardPass: true }));
+    const r = run(dir);
+    expect(r.status).not.toBe(0);
+    expect(r.stderr).toContain('verification report is for board-other');
+  });
+
+  it('a failed verification never reports success', () => {
+    const dir = setup(ids);
+    writeFileSync(join(dir, 'verification.json'), JSON.stringify({ publicationId: 'board-x', hardPass: false, checks: {} }));
+    const r = run(dir, ['--allow-pending-review']);
+    expect(r.status).toBe(1);
+    expect(manifest(dir).verificationPassed).toBe(false);
   });
 });

@@ -23,6 +23,7 @@ import {
   type ScheduleGameRecord,
   type TransactionRecord,
 } from './types';
+import { indexSchedule, resolveGameTiming, resolveParticipationTiming } from './gameTiming';
 
 export interface NormalizedCollections {
   readonly players: readonly PlayerRecord[];
@@ -168,6 +169,7 @@ export function buildSnapshot(
   };
 
   const prov = <T extends NormalizedRecordBase>(r: T) => r.freshness.provider;
+  const scheduleIndex = indexSchedule(collections.schedule);
   const linked: NormalizedCollections = {
     players,
     rosters: link(collections.rosters, prov),
@@ -175,8 +177,10 @@ export function buildSnapshot(
     schedule: sortByKey(collections.schedule, (s) => s.gameId).map((s) => ({ ...s, canonicalId: s.gameId })),
     // Collapsed BEFORE ordering so a duplicated row can neither double-count a game nor
     // make the snapshot's bytes depend on the order the export happened to arrive in.
-    games: collapseGameStats(link(collections.games, prov), warnings),
-    participation: link(collections.participation, prov),
+    // Collapsed, then joined to the schedule for a real kickoff and an eligibility instant
+    // (./gameTiming.ts). A row whose date cannot be established is excluded and reported.
+    games: resolveGameTiming(collapseGameStats(link(collections.games, prov), warnings), scheduleIndex, warnings),
+    participation: resolveParticipationTiming(link(collections.participation, prov), scheduleIndex, warnings),
     injuries: link(collections.injuries, prov),
     transactions: link(collections.transactions, prov),
     officialStarts: link(collections.officialStarts, prov),

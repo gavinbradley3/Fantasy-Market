@@ -151,6 +151,18 @@ export interface RosterRecord extends NormalizedRecordBase {
   readonly rosterStatus: 'ACTIVE' | 'IR' | 'PUP' | 'NFI' | 'SUSPENDED' | 'PRACTICE_SQUAD' | 'RESERVE';
 }
 
+/**
+ * Where a game's kickoff instant came from.
+ *
+ *   PROVIDER       the row itself carried a kickoff timestamp
+ *   SCHEDULE_TIME  the nflverse schedule's gameday + gametime (US Eastern), converted to UTC
+ *   SCHEDULE_DATE  the schedule's gameday only — a DATE (start of the Eastern day), not a kickoff
+ *   WEEK_BOUNDARY  a PLACEHOLDER from season + week (the Thursday that opens the week), set by an
+ *                  adapter whose resource carries no date. It never survives snapshot construction:
+ *                  the observation is either joined to its scheduled game or excluded.
+ */
+export type KickoffSource = 'PROVIDER' | 'SCHEDULE_TIME' | 'SCHEDULE_DATE' | 'WEEK_BOUNDARY';
+
 export interface ScheduleGameRecord extends NormalizedRecordBase {
   readonly gameId: string;
   readonly season: number;
@@ -159,10 +171,26 @@ export interface ScheduleGameRecord extends NormalizedRecordBase {
   readonly homeTeam: string;
   readonly awayTeam: string;
   readonly kickoff: string; // ISO
+  /** How `kickoff` was established. Absent on legacy fixtures, which are treated as PROVIDER. */
+  readonly kickoffSource?: KickoffSource;
+}
+
+/**
+ * Timing fields set on every game-level observation when the snapshot is built, by joining it to
+ * its scheduled game (src/ingestion/gameTiming.ts).
+ */
+export interface ObservationTiming {
+  /** How `kickoff` was established. */
+  readonly kickoffSource?: KickoffSource;
+  /**
+   * The earliest instant this observation may be used: the game's final box score exists. All
+   * as-of eligibility reads this, never `kickoff`.
+   */
+  readonly availableAt?: string;
 }
 
 /** Per-game player stat line (regular season unless seasonType says otherwise). */
-export interface GameStatRecord extends NormalizedRecordBase {
+export interface GameStatRecord extends NormalizedRecordBase, ObservationTiming {
   readonly gameId: string;
   readonly kickoff: string;
   readonly season: number;
@@ -207,7 +235,7 @@ export interface GameStatRecord extends NormalizedRecordBase {
 }
 
 /** Route/participation record (paid/limited coverage; drives WR/RB proxies). */
-export interface ParticipationRecord extends NormalizedRecordBase {
+export interface ParticipationRecord extends NormalizedRecordBase, ObservationTiming {
   readonly gameId: string;
   readonly kickoff: string;
   readonly passPlaySnaps: number | null;
@@ -252,7 +280,8 @@ export type IngestionWarningCode =
   | 'STALE_RECORD'
   | 'DISCARDED_MALFORMED'
   | 'SOURCE_CONFLICT'
-  | 'UNSUPPORTED_FIELD';
+  | 'UNSUPPORTED_FIELD'
+  | 'UNSCHEDULED_OBSERVATION';
 
 export interface IngestionWarning {
   readonly code: IngestionWarningCode;

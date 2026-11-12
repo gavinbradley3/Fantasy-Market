@@ -12,6 +12,7 @@ import { ingest, buildNormalizedInferenceInput, type ProviderSource } from './bu
 import { nflverseAdapter } from './adapters/nflverse';
 import { freshness } from './__fixtures';
 import type { GameStatRecord } from './types';
+import { syntheticScheduleFor } from './__fixtures';
 
 let seq = 0;
 function game(over: Partial<GameStatRecord> = {}): GameStatRecord {
@@ -184,6 +185,7 @@ function ingestOne(position: 'WR' | 'TE', over: Record<string, unknown>) {
     payloads: {
       identity: [{ gsis_id: '00-X', player_name: 'Test Player', position, team: 'MIN', age: 26, seasons: 4, draft_round: 1, status: 'ACTIVE' }],
       games: weeklyRows('00-X', 'MIN', over),
+      schedule: syntheticScheduleFor(weeklyRows('00-X', 'MIN', over)),
     },
   };
   const { snapshot } = ingest([source]);

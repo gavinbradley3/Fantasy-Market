@@ -18,6 +18,7 @@ import { observedCareerRates } from './observedCareerRates';
 import { buildTeamGameTotals, observedProduction, type TeamGameTotals } from './observedProduction';
 import { compareOrdinal, withinAsOf } from './ordering';
 import { nflSeasonOf } from './weekTiming';
+import { availableAtOf } from './gameTiming';
 import type { NormalizedSnapshot } from './snapshot';
 import type {
   GameStatRecord,
@@ -423,7 +424,9 @@ export function buildEvidenceFor(
   const pit = resolvePointInTime(playerRec, index, canonicalId, asOf);
   const team = pit.team;
 
-  const allGames = (index.gamesByPlayer.get(canonicalId) ?? EMPTY).filter((g) => g.seasonType === 'REG' && withinAsOf(asOf, g.kickoff));
+  // Eligibility is the instant the game's FINAL box score exists (`availableAt`), not its
+  // kickoff: a board dated during a game must not see that game's final statistics.
+  const allGames = (index.gamesByPlayer.get(canonicalId) ?? EMPTY).filter((g) => g.seasonType === 'REG' && withinAsOf(asOf, availableAtOf(g)));
   // QB reads the full ingested history; every other position stays inside the valuation
   // window. See `EvidenceOptions.valuationSeasons`.
   const valuationSeasons = options.valuationSeasons;
@@ -431,7 +434,7 @@ export function buildEvidenceFor(
     position === 'QB' || !valuationSeasons || valuationSeasons.length === 0
       ? allGames
       : allGames.filter((g) => valuationSeasons.includes(g.season));
-  const myParticipation = (index.participationByPlayer.get(canonicalId) ?? EMPTY).filter((p) => withinAsOf(asOf, p.kickoff));
+  const myParticipation = (index.participationByPlayer.get(canonicalId) ?? EMPTY).filter((p) => withinAsOf(asOf, availableAtOf(p)));
   const myInjury = latest(index.injuriesByPlayer.get(canonicalId) ?? EMPTY, asOf);
   const myTxns = (index.transactionsByPlayer.get(canonicalId) ?? EMPTY).filter((t) => withinAsOf(asOf, t.date));
 
@@ -655,10 +658,11 @@ export function buildEvidenceFor(
   // A counting fact is attested by the newest GAME it sums, not by when the payload was captured.
   // Stamping it with the capture date marked every career total as post-as-of evidence whenever
   // a later capture was replayed at an earlier as-of, and the as-of guard then discarded the
-  // whole stat line (docs/PHASE1_RECOVERY_AUDIT.md, B8). Every game here is already filtered to
-  // kickoff <= asOf, so this stamp can never exceed the as-of.
+  // whole stat line (docs/PHASE1_RECOVERY_AUDIT.md, B8). The stamp is the instant the newest
+  // game's final box score existed (`availableAt`); every game here is already filtered to
+  // availableAt <= asOf, so this stamp can never exceed the as-of.
   const newestGame = myGames.reduce<string | undefined>(
-    (m, g) => (m === undefined || g.kickoff > m ? g.kickoff : m),
+    (m, g) => (m === undefined || availableAtOf(g) > m ? availableAtOf(g) : m),
     undefined,
   );
   if (newestGame !== undefined) {
@@ -731,7 +735,7 @@ function gameRow(g: GameStatRecord) {
 }
 
 function latestParticipation(recs: readonly ParticipationRecord[], asOf: string): ParticipationRecord | null {
-  return latest(recs.filter((p) => withinAsOf(asOf, p.kickoff)), asOf);
+  return latest(recs.filter((p) => withinAsOf(asOf, availableAtOf(p))), asOf);
 }
 
 function negativeTxn(txns: readonly TransactionRecord[], asOf: string): 'BENCH_OR_TRADE_BLOCK_OR_WAIVED' | 'IR_CHURN' | 'NONE' {
