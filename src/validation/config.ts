@@ -26,6 +26,12 @@ export interface ExperimentConfig {
    * ask for them produces byte-identical results to before they existed.
    */
   readonly challengers?: boolean;
+  /**
+   * Set once an experiment's results are frozen. The evaluator then recomputes, compares the
+   * result hash with this value, writes nothing, and exits non-zero on any difference. A frozen
+   * experiment can be re-verified but never overwritten. A changed model is a new experiment.
+   */
+  readonly frozenResultsSha256?: string;
   /** Scratch directory for pipeline databases; not archived. */
   readonly workDir: string;
   readonly decisions: readonly { readonly season: number; readonly checkpoint: string }[];

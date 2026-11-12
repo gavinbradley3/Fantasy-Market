@@ -1,6 +1,7 @@
 {
   "name": "phase2-challenger-f",
   "description": "Exploratory. Scores challenger F (two-part projection: games share x points per game played) and two value-layer-only variants of the incumbent against frozen PlayerTicker (E) and baselines A-D, on the frozen phase2-baseline-v2 predictions: same decision dates, periods, targets, populations, bootstrap and seed. The test period stays sealed. Development and validation outcomes had already been read when F was designed, so nothing here is confirmatory.",
+  "frozenResultsSha256": "b69e998a90027442b2b1af5a26b7e3ee52be8392144ca8b381e21310846dbdb5",
   "predictionsFrom": "phase2-baseline-v2",
   "challengers": true,
   "dataDir": ".local/validation-data",

@@ -186,8 +186,23 @@ export function fitTwoPart(ds: Dataset, lastCompleted: number, pos: Pos, positio
   return { share: [h1.share, h2.share], rate: [h1.rate, h2.rate] };
 }
 
-/** Challenger F for every player in the population. Players with no available games score 0. */
-export function computeTwoPart(ctx: BaselineContext): BaselineScores {
+/** Everything challenger F computes for one player: its two inputs and both horizon seasons' factors. */
+export interface TwoPartDetail {
+  /** Inputs: recency-weighted games played over team games scheduled, and points per game played. */
+  readonly gamesShare: number;
+  readonly ptsPerGamePlayed: number;
+  /** Raw inputs behind them (unweighted totals over the window), for display. */
+  readonly pointsInWindow: number;
+  readonly age: number | null;
+  /** Forecast games share and points per game played, index 0 = first horizon season. */
+  readonly share: readonly [number, number];
+  readonly rate: readonly [number, number];
+  readonly T1: number;
+  readonly T2: number;
+}
+
+/** Challenger F with its intermediate quantities. Players with no available games are absent. */
+export function twoPartDetail(ctx: BaselineContext): Map<string, TwoPartDetail> {
   const { ds, asOfMs, decisionSeason, checkpoint, population, positionOf } = ctx;
   const history = availableHistory(ds, asOfMs, decisionSeason);
   const latest = latestSeasonWithGames(ds, asOfMs);
@@ -197,26 +212,32 @@ export function computeTwoPart(ctx: BaselineContext): BaselineScores {
   const fits = new Map<Pos, TwoPartFit>();
   for (const pos of POSITIONS) fits.set(pos, fitTwoPart(ds, lastCompleted, pos, positionOf));
 
-  const T1 = new Map<string, number>();
-  const T2 = new Map<string, number>();
+  const out = new Map<string, TwoPartDetail>();
   for (const [gsis, pos] of population) {
     const seasons = history.get(gsis);
-    if (!seasons || seasons.size === 0) {
-      T1.set(gsis, 0);
-      T2.set(gsis, 0);
-      continue;
-    }
+    if (!seasons || seasons.size === 0) continue;
     const r = recencyRate(seasons, ds, asOfMs, latest, pos);
     const age = ageAt(ds.bios.get(gsis)?.birthDate ?? null, Date.UTC(baseSeason, 8, 1));
     const fit = fits.get(pos)!;
-    const season = (i: 0 | 1) => {
-      const share = clamp01((fit.share[i].line.a + fit.share[i].line.b * r.gamesShare) * fit.share[i].age(age));
-      const rate = Math.max(0, (fit.rate[i].line.a + fit.rate[i].line.b * r.ptsPerGamePlayed) * fit.rate[i].age(age));
-      return G * share * rate;
-    };
-    const s1 = season(0);
-    T1.set(gsis, s1);
-    T2.set(gsis, s1 + season(1));
+    const share = (i: 0 | 1) => clamp01((fit.share[i].line.a + fit.share[i].line.b * r.gamesShare) * fit.share[i].age(age));
+    const rate = (i: 0 | 1) => Math.max(0, (fit.rate[i].line.a + fit.rate[i].line.b * r.ptsPerGamePlayed) * fit.rate[i].age(age));
+    const sh: [number, number] = [share(0), share(1)];
+    const rt: [number, number] = [rate(0), rate(1)];
+    const s1 = G * sh[0] * rt[0];
+    out.set(gsis, { gamesShare: r.gamesShare, ptsPerGamePlayed: r.ptsPerGamePlayed, pointsInWindow: r.pts, age, share: sh, rate: rt, T1: s1, T2: s1 + G * sh[1] * rt[1] });
+  }
+  return out;
+}
+
+/** Challenger F for every player in the population. Players with no available games score 0. */
+export function computeTwoPart(ctx: BaselineContext): BaselineScores {
+  const detail = twoPartDetail(ctx);
+  const T1 = new Map<string, number>();
+  const T2 = new Map<string, number>();
+  for (const gsis of ctx.population.keys()) {
+    const d = detail.get(gsis);
+    T1.set(gsis, d ? d.T1 : 0);
+    T2.set(gsis, d ? d.T2 : 0);
   }
   return { T1, T2 };
 }

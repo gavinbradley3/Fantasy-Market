@@ -1,5 +1,7 @@
 # phase2-challenger-f: results
 
+**Frozen 2026-11-12.** `config.json → frozenResultsSha256` pins `b69e998a…`. Re-running the evaluator re-verifies and writes nothing; it exits non-zero on any difference. `phase2-baseline-v2` is frozen the same way at `3c841141…`. Both were re-verified after the last code change. A changed model or conversion is a new experiment, not an edit to this one.
+
 2026-11-12. Research only. No production weight, board, schedule or deployment changed.
 The 2024 to 2025 test period stayed sealed: outcome seasons read through 2023.
 

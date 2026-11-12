@@ -233,7 +233,7 @@ function range(a: number, b: number) {
 }
 
 /** Most frequent stats position across all loaded games. */
-function mainPositions(ds: Dataset): Map<string, Pos> {
+export function mainPositions(ds: Dataset): Map<string, Pos> {
   const counts = new Map<string, Map<string, number>>();
   for (const g of ds.games) {
     const m = counts.get(g.gsis) ?? new Map<string, number>();

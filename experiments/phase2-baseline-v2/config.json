@@ -1,6 +1,7 @@
 {
   "name": "phase2-baseline-v2",
   "description": "As phase2-baseline-v1 (same decisions, periods, baselines, seeds) but each decision date replays from its own empty capture store, so every payload carries that date as its effective date. v1 is invalid for PlayerTicker: it replayed every date with October 2019 ages.",
+  "frozenResultsSha256": "3c841141c69a1ca702b45e4c48d0452ba6db8494e0ad7fa6a4e5366851213552",
   "dataDir": ".local/validation-data",
   "capturesDir": ".local/validation-captures-v2",
   "workDir": ".local/validation-work-v2",

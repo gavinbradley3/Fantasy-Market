@@ -95,6 +95,13 @@ function twoPartFits() {
 const round = (_k: string, v: unknown) => (typeof v === 'number' ? (Number.isFinite(v) ? Math.round(v * 10000) / 10000 : null) : v);
 const body = JSON.stringify(results, round, 1);
 const sha = createHash('sha256').update(body).digest('hex');
+if (config.frozenResultsSha256) {
+  // Frozen: verify, never write.
+  const ok = sha === config.frozenResultsSha256 && !unsealTest;
+  console.log(`rows ${rows.length}, cells ${cells.length}, results sha256 ${sha}`);
+  console.log(ok ? `FROZEN: reproduces ${config.frozenResultsSha256}; nothing written` : `FROZEN: does NOT reproduce ${config.frozenResultsSha256}${unsealTest ? ' (unsealing a frozen experiment is refused)' : ''}; nothing written`);
+  process.exit(ok ? 0 : 1);
+}
 const outDir = join(root, 'experiments', config.name, 'results');
 mkdirSync(outDir, { recursive: true });
 writeFileSync(join(outDir, 'results.json'), JSON.stringify({ sha256: sha, ...JSON.parse(body) }, null, 1) + '\n');
