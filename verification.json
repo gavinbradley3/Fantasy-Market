@@ -1,14 +1,19 @@
 {
   "schema": "playerticker.staging-verification/v1",
-  "publicationId": "board-b36ab31ffd91137e",
+  "publicationId": "board-f8e6b56e56a3d157",
   "hardPass": true,
   "checks": {
     "recency": {
       "pass": true,
-      "asOf": "2026-11-12T14:37:00.000Z",
-      "newestGameKickoff": "2026-11-05T00:00:00.000Z",
-      "newestAgeDays": 7.61,
-      "regularSeasonGamesAfterAsOfInSnapshot": 0
+      "asOf": "2026-11-12T15:29:01.000Z",
+      "dating": "raw schedule gameday+gametime (US Eastern) via the platform time-zone database; final = kickoff + 5h",
+      "newestIncludedKickoff": "2026-11-10T01:15:00.000Z",
+      "newestFinalKickoffInRawSchedule": "2026-11-10T01:15:00.000Z",
+      "newestAgeDays": 2.59,
+      "regularSeasonGamesNotYetEligible": 0,
+      "kickoffSources": {
+        "SCHEDULE_TIME": 166833
+      }
     },
     "currentSeason": {
       "pass": true,
@@ -39,6 +44,17 @@
         "2025": 18522,
         "2026": 9455
       }
+    },
+    "dates": {
+      "pass": true,
+      "usableGameRecords": 166833,
+      "notInRawSchedule": 0,
+      "notFinalByAsOf": 0,
+      "withoutFinalScore": 0,
+      "pipelineKickoffDisagreesWithIndependentDate": 0,
+      "rawWeeklyStatRows": 167000,
+      "rawWeeklyStatRowsWithNoScheduledGame": 0,
+      "violations": []
     },
     "teamAgreement": {
       "pass": true,
@@ -89,8 +105,8 @@
         "status": "partial",
         "required_failure": 0,
         "source_count": 19,
-        "success_count": 17,
-        "failure_count": 2
+        "success_count": 18,
+        "failure_count": 1
       },
       "failed": [
         {
@@ -99,14 +115,6 @@
           "request_key": "nflverse:participation?season=2026",
           "required": 0,
           "error_code": "UNEXPECTED_STATUS",
-          "failure_stage": "fetch"
-        },
-        {
-          "provider": "sleeper",
-          "capability": "identity",
-          "request_key": "sleeper:identity",
-          "required": 0,
-          "error_code": "NETWORK",
           "failure_stage": "fetch"
         }
       ]
