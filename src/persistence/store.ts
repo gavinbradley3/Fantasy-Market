@@ -25,6 +25,7 @@ import {
   verifySnapshotIntegrity,
 } from './canonical';
 import { PersistenceError } from './errors';
+import { checkPublicationFloors, type FloorReport, type PublicationFloors } from './publicationFloors';
 import { assertSupportedDatabaseVersion, migrate } from './migrations';
 import { openDatabase, transaction, type Database } from './sqlite/db';
 import {
@@ -110,6 +111,18 @@ export interface NewInferenceOutput {
 export interface PublishBoardParams {
   /** The successful, complete refresh run whose entire board is being published. */
   readonly runId: string;
+  /** Per-position floors the board must meet; omitted → no floor (fixture-scale callers). */
+  readonly floors?: PublicationFloors;
+}
+
+/** A stored output is valued when inference published a value for it (status AVAILABLE). */
+function isValuedOutput(serialized: string): boolean {
+  try {
+    const parsed = JSON.parse(serialized) as { status?: unknown };
+    return parsed.status === 'AVAILABLE';
+  } catch {
+    return false;
+  }
 }
 
 export class PersistenceStore {
@@ -552,7 +565,21 @@ export class PersistenceStore {
     }
 
     // Validate + integrity-check every board entry against the run's snapshot.
-    this.validateBoardArtifacts(snapshotId, view.inference);
+    const valuedByEntry = this.validateBoardArtifacts(snapshotId, view.inference);
+
+    // Per-position floors (production passes PRODUCTION_PUBLICATION_FLOORS). A board that
+    // values too few players at any position is refused with every violation named, and the
+    // previous current board stays current.
+    if (params.floors) {
+      const report = checkPublicationFloors(valuedByEntry, params.floors);
+      if (!report.ok) {
+        throw new PersistenceError(
+          'PUBLICATION_NOT_ALLOWED',
+          `publication floor not met: ${report.violations.map((v) => v.reason).join('; ')}`,
+          { stage: 'publication', detail: params.runId },
+        );
+      }
+    }
 
     const board = computeBoardIdentity(
       SCHEMA_VERSIONS.publication,
@@ -606,7 +633,25 @@ export class PersistenceStore {
   }
 
   /** Assert every board entry's (input, output) exists, is intact, and links to the run snapshot. */
-  private validateBoardArtifacts(snapshotId: string, entries: readonly RunInferenceRecord[]): void {
+  /**
+   * The floor verdict for a persisted run, without publishing anything. Lets an operator-facing
+   * caller name every violation when `publishBoard` refuses a board.
+   */
+  publicationFloorReport(runId: string, floors: PublicationFloors): FloorReport | null {
+    const view = this.getRefreshRun(runId);
+    if (!view || view.inference.length === 0) return null;
+    const entries = view.inference.map((e) => {
+      const out = this.getInferenceOutputByChecksum(e.outputChecksum);
+      return { position: e.position, valued: out ? isValuedOutput(out.serialized) : false };
+    });
+    return checkPublicationFloors(entries, floors);
+  }
+
+  private validateBoardArtifacts(
+    snapshotId: string,
+    entries: readonly RunInferenceRecord[],
+  ): { position: string; valued: boolean }[] {
+    const valued: { position: string; valued: boolean }[] = [];
     if (this.getSnapshotById(snapshotId) === null) {
       throw new PersistenceError('INVALID_ARTIFACT_SET', 'snapshot artifact missing', { stage: 'publication', detail: snapshotId });
     }
@@ -622,7 +667,9 @@ export class PersistenceStore {
       this.getNormalizedInputByChecksum(e.normalizedInputChecksum);
       const out = this.getInferenceOutputByChecksum(e.outputChecksum);
       if (!out) throw new PersistenceError('INVALID_ARTIFACT_SET', 'inference output artifact missing', { stage: 'publication', detail: e.outputChecksum });
+      valued.push({ position: e.position, valued: isValuedOutput(out.serialized) });
     }
+    return valued;
   }
 
   /** The coherent, fully-verified current board — never a partially-missing/mixed set. */

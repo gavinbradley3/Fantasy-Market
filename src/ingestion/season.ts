@@ -47,6 +47,22 @@ export function currentIngestSeason(now: Date): number {
 /** Where the season list came from, so the caller can say so out loud. */
 export type SeasonSource = 'explicit' | 'derived';
 
+/**
+ * How many seasons a derived valuation window spans.
+ *
+ * WHY THREE. A one-season window means that in Week 3 a running back is valued on two games and
+ * nothing from the prior year, and that a receiver's established record is invisible after one
+ * injury-shortened season. Three seasons — the current one plus the two before it — is the window
+ * the accessible models were documented against (docs/valuation-models/ACCESSIBLE_DATA_MODEL_RB_TE_V1.md
+ * reports its live coverage over 2023–2025) and the window the Phase 1 audit back-tested.
+ */
+export const ROLLING_WINDOW_SEASONS = 3;
+
+/** The rolling valuation window ending at `season`, oldest first. */
+export function rollingSeasonWindow(season: number, size: number = ROLLING_WINDOW_SEASONS): number[] {
+  return Array.from({ length: size }, (_, i) => season - (size - 1) + i);
+}
+
 export interface SeasonSelection {
   readonly seasons: readonly number[];
   readonly source: SeasonSource;
@@ -82,9 +98,11 @@ export function resolveSeasons(explicit: readonly number[] | null | undefined, n
   }
   const season = currentIngestSeason(now);
   return {
-    seasons: [season],
+    seasons: rollingSeasonWindow(season),
     source: 'derived',
-    note: `derived from ${now.toISOString()} — most recent season whose Week 1 has kicked off`,
+    note:
+      `derived from ${now.toISOString()} — the most recent season whose Week 1 has kicked off (${season}) ` +
+      `and the ${ROLLING_WINDOW_SEASONS - 1} before it`,
   };
 }
 

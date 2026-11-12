@@ -5,7 +5,7 @@
 // implementation the Phase 9 composition root deliberately does not hard-wire.
 
 export { createLivePipeline, type LivePipelineConfig, type LiveRefreshOutput } from './livePipeline';
-export { buildSourcePlan, REQUIRED_PROVIDERS, type SourcePlanOptions } from './sources';
+export { buildSourcePlan, OPTIONAL_SOURCES, REQUIRED_PROVIDERS, type SourcePlanOptions } from './sources';
 export {
   selectInferenceBuilds,
   DEFAULT_ENGINE_VERSIONS,

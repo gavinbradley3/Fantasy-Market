@@ -97,6 +97,23 @@ export function nflSeasonOf(referenceIso: string): number | null {
 }
 
 /**
+ * The most recent season whose REGULAR SEASON had ended at `referenceIso`, or null.
+ *
+ * A regular season is treated as ended at the Week 19 boundary — the Thursday after the Week 18
+ * slate — which is the same calendar convention `weekBoundaryIso` applies to every week.
+ */
+export function lastCompletedSeasonAt(referenceIso: string): number | null {
+  const ref = Date.parse(referenceIso);
+  if (!Number.isFinite(ref)) return null;
+  const year = new Date(ref).getUTCFullYear();
+  for (let season = year; season >= year - 2; season--) {
+    const end = weekBoundaryIso(season, 19);
+    if (end !== null && Date.parse(end) <= ref) return season;
+  }
+  return null;
+}
+
+/**
  * Seasons completed as at a reference instant, from the player's rookie season.
  *
  * `years_of_experience` in a current-state identity export is a CURRENT value — it counts
@@ -105,14 +122,22 @@ export function nflSeasonOf(referenceIso: string): number | null {
  * a 2018 rookie has completed eight seasons as at February 2026 and seven as at February
  * 2025, from the same source row.
  *
+ * A season counts only once its regular season has ENDED (`lastCompletedSeasonAt`). The previous
+ * rule, `nflSeasonOf(ref) - rookie + 1`, also counted the season in progress — and, from March
+ * to August, the season not yet started — so in September 2026 a 2022 rookie read 5 completed
+ * seasons instead of 4, and a 2026 rookie read 1 instead of 0
+ * (docs/PHASE1_RECOVERY_AUDIT.md, B7).
+ *
  * Returns `null` when the rookie season is missing or the arithmetic is implausible, so a
  * bad input surfaces as unknown rather than as a confident wrong number.
  */
 export function seasonsCompletedAsOf(rookieSeason: number | null, referenceIso: string): number | null {
   if (rookieSeason === null || !Number.isInteger(rookieSeason)) return null;
-  const season = nflSeasonOf(referenceIso);
-  if (season === null) return null;
-  const completed = season - rookieSeason + 1;
+  const last = lastCompletedSeasonAt(referenceIso);
+  if (last === null) return null;
+  // A rookie in his first season (or drafted for the next one) has completed none. A rookie
+  // season further in the future than that is implausible input, not a zero.
+  const completed = last - rookieSeason + 1;
   return completed >= 0 && completed <= 30 ? completed : null;
 }
 

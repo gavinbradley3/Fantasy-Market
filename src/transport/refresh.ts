@@ -47,6 +47,29 @@ export interface RefreshDeps {
 export interface RefreshPolicy {
   /** Providers whose failure means the refresh is not a complete success. */
   readonly requiredProviders?: readonly IngestionProvider[];
+  /**
+   * Individual (provider, capability) coordinates that are OPTIONAL even though their provider
+   * is required. A failed optional source is still recorded as a failure, still makes the run
+   * `partial`, and still contributes nothing to the snapshot (its data is absent, never
+   * zero-filled) — it simply does not count as a required-provider failure.
+   */
+  readonly optionalSources?: readonly OptionalSource[];
+}
+
+export interface OptionalSource {
+  readonly provider: IngestionProvider;
+  readonly capability: ProviderCapability;
+}
+
+/** Is a source required under a policy? The ONE definition every layer uses. */
+export function isRequiredSource(
+  policy: RefreshPolicy | undefined,
+  source: { readonly provider: IngestionProvider; readonly capability: ProviderCapability },
+): boolean {
+  if (!(policy?.requiredProviders ?? []).includes(source.provider)) return false;
+  return !(policy?.optionalSources ?? []).some(
+    (o) => o.provider === source.provider && o.capability === source.capability,
+  );
 }
 
 export interface RefreshInput {
@@ -413,7 +436,7 @@ function summarize(
   const successes = sources.filter((s) => s.outcome !== 'failed');
   const failures = sources.filter((s) => s.outcome === 'failed');
   const requiredFailures = (policy?.requiredProviders ?? []).filter((p) =>
-    failures.some((f) => f.provider === p),
+    failures.some((f) => f.provider === p && isRequiredSource(policy, f)),
   );
   return {
     total: sources.length,

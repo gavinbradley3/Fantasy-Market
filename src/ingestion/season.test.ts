@@ -55,15 +55,15 @@ describe('currentIngestSeason', () => {
 });
 
 describe('resolveSeasons', () => {
-  it('derives the current season when nothing is supplied', () => {
+  it('derives a rolling three-season window ending at the current season when nothing is supplied', () => {
     const sel = resolveSeasons(null, at('2026-09-11T18:00:00.000Z'));
-    expect(sel.seasons).toEqual([2026]);
+    expect(sel.seasons).toEqual([2024, 2025, 2026]);
     expect(sel.source).toBe('derived');
     expect(sel.note).toContain('Week 1');
   });
 
   it('treats an empty list as "not supplied" rather than "ingest nothing"', () => {
-    expect(resolveSeasons([], at('2026-09-11T18:00:00.000Z')).seasons).toEqual([2026]);
+    expect(resolveSeasons([], at('2026-09-11T18:00:00.000Z')).seasons).toEqual([2024, 2025, 2026]);
   });
 
   it('passes an explicit list through unchanged, in order', () => {
@@ -86,8 +86,9 @@ describe('resolveSeasons', () => {
     // Whatever "now" is, a derived selection must equal the rule's answer for that instant.
     for (const iso of ['2027-10-01T00:00:00.000Z', '2030-09-20T00:00:00.000Z']) {
       const sel = resolveSeasons(null, at(iso));
-      expect(sel.seasons).toEqual([currentIngestSeason(at(iso))]);
-      expect(sel.seasons[0]).toBeGreaterThan(2025);
+      const current = currentIngestSeason(at(iso));
+      expect(sel.seasons).toEqual([current - 2, current - 1, current]);
+      expect(sel.seasons[2]).toBeGreaterThan(2025);
     }
   });
 

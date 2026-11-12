@@ -27,6 +27,10 @@ on:
         description: 'Season override, comma separated (blank = resolve from the clock)'
         required: false
         type: string
+      approve_ranking_change:
+        description: 'Valuation checksum an owner approved after reviewing staging (blank = none)'
+        required: false
+        type: string
 
 # One board refresh at a time. A second run starting while the first is mid-publish could
 # interleave writes to the same branch and leave a board and a status document from different
@@ -98,11 +102,21 @@ jobs:
             --db "$RUNNER_TEMP/playerticker.db" \
             --captures "$RUNNER_TEMP/captures"
 
+      # RANKING-CHANGE GUARD. The candidate is exported to a scratch directory and compared with
+      # the board currently on site-data. A large change is NOT published unless an owner has
+      # approved that exact valuation checksum (input `approve_ranking_change`), so this step
+      # fails and the previous board stays live. See scripts/stage-board.ts.
       - name: Export static site data
         run: |
           npm run export:site-data -- \
             --db "$RUNNER_TEMP/playerticker.db" \
-            --out ../site-data
+            --out "$RUNNER_TEMP/export"
+          APPROVE_ARGS=()
+          if [ -n "${{ inputs.approve_ranking_change }}" ]; then APPROVE_ARGS=(--approve "${{ inputs.approve_ranking_change }}"); fi
+          REF_ARGS=()
+          if [ -f ../site-data/board.json ]; then REF_ARGS=(--reference ../site-data/board.json); fi
+          npm run stage:board -- --candidate "$RUNNER_TEMP/export" "${REF_ARGS[@]}" --out "$RUNNER_TEMP/staged" "${APPROVE_ARGS[@]}"
+          cp "$RUNNER_TEMP/staged/board.json" "$RUNNER_TEMP/staged/status.json" ../site-data/
 
       # Commits ONLY when the ingest published a board and the export wrote one. A failed run
       # leaves the branch exactly as it was, which is how the last known-good board survives a

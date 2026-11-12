@@ -92,8 +92,13 @@ function firstRun(
 
 function providerStatus(runs: readonly RefreshRunView[], provider: string, required: boolean): ProviderStatus {
   const requested = (r: RefreshRunView) => r.sources.some((s) => s.provider === provider);
+  // For a REQUIRED provider, success means every REQUIRED source of it succeeded. An optional
+  // coordinate (nflverse participation, published only after a season ends) failing must not
+  // make the provider read as never having succeeded; its failure is still recorded per source.
+  const counted = (r: RefreshRunView) =>
+    r.sources.filter((s) => s.provider === provider && (!required || s.required));
   const allSucceeded = (r: RefreshRunView) =>
-    requested(r) && r.sources.filter((s) => s.provider === provider).every((s) => s.status === 'success');
+    requested(r) && counted(r).length > 0 && counted(r).every((s) => s.status === 'success');
   const attempt = firstRun(runs, requested);
   const success = firstRun(runs, allSucceeded);
   return {

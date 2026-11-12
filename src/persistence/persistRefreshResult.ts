@@ -11,7 +11,7 @@
 
 import { randomUUID } from 'node:crypto';
 import { buildNormalizedInferenceInput, type BuildInputOptions, type IngestionProvider } from '@/ingestion';
-import type { RefreshResult } from '@/transport';
+import { isRequiredSource, type OptionalSource, type RefreshResult } from '@/transport';
 import { PersistenceError } from './errors';
 import { PersistenceStore } from './store';
 import { SCHEMA_VERSIONS, type RefreshMode, type RefreshRunStatus, type SourceOutcomeMode } from './types';
@@ -22,6 +22,8 @@ export interface PersistRefreshParams {
   readonly inferenceBuilds?: readonly BuildInputOptions[];
   /** Providers treated as required (marks source outcomes; affects nothing else). */
   readonly requiredProviders?: readonly IngestionProvider[];
+  /** Coordinates of a required provider that are nonetheless optional (see RefreshPolicy). */
+  readonly optionalSources?: readonly OptionalSource[];
   /** Caller-supplied id makes retry idempotent; omitted → a fresh event id is generated. */
   readonly runId?: string;
   readonly startedAt: string;
@@ -58,7 +60,7 @@ function deriveMode(result: RefreshResult): RefreshMode {
 export function persistRefreshResult(store: PersistenceStore, params: PersistRefreshParams): PersistRefreshOutcome {
   const { result } = params;
   const runId = params.runId ?? `run-${randomUUID()}`;
-  const requiredSet = new Set<IngestionProvider>(params.requiredProviders ?? []);
+  const policy = { requiredProviders: params.requiredProviders ?? [], optionalSources: params.optionalSources ?? [] };
   const snapshotId = result.snapshot?.snapshotId ?? null;
   const nowMode = deriveMode(result);
 
@@ -122,7 +124,7 @@ export function persistRefreshResult(store: PersistenceStore, params: PersistRef
         provider: s.provider,
         capability: s.capability,
         requestKey: s.requestKey,
-        required: requiredSet.has(s.provider),
+        required: isRequiredSource(policy, s),
         mode: s.outcome as SourceOutcomeMode,
         status: s.outcome === 'failed' ? 'failure' : 'success',
         payloadChecksum: s.payloadChecksum ?? null,

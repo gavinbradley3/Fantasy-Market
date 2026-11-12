@@ -64,6 +64,22 @@ const ROSTER_STATUS_MAP: Readonly<Record<string, RosterRecord['rosterStatus']>> 
   SUS: 'SUSPENDED', SUSPENDED: 'SUSPENDED',
 };
 
+/**
+ * nflverse `status_description_abbr` sub-codes on a `RES` row that name an injury list.
+ *
+ * Mapped only where the 2025 weekly rosters confirm the meaning (docs/PHASE1_RECOVERY_AUDIT.md,
+ * B9): R01 is injured reserve (Zach Ertz, Khalil Mack), R48 is injured reserve designated for
+ * return (Mike Evans, who later returned to ACT), R04 is physically unable to perform (Deshaun
+ * Watson, Taysom Hill, listed from Week 1), R05 is non-football injury (Joe Mixon). Every other
+ * sub-code — retired (R02), left squad, exempt lists — stays a generic RESERVE.
+ */
+const RESERVE_SUBCODE_MAP: Readonly<Record<string, RosterRecord['rosterStatus']>> = {
+  R01: 'IR',
+  R48: 'IR',
+  R04: 'PUP',
+  R05: 'NFI',
+};
+
 /** The last season the repository treats as the charted participation era (see §8.1). */
 const CHARTED_ERA_LAST_SEASON = 2023;
 
@@ -250,7 +266,11 @@ export const nflverseAdapter: ProviderAdapter = {
       // one table, and a code in neither vocabulary still warns rather than passing silently.
       const rs = (str(row, 'roster_status') ?? str(row, 'status') ?? 'ACTIVE').toUpperCase();
       const mapped = ROSTER_STATUS_MAP[rs];
-      const rosterStatus = mapped ?? 'ACTIVE';
+      // The provider's `RES` code covers every reserve list; its sub-code says which one.
+      // Reading only `RES` turned injured reserve into a generic reserve — then into
+      // "inactive" and "not rostered" — so Patrick Mahomes on IR read as unrostered.
+      const reserveList = rs === 'RES' ? RESERVE_SUBCODE_MAP[(str(row, 'status_description_abbr') ?? '').toUpperCase()] : undefined;
+      const rosterStatus = reserveList ?? mapped ?? 'ACTIVE';
       if (!mapped) warnings.push({ code: 'UNKNOWN_ENUM', provider: 'nflverse', detail: `roster status ${rs}` });
 
       // A weekly roster row is a HISTORICAL statement: this team, this status, that week.

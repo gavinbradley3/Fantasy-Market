@@ -1,0 +1,80 @@
+name: Refresh staging board
+
+# STAGING ONLY. Runs the production pipeline and writes the result to the `site-data-staging`
+# branch for review. It never writes `site-data`, never deploys, and has no schedule: it runs
+# only when someone dispatches it.
+#
+# A large ranking change against the production board is recorded as PENDING_OWNER_REVIEW in
+# staging-manifest.json and is written to staging for inspection; it is never approved here.
+
+on:
+  workflow_dispatch:
+    inputs:
+      as_of:
+        description: 'Valuation as-of (ISO). Blank = now.'
+        required: false
+        type: string
+
+concurrency:
+  group: playerticker-staging-refresh
+  cancel-in-progress: false
+
+jobs:
+  stage:
+    runs-on: ${{ vars.PT_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Fetch production board (reference) and previous staging data
+        run: |
+          git fetch origin site-data --depth=1 && git worktree add --detach ../production origin/site-data || mkdir -p ../production
+          git fetch origin site-data-staging --depth=1 || true
+          if git rev-parse --verify origin/site-data-staging >/dev/null 2>&1; then
+            git worktree add ../staging origin/site-data-staging
+          else
+            mkdir -p ../staging
+          fi
+
+      - name: Ingest (live) and verify deterministic replay
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
+        run: |
+          AS_OF="${{ inputs.as_of }}"
+          if [ -z "$AS_OF" ]; then AS_OF="$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"; fi
+          echo "AS_OF=$AS_OF" >> "$GITHUB_ENV"
+          npm run ingest -- \
+            --as-of "$AS_OF" \
+            --career-seasons 2017,2018,2019,2020,2021,2022,2023,2024,2025 \
+            --db "$RUNNER_TEMP/playerticker.db" \
+            --captures "$RUNNER_TEMP/captures" \
+            --verify-replay
+
+      - name: Export, verify acceptance checks, and stage
+        run: |
+          npm run export:site-data -- --db "$RUNNER_TEMP/playerticker.db" --out "$RUNNER_TEMP/export"
+          npm run verify:staging -- --db "$RUNNER_TEMP/playerticker.db" --board "$RUNNER_TEMP/export/board.json" --out "$RUNNER_TEMP/export/verification.json"
+          REF_ARGS=()
+          if [ -f ../production/board.json ]; then REF_ARGS=(--reference ../production/board.json); fi
+          npm run stage:board -- --candidate "$RUNNER_TEMP/export" "${REF_ARGS[@]}" --out "$RUNNER_TEMP/staged" --allow-pending-review
+          cp "$RUNNER_TEMP/export/verification.json" "$RUNNER_TEMP/staged/"
+
+      - name: Commit to site-data-staging
+        run: |
+          cp "$RUNNER_TEMP"/staged/* ../staging/
+          cd ../staging
+          git config user.name  "playerticker-bot"
+          git config user.email "playerticker-bot@users.noreply.github.com"
+          git add board.json status.json staging-manifest.json verification.json
+          if git diff --cached --quiet; then echo "no change"; exit 0; fi
+          git commit -m "chore(staging): board refresh as of $AS_OF"
+          git push origin HEAD:site-data-staging
