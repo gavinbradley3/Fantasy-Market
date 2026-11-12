@@ -1,7 +1,7 @@
-// PT-09 exercises the exact CLI used by deploy.yml, not a parallel test-only validator.
+// Exercises the exact CLI used by deploy.yml, not a parallel test-only validator.
 
 import { describe, expect, it } from 'vitest';
-import { execFileSync, spawnSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -48,36 +48,62 @@ describe('PT-09 deployment data admission', () => {
 
     const result = run(source, destination);
     expect(result.status).toBe(1);
-    expect(result.stderr).toContain('PT-09 deployment data gate rejected site-data');
+    expect(result.stderr).toContain('deployment data gate rejected site-data');
     expect(result.stderr).toContain(diagnostic);
     expect(existsSync(join(destination, 'board.json'))).toBe(false);
   });
 
-  it.each(['ACCESSIBLE', 'INSUFFICIENT'] as const)('admits a valid %s entry and copies exact board bytes', (tier) => {
+  it.each(['ACCESSIBLE', 'INSUFFICIENT'] as const)('admits a valid %s entry and preserves its content', (tier) => {
     const source = tempDir();
     const destination = tempDir();
-    const body = `${JSON.stringify(validBoard(tier), null, 2)}\n`;
-    writeFileSync(join(source, 'board.json'), body);
+    writeFileSync(join(source, 'board.json'), `${JSON.stringify(validBoard(tier), null, 2)}\n`);
 
     const result = run(source, destination);
     expect(result.status).toBe(0);
-    expect(readFileSync(join(destination, 'board.json'), 'utf8')).toBe(body);
+    expect(JSON.parse(readFileSync(join(destination, 'board.json'), 'utf8'))).toEqual(validBoard(tier));
   });
 
-  it('keeps market data optional while copying it unchanged when present', () => {
+  it('redacts uncalibrated confidence, volatility and honesty fields from the deployed copy only', () => {
+    const source = tempDir();
+    const destination = tempDir();
+    const board = validBoard();
+    const entry = (board.entries as Record<string, unknown>[])[0];
+    Object.assign(entry, {
+      confidenceScore: 79, confidenceLabel: 'HIGH', publicConfidenceLabel: 'LOW',
+      volatilityScore: 22.5, volatilityLabel: 'LOW', honestyState: 'LIMITED', dynastyValue: 74.7,
+    });
+    const original = JSON.stringify(board);
+    writeFileSync(join(source, 'board.json'), original);
+
+    const result = run(source, destination);
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('6 uncalibrated values redacted');
+    const deployed = JSON.parse(readFileSync(join(destination, 'board.json'), 'utf8'));
+    const out = deployed.entries[0];
+    for (const field of ['confidenceScore', 'confidenceLabel', 'publicConfidenceLabel', 'volatilityScore', 'volatilityLabel', 'honestyState']) {
+      expect(out[field]).toBeNull();
+    }
+    // Valuation fields pass through unchanged, and the source artifact is not modified.
+    expect(out.dynastyValue).toBe(74.7);
+    expect(readFileSync(join(source, 'board.json'), 'utf8')).toBe(original);
+  });
+
+  it('never deploys external market data, and keeps status.json optional', () => {
     const source = tempDir();
     const destination = tempDir();
     writeFileSync(join(source, 'board.json'), JSON.stringify(validBoard()));
+    writeFileSync(join(source, 'market-latest.json'), '{"quotes":[1]}\n');
+    writeFileSync(join(source, 'market-history.jsonl'), '{}\n');
 
     const absent = run(source, destination);
     expect(absent.status).toBe(0);
-    expect(absent.stderr).toContain('optional market-latest.json is unavailable');
+    expect(absent.stderr).toContain('optional status.json is unavailable');
+    expect(existsSync(join(destination, 'market-latest.json'))).toBe(false);
+    expect(existsSync(join(destination, 'market-history.jsonl'))).toBe(false);
 
-    const market = '{"quotes":[1]}\n';
-    writeFileSync(join(source, 'market-latest.json'), market);
-    execFileSync('npx', ['tsx', 'scripts/prepare-site-data.ts', '--source', source, '--destination', destination], {
-      env: { ...process.env, TSX_TSCONFIG_PATH: './tsconfig.app.json' },
-    });
-    expect(readFileSync(join(destination, 'market-latest.json'), 'utf8')).toBe(market);
+    writeFileSync(join(source, 'status.json'), '{"board":{}}\n');
+    const present = run(source, destination);
+    expect(present.status).toBe(0);
+    expect(readFileSync(join(destination, 'status.json'), 'utf8')).toBe('{"board":{}}\n');
   });
 });

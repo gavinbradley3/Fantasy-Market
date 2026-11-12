@@ -30,6 +30,8 @@ interface EntryOverrides {
   role?: string | null;
   explanation?: string | null;
   materialMissingInputs?: string[];
+  /** Cross-position dynasty value; defaults to `weekly` so legacy-shaped fixtures stay readable. */
+  dynastyValue?: number | null;
 }
 
 function apiEntry(o: EntryOverrides) {
@@ -58,7 +60,8 @@ function apiEntry(o: EntryOverrides) {
       ? { weekly: o.weekly, ros: o.weekly, oneYear: o.weekly, threeYear: o.weekly, dynasty: o.weekly }
       : null,
     limitations: [],
-    modelTier: o.modelTier ?? (valued ? 'FULL' : 'INSUFFICIENT'),
+    // FULL is only ever the QB engine on a real board; every other valued player is ACCESSIBLE.
+    modelTier: o.modelTier ?? (valued ? (o.position === 'QB' ? 'FULL' : 'ACCESSIBLE') : 'INSUFFICIENT'),
     modelVersion: valued ? 'wr-mvp-1.0' : null,
     positionValue: o.positionValue ?? null,
     positionalRank: null,
@@ -69,7 +72,27 @@ function apiEntry(o: EntryOverrides) {
     materialMissingInputs: o.materialMissingInputs ?? [],
     insufficientReason: valued ? null : 'Not enough information to value this player.',
     provenance: null,
+    dynastyValue: valued ? (o.dynastyValue === undefined ? o.weekly : o.dynastyValue) : null,
+    leagueSchemaId: 'dynasty-superflex-12',
+    dynastyOverallRank: null as number | null,
+    dynastyPositionRank: null as number | null,
   };
+}
+
+/**
+ * Assign canonical ranks the way the backend does: descending dynasty value, valued only.
+ * `explicit` lets a test publish ranks that deliberately disagree with any composite.
+ */
+function withRanks(entries: ReturnType<typeof apiEntry>[]) {
+  const valued = entries.filter((e) => e.dynastyValue !== null).sort((a, b) => (b.dynastyValue ?? 0) - (a.dynastyValue ?? 0));
+  const byPos = new Map<string, number>();
+  valued.forEach((e, i) => {
+    e.dynastyOverallRank = i + 1;
+    const n = (byPos.get(e.position) ?? 0) + 1;
+    byPos.set(e.position, n);
+    e.dynastyPositionRank = n;
+  });
+  return entries;
 }
 
 /** A board with all four supported positions. */
@@ -80,7 +103,8 @@ const FOUR_POSITIONS = [
   apiEntry({ canonicalId: 'pt-te', position: 'TE', name: 'Test End', weekly: 60 }),
 ];
 
-function publication(entries: ReturnType<typeof apiEntry>[]) {
+function publication(entries: ReturnType<typeof apiEntry>[], publishedAt = new Date(Date.now() - 2 * 3_600_000).toISOString()) {
+  if (!entries.some((e) => e.dynastyOverallRank !== null)) withRanks(entries);
   return {
     publication: {
       publicationId: 'pub-1',
@@ -88,7 +112,7 @@ function publication(entries: ReturnType<typeof apiEntry>[]) {
       snapshotId: 'snap-1',
       boardChecksum: 'chk',
       entryCount: entries.length,
-      publishedAt: '2026-01-01T00:00:00.000Z',
+      publishedAt,
       supersededPublicationId: null,
     },
     entries,
@@ -112,51 +136,6 @@ function renderBoard(fetchFn: typeof fetch, route = '/board') {
 
 const respondWith = (body: unknown, status = 200) =>
   (async () => jsonResponse(body, status)) as unknown as typeof fetch;
-
-/** An external market response, in the shape `GET /market` actually serves. */
-function marketResponse(
-  quotes: { canonicalPlayerId: string; value: number | null; overallRank: number | null; positionRank?: number | null }[],
-  over: Record<string, unknown> = {},
-) {
-  return {
-    source: 'dynastyprocess',
-    format: 'dynasty_superflex',
-    attribution: {
-      publisher: 'DynastyProcess',
-      url: 'https://github.com/dynastyprocess/data',
-      licence: 'GPL-3.0',
-      derivedFrom: 'FantasyPros expert consensus',
-      refreshCadence: 'weekly',
-      usage: 'External comparison source, not PlayerTicker-owned market data.',
-    },
-    sourceTimestamp: '2026-09-11T00:00:00.000Z',
-    sourceVersion: '2026-09-11',
-    capturedAt: '2026-09-11T18:00:00.000Z',
-    captureCount: 1,
-    quoteCount: quotes.length,
-    quotes: quotes.map((q) => ({
-      canonicalPlayerId: q.canonicalPlayerId,
-      source: 'dynastyprocess',
-      format: 'dynasty_superflex',
-      value: q.value,
-      overallRank: q.overallRank,
-      positionRank: q.positionRank ?? q.overallRank,
-      sourceTimestamp: '2026-09-11T00:00:00.000Z',
-      ingestedAt: '2026-09-11T18:00:00.000Z',
-      freshness: 'fresh',
-      provenance: 'external',
-    })),
-    ...over,
-  };
-}
-
-/** Route by path so the board's two independent reads can be answered differently. */
-function routed(publicationBody: unknown, marketBody: unknown, marketStatus = 200): typeof fetch {
-  return (async (input: RequestInfo | URL) =>
-    String(input).includes('/market')
-      ? jsonResponse(marketBody, marketStatus)
-      : jsonResponse(publicationBody)) as unknown as typeof fetch;
-}
 
 /** The provenance line's text, e.g. "4 of 4 published players · published ...". */
 function boardCount(): string {
@@ -213,8 +192,8 @@ describe('The Board renders the real publication end to end', () => {
     expect(within(unvaluedRow).queryByText('0.0')).not.toBeInTheDocument();
     expect(within(unvaluedRow).getAllByText('—').length).toBeGreaterThan(0);
     // The tier badge names the state in product language rather than an internal status code.
-    expect(within(unvaluedRow).getByText('No value')).toBeInTheDocument();
-    expect(within(valuedRow).getByText('Full model')).toBeInTheDocument();
+    expect(within(unvaluedRow).getByText('Not valued')).toBeInTheDocument();
+    expect(within(valuedRow).getByText('Box-score model')).toBeInTheDocument();
     // And the page says so in words, next to the count.
     await waitFor(() =>
       expect(provenanceText()).toMatch(/1 of these players has no published value/i),
@@ -273,7 +252,7 @@ describe('The Board — search, filters and sorting over published data', () => 
     expect(screen.getAllByText('Test End').length).toBeGreaterThan(0);
   });
 
-  it('sorts by published value, keeping unvalued players last', async () => {
+  it('orders rows by the published canonical rank, keeping unvalued players last', async () => {
     const mixed = [
       apiEntry({ canonicalId: 'a', position: 'WR', name: 'Low Value', weekly: 10 }),
       apiEntry({ canonicalId: 'b', position: 'WR', name: 'No Value', weekly: null }),
@@ -281,8 +260,6 @@ describe('The Board — search, filters and sorting over published data', () => 
     ];
     renderBoard(respondWith(publication(mixed)));
     await screen.findAllByText('High Value');
-
-    await userEvent.selectOptions(screen.getByLabelText('Sort by'), 'value');
     await waitFor(() => {
       const names = screen
         .getAllByRole('row')
@@ -292,6 +269,15 @@ describe('The Board — search, filters and sorting over published data', () => 
       expect(names[1]).toContain('Low Value');
       expect(names[2]).toContain('No Value');
     });
+  });
+
+  it('offers no sort that would present a second, contradictory ranking', async () => {
+    renderBoard(respondWith(publication(FOUR_POSITIONS)));
+    await screen.findAllByText('Test Passer');
+    const options = within(screen.getByLabelText('Sort by'))
+      .getAllByRole('option')
+      .map((o) => (o as HTMLOptionElement).value);
+    expect(options).toEqual(['rank', 'name']);
   });
 
   it('sorts by name', async () => {
@@ -305,10 +291,10 @@ describe('The Board — search, filters and sorting over published data', () => 
   });
 
   it('honors position and sort from the URL', async () => {
-    renderBoard(respondWith(publication(FOUR_POSITIONS)), '/board?pos=RB&sort=value');
+    renderBoard(respondWith(publication(FOUR_POSITIONS)), '/board?pos=RB&sort=name');
     await waitFor(() => expect(boardCount()).toMatch(/1 of 4 published players/));
     expect(screen.getAllByText('Test Runner').length).toBeGreaterThan(0);
-    expect((screen.getByLabelText('Sort by') as HTMLSelectElement).value).toBe('value');
+    expect((screen.getByLabelText('Sort by') as HTMLSelectElement).value).toBe('name');
   });
 });
 
@@ -355,19 +341,18 @@ describe('The Board — empty, error and retry states', () => {
     await screen.findByRole('alert');
     await userEvent.click(screen.getByRole('button', { name: 'Try Again' }));
     expect((await rowsFor('Test Passer')).length).toBeGreaterThan(0);
+    // The fixture board is two hours old, so no freshness warning (also role="alert") appears.
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
-  it('re-reads the market from the "Refresh Market" button and never posts a rebuild', async () => {
+  it('re-reads the board from the "Reload" button and never posts a rebuild', async () => {
     const spy = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
       jsonResponse(publication(FOUR_POSITIONS)),
     );
     renderBoard(spy as unknown as typeof fetch);
     await screen.findAllByText('Test Passer');
 
-    await userEvent.click(screen.getByRole('button', { name: 'Refresh Market' }));
-    // Counted per endpoint: the page also reads the external market on mount, and this test
-    // is about the publication read the button re-runs.
+    await userEvent.click(screen.getByRole('button', { name: 'Reload' }));
     const publicationCalls = () => spy.mock.calls.filter((c) => String(c[0]).includes('/publication')).length;
     await waitFor(() => expect(publicationCalls()).toBe(2));
     // Refreshing the browser's data is a READ. Triggering a backend rebuild is a different
@@ -389,16 +374,15 @@ describe('The Board — empty, error and retry states', () => {
   });
 });
 
-describe('The Board — model tier is visible to the user', () => {
-  it('distinguishes a full-model value from an accessible-data value from no value', async () => {
+describe('The Board — model basis is stated truthfully', () => {
+  it('never claims a full model, and distinguishes the QB engine, the box-score model and no value', async () => {
     const tiers = [
-      apiEntry({ canonicalId: 'pt-full', position: 'WR', name: 'Full Model Player', weekly: 70 }),
+      apiEntry({ canonicalId: 'pt-qb', position: 'QB', name: 'Engine Player', weekly: 70 }),
       apiEntry({
         canonicalId: 'pt-acc',
         position: 'RB',
-        name: 'Limited Data Player',
+        name: 'Box Score Player',
         weekly: 64,
-        modelTier: 'ACCESSIBLE',
         role: 'Three-down lead back',
         materialMissingInputs: ['Route participation (no free per-player route data since 2023)'],
       }),
@@ -406,126 +390,112 @@ describe('The Board — model tier is visible to the user', () => {
     ];
     renderBoard(respondWith(publication(tiers)));
 
-    const fullRow = (await screen.findAllByText('Full Model Player'))[0].closest('tr')!;
-    const accRow = (await screen.findAllByText('Limited Data Player'))[0].closest('tr')!;
+    const qbRow = (await screen.findAllByText('Engine Player'))[0].closest('tr')!;
+    const accRow = (await screen.findAllByText('Box Score Player'))[0].closest('tr')!;
     const noneRow = (await screen.findAllByText('No Value Player'))[0].closest('tr')!;
 
-    expect(within(fullRow).getByText('Full model')).toBeInTheDocument();
-    expect(within(accRow).getByText('Limited data')).toBeInTheDocument();
-    expect(within(noneRow).getByText('No value')).toBeInTheDocument();
+    expect(within(qbRow).getByText('QB engine, partial inputs')).toBeInTheDocument();
+    expect(within(qbRow).getByTitle(/fallback values/)).toBeInTheDocument();
+    expect(within(accRow).getByText('Box-score model')).toBeInTheDocument();
+    expect(within(noneRow).getByText('Not valued')).toBeInTheDocument();
+    expect(screen.queryByText(/full model/i)).not.toBeInTheDocument();
 
-    // The accessible-tier player still carries a real value — the tier is a label, not a gap.
     expect(within(accRow).getByText('64.0')).toBeInTheDocument();
-
-    // The badge explains itself in words, naming the missing input rather than a registry key.
     expect(within(accRow).getByTitle(/Route participation/)).toBeInTheDocument();
     expect(within(accRow).queryByTitle(/career_routes/)).not.toBeInTheDocument();
-
-    // And the page explains the reduced tier next to the count.
-    await waitFor(() =>
-      expect(provenanceText()).toMatch(/1 of these players is valued by the accessible-data model/i),
-    );
   });
 });
 
-describe('external market context on the board', () => {
-  // The market's numbers belong to somebody else and cover fewer players than the board. Both
-  // facts have to survive all the way to the DOM: an uncovered player must read as uncovered,
-  // and the source must be named. These tests fail if either quietly stops being true.
-
-  const boardWithMarket = (
-    quotes: Parameters<typeof marketResponse>[0],
-    over: Record<string, unknown> = {},
-  ) => routed(publication(FOUR_POSITIONS), marketResponse(quotes, over));
-
-  it('shows the market rank beside the model rank', async () => {
-    renderBoard(
-      boardWithMarket([
-        { canonicalPlayerId: 'pt-qb', value: 10256, overallRank: 3 },
-        { canonicalPlayerId: 'pt-rb', value: 7000, overallRank: 1 },
-      ]),
-    );
-    await screen.findAllByText('Test Passer');
-    await waitFor(() => expect(screen.getAllByTitle(/Dynasty Superflex market value 10,256/).length).toBeGreaterThan(0));
+describe('The Board — Value is the quantity the board is ranked on', () => {
+  it('shows the cross-position dynasty value and the canonical rank, never the weekly composite', async () => {
+    // The weekly composites order these two players the OTHER way. The published ranks and
+    // dynasty values are what the page must show.
+    const entries = [
+      apiEntry({ canonicalId: 'pt-a', position: 'RB', name: 'Weekly Star', weekly: 91.1, dynastyValue: 40.5 }),
+      apiEntry({ canonicalId: 'pt-b', position: 'WR', name: 'Dynasty Star', weekly: 61.9, dynastyValue: 88.3 }),
+    ];
+    renderBoard(respondWith(publication(entries)));
+    const rows = await waitFor(() => {
+      const r = screen.getAllByRole('row').slice(1);
+      expect(r).toHaveLength(2);
+      return r;
+    });
+    expect(rows[0].textContent).toContain('Dynasty Star');
+    expect(within(rows[0]).getByText('88.3')).toBeInTheDocument();
+    expect(within(rows[0]).getByText('1')).toBeInTheDocument();
+    expect(within(rows[1]).getByText('40.5')).toBeInTheDocument();
+    expect(screen.queryByText('91.1')).not.toBeInTheDocument();
+    expect(screen.queryByText('61.9')).not.toBeInTheDocument();
   });
 
-  it('states the disagreement in places, with PlayerTicker-higher as a positive number', async () => {
-    // The board ranks the QB 1st (weekly 90 is the best value); the market has them 3rd.
-    renderBoard(
-      boardWithMarket([
-        { canonicalPlayerId: 'pt-qb', value: 10256, overallRank: 3 },
-        { canonicalPlayerId: 'pt-rb', value: 9000, overallRank: 1 },
-        { canonicalPlayerId: 'pt-wr', value: 8000, overallRank: 2 },
-      ]),
-    );
-    await screen.findAllByText('Test Passer');
-    // The tooltip names BOTH ranks, because the visible Rank column follows the board's
-    // displayed horizon (weekly) while the delta is measured on dynasty.
-    await waitFor(() =>
-      expect(
-        screen.getAllByTitle(/On dynasty value: PlayerTicker #1, market #3 — 2 places higher/).length,
-      ).toBeGreaterThan(0),
-    );
+  it('keeps the published rank numbers verbatim instead of re-ranking', async () => {
+    const entries = [
+      apiEntry({ canonicalId: 'pt-a', position: 'QB', name: 'Rank Three', weekly: 50, dynastyValue: 50 }),
+      apiEntry({ canonicalId: 'pt-b', position: 'WR', name: 'Rank Seven', weekly: 40, dynastyValue: 40 }),
+    ];
+    entries[0].dynastyOverallRank = 3;
+    entries[1].dynastyOverallRank = 7;
+    renderBoard(respondWith(publication(entries)));
+    const rows = await waitFor(() => {
+      const r = screen.getAllByRole('row').slice(1);
+      expect(r).toHaveLength(2);
+      return r;
+    });
+    expect(within(rows[0]).getByText('3')).toBeInTheDocument();
+    expect(within(rows[1]).getByText('7')).toBeInTheDocument();
+  });
+});
+
+describe('The Board — suppressed and removed information', () => {
+  it('renders no confidence or volatility rating even when the publication carries one', async () => {
+    const entries = [
+      apiEntry({ canonicalId: 'pt-qb', position: 'QB', name: 'Rated Passer', weekly: 70, confidenceLabel: 'HIGH', confidenceScore: 79, volatilityLabel: 'LOW' }),
+    ];
+    renderBoard(respondWith(publication(entries)));
+    const row = (await screen.findAllByText('Rated Passer'))[0].closest('tr')!;
+    expect(within(row).queryByText('HIGH')).not.toBeInTheDocument();
+    expect(within(row).queryByText(/79/)).not.toBeInTheDocument();
+    expect(within(row).queryByText('LOW')).not.toBeInTheDocument();
+    const headers = screen.getAllByRole('columnheader').map((h) => h.textContent);
+    expect(headers).toEqual(['Rank', 'Player', 'Pos', 'Team', 'Value', 'Basis']);
   });
 
-  it('renders an UNCOVERED player as absent — never as zero or last place', async () => {
-    renderBoard(boardWithMarket([{ canonicalPlayerId: 'pt-qb', value: 10256, overallRank: 1 }]));
+  it('never requests external market data', async () => {
+    const spy = vi.fn(async (_input: RequestInfo | URL) => jsonResponse(publication(FOUR_POSITIONS)));
+    renderBoard(spy as unknown as typeof fetch);
     await screen.findAllByText('Test Passer');
-    await waitFor(() =>
-      expect(screen.getAllByLabelText('not covered by this market source').length).toBeGreaterThan(0),
-    );
-    // Nothing on the page claims a zero-valued market quote for the uncovered players.
-    expect(provenanceText()).toContain('rather than a zero');
+    expect(spy.mock.calls.map((c) => String(c[0]))).toEqual(['/api/publication']);
+    expect(screen.queryByText(/DynastyProcess|FantasyPros|Mkt/i)).not.toBeInTheDocument();
+  });
+});
+
+describe('The Board — format and freshness are stated from the board itself', () => {
+  it('names the published league format', async () => {
+    renderBoard(respondWith(publication(FOUR_POSITIONS)));
+    await screen.findAllByText('Test Passer');
+    expect(screen.getByText(/12-team Superflex dynasty · full PPR/)).toBeInTheDocument();
   });
 
-  it('names the publisher and says these are not PlayerTicker valuations', async () => {
-    renderBoard(boardWithMarket([{ canonicalPlayerId: 'pt-qb', value: 10256, overallRank: 1 }]));
-    await screen.findAllByText('Test Passer');
-    await waitFor(() => expect(provenanceText()).toContain('DynastyProcess'));
-    expect(provenanceText()).toContain('not a PlayerTicker');
-    expect(provenanceText()).toContain('Superflex');
-  });
-
-  it('describes weekly data in weekly language — never "live" or "real-time"', async () => {
-    renderBoard(boardWithMarket([{ canonicalPlayerId: 'pt-qb', value: 10256, overallRank: 1 }]));
-    await screen.findAllByText('Test Passer');
-    await waitFor(() => expect(provenanceText()).toContain('market updated Sep 11'));
-    expect(provenanceText()).toContain('weekly');
-    expect(provenanceText()).not.toMatch(/live|real[- ]?time|24H|1H/i);
-  });
-
-  it('says no movement is shown while only one capture is stored', async () => {
-    renderBoard(boardWithMarket([{ canonicalPlayerId: 'pt-qb', value: 10256, overallRank: 1 }]));
-    await screen.findAllByText('Test Passer');
-    await waitFor(() => expect(provenanceText()).toContain('no market movement is shown'));
-  });
-
-  it('an unavailable market degrades to "—" and leaves the board standing', async () => {
-    renderBoard(routed(publication(FOUR_POSITIONS), { error: { code: 'X', message: 'down' } }, 503));
-    // The valuations are all still there — a third party's outage is not a board outage.
-    for (const name of ['Test Passer', 'Test Runner', 'Test Receiver', 'Test End']) {
-      expect((await rowsFor(name)).length).toBeGreaterThan(0);
+  it('reports the true age of an old board and warns that it is out of date', async () => {
+    const now = Date.parse('2026-11-12T12:00:00.000Z');
+    const spy = vi.spyOn(Date, 'now').mockReturnValue(now);
+    try {
+      renderBoard(respondWith(publication(FOUR_POSITIONS, '2026-09-12T21:05:41.650Z')));
+      await screen.findAllByText('Test Passer');
+      expect(screen.getByText(/Published Sep 12, 2026 · 60 days ago/)).toBeInTheDocument();
+      const alert = screen.getByRole('alert');
+      expect(alert).toHaveAttribute('data-freshness', 'stale');
+      expect(alert.textContent).toMatch(/out of date/);
+      expect(screen.queryByText(/less than an hour ago/)).not.toBeInTheDocument();
+    } finally {
+      spy.mockRestore();
     }
-    await waitFor(() => expect(provenanceText()).toContain('External market context is unavailable'));
+  });
+
+  it('does not warn about a board published within the last week', async () => {
+    renderBoard(respondWith(publication(FOUR_POSITIONS)));
+    await screen.findAllByText('Test Passer');
+    expect(screen.getByText(/Published .* · 2h ago/)).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
-  });
-
-  it('an empty market says so instead of showing zeroes', async () => {
-    renderBoard(boardWithMarket([], { quoteCount: 0, captureCount: 0, sourceTimestamp: null }));
-    await screen.findAllByText('Test Passer');
-    await waitFor(() =>
-      expect(provenanceText()).toContain('No external market data has been ingested yet'),
-    );
-  });
-
-  it('never lets a market value into the model Value column', async () => {
-    renderBoard(boardWithMarket([{ canonicalPlayerId: 'pt-qb', value: 10256, overallRank: 1 }]));
-    await screen.findAllByText('Test Passer');
-    await waitFor(() => expect(screen.getAllByTitle(/Dynasty Superflex market value 10,256/).length).toBeGreaterThan(0));
-    // The model value for the QB is 90.0. The market's 10,256 appears only as a tooltip on the
-    // market column — never rendered as the player's value.
-    expect(screen.getAllByText('90.0').length).toBeGreaterThan(0);
-    expect(screen.queryByText('10256')).not.toBeInTheDocument();
-    expect(screen.queryByText('10,256')).not.toBeInTheDocument();
   });
 });

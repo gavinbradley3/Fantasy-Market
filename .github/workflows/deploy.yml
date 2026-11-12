@@ -75,12 +75,13 @@ jobs:
         run: npm run build
 
       # This is the deployment admission boundary. It validates board.json from the checkout
-      # above and copies those same bytes; any failure ends this job before artifact upload.
+      # above, redacts uncalibrated confidence fields from the deployed copy, and copies only
+      # the public files. Any failure ends this job before artifact upload.
       - name: Validate and copy published data into the build
         run: |
           npm run prepare:site-data -- --source ../site-data --destination dist/data
-          # market-history.jsonl is deliberately NOT copied. Nothing in the UI reads it, it is
-          # the archive rather than a serving document, and it grows without bound.
+          # Only board.json and status.json are deployed (src/config/release.ts). The external
+          # market capture is never copied while its redistribution rights are unresolved.
           ls -la dist/data/
 
       # GitHub Pages serves files, not routes: a deep link to /board would 404 because no such
