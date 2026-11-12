@@ -23,7 +23,7 @@ import type {
   ScheduleGameRecord,
 } from '../types';
 import { asRows, bool, num, str } from './helpers';
-import { ageFromBirthDate, derivedGameId, parseNflverseGameId, seasonsCompletedAsOf, weekBoundaryIso } from '../weekTiming';
+import { ageFromBirthDate, derivedGameId, easternWallClockToIso, parseNflverseGameId, seasonsCompletedAsOf, weekBoundaryIso } from '../weekTiming';
 
 const CAPS = new Set<Capability>(['identity', 'roster', 'schedule', 'games', 'participation', 'officialStarts']);
 
@@ -62,6 +62,22 @@ const ROSTER_STATUS_MAP: Readonly<Record<string, RosterRecord['rosterStatus']>> 
   EXE: 'RESERVE', TRC: 'RESERVE', TRD: 'RESERVE', NWT: 'RESERVE',
   IR: 'IR', PUP: 'PUP', NFI: 'NFI',
   SUS: 'SUSPENDED', SUSPENDED: 'SUSPENDED',
+};
+
+/**
+ * nflverse `status_description_abbr` sub-codes on a `RES` row that name an injury list.
+ *
+ * Mapped only where the 2025 weekly rosters confirm the meaning (docs/PHASE1_RECOVERY_AUDIT.md,
+ * B9): R01 is injured reserve (Zach Ertz, Khalil Mack), R48 is injured reserve designated for
+ * return (Mike Evans, who later returned to ACT), R04 is physically unable to perform (Deshaun
+ * Watson, Taysom Hill, listed from Week 1), R05 is non-football injury (Joe Mixon). Every other
+ * sub-code — retired (R02), left squad, exempt lists — stays a generic RESERVE.
+ */
+const RESERVE_SUBCODE_MAP: Readonly<Record<string, RosterRecord['rosterStatus']>> = {
+  R01: 'IR',
+  R48: 'IR',
+  R04: 'PUP',
+  R05: 'NFI',
 };
 
 /** The last season the repository treats as the charted participation era (see §8.1). */
@@ -170,6 +186,7 @@ function participationFromPlays(
       sourceTimestamp: freshness.effectiveDate,
       gameId: tally.gameId,
       kickoff,
+      kickoffSource: 'WEEK_BOUNDARY',
       passPlaySnaps: tally.passPlaySnaps,
       // The team total for the game the player was on the field for.
       teamDropbacks: teamDropbacks.get(tally.gameId) ?? null,
@@ -250,7 +267,11 @@ export const nflverseAdapter: ProviderAdapter = {
       // one table, and a code in neither vocabulary still warns rather than passing silently.
       const rs = (str(row, 'roster_status') ?? str(row, 'status') ?? 'ACTIVE').toUpperCase();
       const mapped = ROSTER_STATUS_MAP[rs];
-      const rosterStatus = mapped ?? 'ACTIVE';
+      // The provider's `RES` code covers every reserve list; its sub-code says which one.
+      // Reading only `RES` turned injured reserve into a generic reserve — then into
+      // "inactive" and "not rostered" — so Patrick Mahomes on IR read as unrostered.
+      const reserveList = rs === 'RES' ? RESERVE_SUBCODE_MAP[(str(row, 'status_description_abbr') ?? '').toUpperCase()] : undefined;
+      const rosterStatus = reserveList ?? mapped ?? 'ACTIVE';
       if (!mapped) warnings.push({ code: 'UNKNOWN_ENUM', provider: 'nflverse', detail: `roster status ${rs}` });
 
       // A weekly roster row is a HISTORICAL statement: this team, this status, that week.
@@ -273,26 +294,42 @@ export const nflverseAdapter: ProviderAdapter = {
       const gameId = str(row, 'game_id');
       const home = normalizeTeam(str(row, 'home_team'));
       const away = normalizeTeam(str(row, 'away_team'));
-      // The schedules release publishes `gameday` (a calendar date) and `gametime` (a
-      // US-Eastern wall clock with no offset). Only the DATE is used: folding in a local
-      // time with an offset the provider never stated would misstate the instant, and the
-      // windows and as-of clamp this feeds are date/week-resolution questions anyway.
-      const kickoffRaw = str(row, 'kickoff') ?? str(row, 'gameday');
+      // A row may carry its own `kickoff` instant (PROVIDER). The schedules release instead
+      // publishes `gameday` (date) and `gametime` (HH:MM), both US EASTERN wall-clock time per the
+      // nflreadr data dictionary; together they are converted to the scheduled kickoff instant
+      // with the US DST rule (SCHEDULE_TIME). A row with a date but no time yields the start of
+      // that Eastern day and is labelled SCHEDULE_DATE: a date, never presented as a kickoff.
+      const providerKickoff = str(row, 'kickoff');
+      const gameday = str(row, 'gameday');
+      const gametime = str(row, 'gametime');
       const season = num(row, 'season');
       const week = num(row, 'week');
-      if (!gameId || !home || !away || !kickoffRaw || season === null || week === null) {
+      if (!gameId || !home || !away || (!providerKickoff && !gameday) || season === null || week === null) {
         warnings.push({ code: 'DISCARDED_MALFORMED', provider: 'nflverse', detail: 'schedule row incomplete' });
         continue;
       }
-      let kickoff: string;
-      try {
-        kickoff = normalizeTimestamp(kickoffRaw);
-      } catch {
-        warnings.push({ code: 'MISSING_TIMESTAMP', provider: 'nflverse', detail: `bad kickoff ${kickoffRaw}` });
+      let kickoff: string | null = null;
+      let kickoffSource: 'PROVIDER' | 'SCHEDULE_TIME' | 'SCHEDULE_DATE' = 'PROVIDER';
+      if (providerKickoff) {
+        try {
+          kickoff = normalizeTimestamp(providerKickoff);
+        } catch {
+          kickoff = null;
+        }
+      } else {
+        kickoff = easternWallClockToIso(gameday, gametime);
+        kickoffSource = gametime && kickoff ? 'SCHEDULE_TIME' : 'SCHEDULE_DATE';
+        if (!kickoff && gametime) {
+          kickoff = easternWallClockToIso(gameday, null);
+          kickoffSource = 'SCHEDULE_DATE';
+        }
+      }
+      if (!kickoff) {
+        warnings.push({ code: 'MISSING_TIMESTAMP', provider: 'nflverse', detail: `bad kickoff for ${gameId}` });
         continue;
       }
       // Schedule is a team-level record; providerRef carries the game id as the key.
-      records.push({ canonicalId: null, providerRef: { key: 'game', value: gameId }, freshness, sourceTimestamp: freshness.effectiveDate, gameId, season, week, seasonType: seasonType(str(row, 'season_type') ?? str(row, 'game_type')), homeTeam: home, awayTeam: away, kickoff });
+      records.push({ canonicalId: null, providerRef: { key: 'game', value: gameId }, freshness, sourceTimestamp: freshness.effectiveDate, gameId, season, week, seasonType: seasonType(str(row, 'season_type') ?? str(row, 'game_type')), homeTeam: home, awayTeam: away, kickoff, kickoffSource });
     }
     return { records, warnings };
   },
@@ -346,7 +383,8 @@ export const nflverseAdapter: ProviderAdapter = {
       const teamSnaps = num(row, 'team_snaps');
       records.push({
         canonicalId: null, providerRef: r, freshness, sourceTimestamp: freshness.effectiveDate,
-        gameId, kickoff, season: season ?? 0, seasonType: seasonType(str(row, 'season_type') ?? str(row, 'game_type')), team,
+        gameId, kickoff, kickoffSource: kickoffRaw !== null ? 'PROVIDER' : 'WEEK_BOUNDARY',
+        season: season ?? 0, seasonType: seasonType(str(row, 'season_type') ?? str(row, 'game_type')), team,
         passAttempts: num(row, 'pass_attempts') ?? num(row, 'attempts'),
         carries: num(row, 'carries'), targets: num(row, 'targets'),
         snaps, teamSnaps, qbSnapShare: snaps !== null && teamSnaps !== null && teamSnaps > 0 ? snaps / teamSnaps : num(row, 'qb_snap_share'),

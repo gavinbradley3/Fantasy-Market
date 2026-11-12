@@ -1,0 +1,109 @@
+name: Refresh staging board
+
+# STAGING ONLY. Runs the production pipeline and writes the result to the `site-data-staging`
+# branch for review. It never writes `site-data`, never deploys, and has no schedule.
+#
+# Triggers: manual dispatch, and pull requests from this repository that change the pipeline,
+# so every such PR is verified end to end in GitHub Actions against live nflverse data.
+#
+# Every run replaces the WHOLE staging branch content with one matching set: board, status,
+# verification report, run log, generated REVIEW.md and a manifest of their SHA-256s. A large
+# ranking change is recorded as PENDING_OWNER_REVIEW; it is never approved here.
+
+on:
+  workflow_dispatch:
+    inputs:
+      as_of:
+        description: 'Valuation as-of (ISO). Blank = now.'
+        required: false
+        type: string
+  pull_request:
+    paths:
+      - 'src/ingestion/**'
+      - 'src/inference/**'
+      - 'src/accessible/**'
+      - 'src/runtime/**'
+      - 'src/persistence/**'
+      - 'src/transport/**'
+      - 'src/utility/**'
+      - 'src/ops/**'
+      - 'scripts/ingest-nflverse.ts'
+      - 'scripts/export-site-data.ts'
+      - 'scripts/stage-board.ts'
+      - 'scripts/verify-staging.ts'
+      - '.github/workflows/refresh-staging.yml'
+
+concurrency:
+  group: playerticker-staging-refresh
+  cancel-in-progress: false
+
+jobs:
+  stage:
+    # Same-repository PRs only: a fork has no write access and must not trigger a data run.
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ${{ vars.PT_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Fetch production board (reference) and staging branch
+        run: |
+          git fetch origin site-data --depth=1 && git worktree add --detach ../production FETCH_HEAD || mkdir -p ../production
+          if git fetch origin site-data-staging --depth=1; then
+            git worktree add -B site-data-staging ../staging FETCH_HEAD
+          else
+            git worktree add --orphan -b site-data-staging ../staging
+          fi
+
+      - name: Ingest (live) and verify deterministic replay
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
+        run: |
+          AS_OF="${{ inputs.as_of }}"
+          if [ -z "$AS_OF" ]; then AS_OF="$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"; fi
+          echo "AS_OF=$AS_OF" >> "$GITHUB_ENV"
+          set -o pipefail
+          npm run ingest -- \
+            --as-of "$AS_OF" \
+            --career-seasons 2017,2018,2019,2020,2021,2022,2023,2024,2025 \
+            --db "$RUNNER_TEMP/playerticker.db" \
+            --captures "$RUNNER_TEMP/captures" \
+            --verify-replay 2>&1 | tee "$RUNNER_TEMP/run-log.txt"
+
+      - name: Export, verify acceptance checks, and stage
+        run: |
+          npm run export:site-data -- --db "$RUNNER_TEMP/playerticker.db" --out "$RUNNER_TEMP/export"
+          npm run verify:staging -- --db "$RUNNER_TEMP/playerticker.db" --board "$RUNNER_TEMP/export/board.json" --out "$RUNNER_TEMP/verification.json"
+          REF_ARGS=()
+          if [ -f ../production/board.json ]; then REF_ARGS=(--reference ../production/board.json); fi
+          npm run stage:board -- --candidate "$RUNNER_TEMP/export" "${REF_ARGS[@]}" \
+            --verification "$RUNNER_TEMP/verification.json" --run-log "$RUNNER_TEMP/run-log.txt" \
+            --out "$RUNNER_TEMP/staged" --allow-pending-review
+
+      - name: Keep the staged set as a run artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-${{ github.run_id }}
+          path: ${{ runner.temp }}/staged
+          retention-days: 30
+
+      - name: Replace site-data-staging with this run's set
+        run: |
+          cd ../staging
+          git rm -rq --ignore-unmatch . || true
+          cp "$RUNNER_TEMP"/staged/* .
+          git config user.name  "playerticker-bot"
+          git config user.email "playerticker-bot@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then echo "no change"; exit 0; fi
+          git commit -m "chore(staging): board as of $AS_OF (run ${{ github.run_id }}, ${{ github.sha }})"
+          git push origin HEAD:site-data-staging

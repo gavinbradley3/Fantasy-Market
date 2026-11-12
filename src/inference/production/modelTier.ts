@@ -146,6 +146,8 @@ export function toAccessibleAvailability(
       if (d.includes('quest')) return 'QUESTIONABLE';
       if (d.includes('ir')) return 'IR';
       if (d.includes('pup')) return 'PUP';
+      // Reserve/non-football injury carries the same playing restriction as PUP.
+      if (d.includes('nfi')) return 'PUP';
       return 'QUESTIONABLE';
     }
     default:

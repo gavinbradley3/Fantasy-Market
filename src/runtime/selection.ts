@@ -20,6 +20,7 @@
 // cannot depend on fetch timing, provider row order, or how many times a run is retried.
 
 import type { BuildInputOptions, NormalizedSnapshot } from '@/ingestion';
+import { availableAtOf } from '@/ingestion/gameTiming';
 import type { SupportedPosition } from '@/pipeline/types';
 
 /** Engine version tags, per position, recorded on every inference build. */
@@ -69,7 +70,8 @@ export function selectInferenceBuilds(
     if (g.canonicalId === null) continue;
     if (g.seasonType !== 'REG') continue;
     if (!inWindow(g.season)) continue;
-    if (Date.parse(g.kickoff) > asOfMs) continue;
+    // Eligible once the game's final box score exists, not at kickoff.
+    if (Date.parse(availableAtOf(g)) > asOfMs) continue;
     withEvidence.add(g.canonicalId);
   }
 

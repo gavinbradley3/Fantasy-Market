@@ -147,3 +147,35 @@ export function sleeperSource(): ProviderSource {
     },
   };
 }
+
+/**
+ * Schedule rows for weekly stat rows that carry no date, so a test snapshot can join each
+ * player-game to a scheduled game exactly as production does (src/ingestion/gameTiming.ts).
+ * One game per (season, week, team), kicking off Sunday 13:00 US Eastern of that week.
+ */
+export function syntheticScheduleFor(rows: readonly Record<string, unknown>[]): Record<string, unknown>[] {
+  const seen = new Map<string, Record<string, unknown>>();
+  for (const r of rows) {
+    const season = Number(r.season);
+    const week = Number(r.week);
+    const team = String(r.recent_team ?? r.team ?? '');
+    if (!Number.isInteger(season) || !Number.isInteger(week) || !team) continue;
+    const key = `${season}|${week}|${team}`;
+    if (seen.has(key)) continue;
+    // Labor Day + 6 days = the Sunday of Week 1.
+    const sept1 = new Date(Date.UTC(season, 8, 1));
+    const laborDay = 1 + ((1 - sept1.getUTCDay() + 7) % 7);
+    const sunday = new Date(Date.UTC(season, 8, laborDay + 6 + (week - 1) * 7));
+    seen.set(key, {
+      game_id: typeof r.game_id === 'string' ? r.game_id : `${season}_${String(week).padStart(2, '0')}_${team}_OPP`,
+      season,
+      week,
+      game_type: 'REG',
+      home_team: team,
+      away_team: 'OPP',
+      gameday: sunday.toISOString().slice(0, 10),
+      gametime: '13:00',
+    });
+  }
+  return [...seen.values()];
+}

@@ -30,10 +30,10 @@ import {
   type TransportConfig,
 } from '@/transport';
 import type { BuildInputOptions, NormalizedSnapshot } from '@/ingestion';
-import { persistRefreshResult, type PersistenceStore } from '@/persistence';
+import { persistRefreshResult, PRODUCTION_PUBLICATION_FLOORS, type PersistenceStore, type PublicationFloors } from '@/persistence';
 import type { PersistStepResult, PipelineContext, PublishStepResult, RefreshPipeline } from '@/scheduler';
 import { selectInferenceBuilds, type EngineVersions } from './selection';
-import { buildSourcePlan, REQUIRED_PROVIDERS } from './sources';
+import { buildSourcePlan, OPTIONAL_SOURCES, REQUIRED_PROVIDERS } from './sources';
 
 /** What the refresh step hands to the persist step. */
 export interface LiveRefreshOutput {
@@ -77,6 +77,11 @@ export interface LivePipelineConfig {
    * — same plan, same ingestion, same inference, same persistence.
    */
   readonly replayOnly?: boolean;
+  /**
+   * Per-position publication floors. Defaults to PRODUCTION_PUBLICATION_FLOORS. `null` disables
+   * them, which only fixture-scale tests (a handful of players) should ever do.
+   */
+  readonly publicationFloors?: PublicationFloors | null;
 }
 
 /**
@@ -112,7 +117,7 @@ export function createLivePipeline(config: LivePipelineConfig): RefreshPipeline<
       const result = await refreshSources(
         {
           sources,
-          policy: { requiredProviders: REQUIRED_PROVIDERS },
+          policy: { requiredProviders: REQUIRED_PROVIDERS, optionalSources: OPTIONAL_SOURCES },
           inference: (snapshot: NormalizedSnapshot) => {
             builds = selectInferenceBuilds(snapshot, {
               asOf,
@@ -143,12 +148,14 @@ export function createLivePipeline(config: LivePipelineConfig): RefreshPipeline<
         startedAt: ctx.startedAt,
         completedAt: clock.now(),
         requiredProviders: REQUIRED_PROVIDERS,
+        optionalSources: OPTIONAL_SOURCES,
       });
       return { status: outcome.status, publishable: outcome.publishable, snapshotId: outcome.snapshotId };
     },
 
     async publish(ctx: PipelineContext): Promise<PublishStepResult> {
-      const published = config.store().publishBoard({ runId: ctx.runId });
+      const floors = config.publicationFloors === undefined ? PRODUCTION_PUBLICATION_FLOORS : config.publicationFloors;
+      const published = config.store().publishBoard({ runId: ctx.runId, ...(floors ? { floors } : {}) });
       return { publicationId: published.publicationId, entryCount: published.entryCount };
     },
   };

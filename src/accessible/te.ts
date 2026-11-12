@@ -147,7 +147,7 @@ const TD_PSEUDO_GAMES = 24;
  * efficiency-driven than running back, because the position's fantasy scoring is dominated by
  * how often the offence looks at it.
  */
-const TE_HORIZON_WEIGHTS = {
+export const TE_HORIZON_WEIGHTS = {
   weekly: { TV: 0.24, RP: 0.2, EFF: 0.08, SC: 0.1, RS: 0.17, TR: 0.03, AG: 0.02, AV: 0.13, DUR: 0.03 },
   ros: { TV: 0.23, RP: 0.19, EFF: 0.09, SC: 0.09, RS: 0.16, TR: 0.05, AG: 0.05, AV: 0.09, DUR: 0.05 },
   oneYear: { TV: 0.22, RP: 0.18, EFF: 0.09, SC: 0.07, RS: 0.16, TR: 0.07, AG: 0.12, AV: 0.04, DUR: 0.05 },

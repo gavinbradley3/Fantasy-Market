@@ -93,7 +93,12 @@ describe('board publication', () => {
 
     // A genuinely different board (WR-only) → a different board id that supersedes A.
     const m2 = await mockedSuccessfulRefresh();
-    persistRefreshResult(store, { result: m2.result, inferenceBuilds: [m2.builds[0]], runId: 'run-second', ...META });
+    persistRefreshResult(store, {
+      result: { ...m2.result, inference: [m2.result.inference[0]] },
+      inferenceBuilds: [m2.builds[0]],
+      runId: 'run-second',
+      ...META,
+    });
     const pub2 = store.publishBoard({ runId: 'run-second' });
 
     expect(pub2.publicationId).not.toBe(pub1.publicationId);

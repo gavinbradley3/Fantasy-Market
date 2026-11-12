@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest';
 import { ingest, buildNormalizedInferenceInput, type ProviderSource } from './buildInput';
 import { nflverseAdapter } from './adapters/nflverse';
 import { freshness } from './__fixtures';
+import { syntheticScheduleFor } from './__fixtures';
 
 const AS_OF = '2026-02-01T00:00:00.000Z';
 
@@ -28,6 +29,7 @@ function build(rows: readonly Record<string, unknown>[], seasons?: readonly numb
     payloads: {
       identity: [{ gsis_id: '00-QB', player_name: 'Test Passer', position: 'QB', team: 'BUF', age: 28, seasons: 8, draft_round: 1, status: 'ACTIVE' }],
       games: rows,
+      schedule: syntheticScheduleFor(rows),
     },
   };
   const { snapshot } = ingest([source]);
@@ -58,15 +60,17 @@ describe('career evidence spans the career, not the valuation window', () => {
   it('a NON-QB position stays scoped to the valuation seasons', () => {
     // Giving the quarterback a real career and re-basing the other models on a wider window
     // are two different decisions; only the first is taken.
+    const teRows = [
+      ...Array.from({ length: 16 }, (_, i) => ({ player_id: '00-TE', season: 2019, week: i + 1, season_type: 'REG', recent_team: 'BUF', targets: 5, receptions: 4, receiving_yards: 50 })),
+      ...Array.from({ length: 16 }, (_, i) => ({ player_id: '00-TE', season: 2025, week: i + 1, season_type: 'REG', recent_team: 'BUF', targets: 5, receptions: 4, receiving_yards: 50 })),
+    ];
     const source: ProviderSource = {
       adapter: nflverseAdapter,
       freshness: freshness('nflverse'),
       payloads: {
         identity: [{ gsis_id: '00-TE', player_name: 'Test End', position: 'TE', team: 'BUF', age: 28, seasons: 8, draft_round: 2, status: 'ACTIVE' }],
-        games: [
-          ...Array.from({ length: 16 }, (_, i) => ({ player_id: '00-TE', season: 2019, week: i + 1, season_type: 'REG', recent_team: 'BUF', targets: 5, receptions: 4, receiving_yards: 50 })),
-          ...Array.from({ length: 16 }, (_, i) => ({ player_id: '00-TE', season: 2025, week: i + 1, season_type: 'REG', recent_team: 'BUF', targets: 5, receptions: 4, receiving_yards: 50 })),
-        ],
+        games: teRows,
+        schedule: syntheticScheduleFor(teRows),
       },
     };
     const { snapshot } = ingest([source]);

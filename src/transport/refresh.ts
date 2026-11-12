@@ -47,6 +47,29 @@ export interface RefreshDeps {
 export interface RefreshPolicy {
   /** Providers whose failure means the refresh is not a complete success. */
   readonly requiredProviders?: readonly IngestionProvider[];
+  /**
+   * Individual (provider, capability) coordinates that are OPTIONAL even though their provider
+   * is required. A failed optional source is still recorded as a failure, still makes the run
+   * `partial`, and still contributes nothing to the snapshot (its data is absent, never
+   * zero-filled) — it simply does not count as a required-provider failure.
+   */
+  readonly optionalSources?: readonly OptionalSource[];
+}
+
+export interface OptionalSource {
+  readonly provider: IngestionProvider;
+  readonly capability: ProviderCapability;
+}
+
+/** Is a source required under a policy? The ONE definition every layer uses. */
+export function isRequiredSource(
+  policy: RefreshPolicy | undefined,
+  source: { readonly provider: IngestionProvider; readonly capability: ProviderCapability },
+): boolean {
+  if (!(policy?.requiredProviders ?? []).includes(source.provider)) return false;
+  return !(policy?.optionalSources ?? []).some(
+    (o) => o.provider === source.provider && o.capability === source.capability,
+  );
 }
 
 export interface RefreshInput {
@@ -393,7 +416,13 @@ export async function refreshSources(input: RefreshInput, deps: RefreshDeps): Pr
   }
 
   const summary = summarize(orderedSources, diagnostics, snapshot, input.policy);
-  const status = deriveStatus(orderedSources, summary, input.policy);
+  const sourceStatus = deriveStatus(orderedSources, summary, input.policy);
+  // A selected build is part of the board contract. `INSUFFICIENT` is still a successful
+  // result (an intentionally unvalued entry); only a missing/failed inference outcome makes
+  // the refresh incomplete. Mark that attempt failed so no later boundary can mistake the
+  // surviving subset for a replacement board.
+  const inferenceComplete = inference.every((outcome) => outcome.ok && outcome.result != null);
+  const status: RefreshStatus = inferenceComplete ? sourceStatus : 'failure';
 
   return { status, sources: orderedSources, snapshot, diagnostics, inference, summary };
 }
@@ -407,7 +436,7 @@ function summarize(
   const successes = sources.filter((s) => s.outcome !== 'failed');
   const failures = sources.filter((s) => s.outcome === 'failed');
   const requiredFailures = (policy?.requiredProviders ?? []).filter((p) =>
-    failures.some((f) => f.provider === p),
+    failures.some((f) => f.provider === p && isRequiredSource(policy, f)),
   );
   return {
     total: sources.length,

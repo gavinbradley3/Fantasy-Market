@@ -150,7 +150,8 @@ describe('CSV releases reach the Phase 4 boundary intact', () => {
 
   it('folds play-level participation into per player per game counts', async () => {
     const result = await refreshSources(
-      { sources: [live('identity'), live('participation', { season: SEASON })] },
+      // Production always acquires the schedule; participation is dated by joining to it.
+      { sources: [live('identity'), live('schedule'), live('participation', { season: SEASON })] },
       deps(defaultRoutes()),
     );
     const records = result.snapshot!.participation;

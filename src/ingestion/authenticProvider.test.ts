@@ -19,6 +19,7 @@ import { nflverseAdapter } from './adapters/nflverse';
 import { weekBoundaryIso, derivedGameId } from './weekTiming';
 import type { FreshnessMeta } from './types';
 import type { ProviderSource } from './buildInput';
+import { syntheticScheduleFor } from './__fixtures';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const readExport = (...p: string[]) => JSON.parse(readFileSync(join(ROOT, ...p), 'utf8')) as unknown[];
@@ -44,7 +45,7 @@ function authenticSource(): ProviderSource {
   return {
     adapter: nflverseAdapter,
     freshness: freshness(),
-    payloads: { identity: authenticPlayers(), games: authenticWeekly() },
+    payloads: { identity: authenticPlayers(), games: authenticWeekly(), schedule: syntheticScheduleFor(authenticWeekly() as Record<string, unknown>[]) },
   };
 }
 
@@ -191,7 +192,11 @@ describe('a REAL provider-backed player reaches the frozen engine', () => {
     const shuffled: ProviderSource = {
       adapter: nflverseAdapter,
       freshness: freshness(),
-      payloads: { identity: [...authenticPlayers()].reverse(), games: [...authenticWeekly()].reverse() },
+      payloads: {
+        identity: [...authenticPlayers()].reverse(),
+        games: [...authenticWeekly()].reverse(),
+        schedule: syntheticScheduleFor(authenticWeekly() as Record<string, unknown>[]).reverse(),
+      },
     };
     const runWith = (src: ProviderSource) => {
       const { snapshot } = ingest([src]);

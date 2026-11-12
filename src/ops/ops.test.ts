@@ -28,7 +28,7 @@ function run(over: {
   at?: string;
   status?: string;
   requiredFailure?: boolean;
-  sources?: { provider: string; status: string }[];
+  sources?: { provider: string; status: string; capability?: string; required?: boolean }[];
   players?: number;
 }): RefreshRunView {
   const at = over.at ?? hoursAgo(1);
@@ -49,7 +49,11 @@ function run(over: {
       snapshotId: 'snap-1',
       createdAt: at,
     },
-    sources: (over.sources ?? [{ provider: 'nflverse', status: 'success' }]) as never,
+    // Real persisted outcomes always carry `required`; nflverse sources default to required.
+    sources: (over.sources ?? [{ provider: 'nflverse', status: 'success' }]).map((src) => ({
+      ...src,
+      required: src.required ?? src.provider === 'nflverse',
+    })) as never,
     inference: new Array(over.players ?? 867).fill({}) as never,
   } as RefreshRunView;
 }
@@ -125,6 +129,23 @@ describe('the status document answers the operational questions', () => {
     expect(s.providers.sleeper.lastAttemptSucceeded).toBe(false);
     expect(s.providers.nflverse.lastAttemptSucceeded).toBe(true);
     expect(s.lastRun.status).toBe('partial');
+  });
+
+  it('an OPTIONAL nflverse source failing (in-season participation) leaves nflverse succeeded', () => {
+    const s = buildStatus(
+      inputs({
+        runs: [run({
+          status: 'partial',
+          sources: [
+            { provider: 'nflverse', capability: 'games', status: 'success' },
+            { provider: 'nflverse', capability: 'participation', status: 'failure', required: false },
+          ],
+        })],
+      }),
+    );
+    expect(s.overall).toBe('ok');
+    expect(s.providers.nflverse.lastAttemptSucceeded).toBe(true);
+    expect(s.providers.nflverse.lastSuccessAt).not.toBeNull();
   });
 
   it('a required-provider failure IS degraded, and says the board is last-known-good', () => {

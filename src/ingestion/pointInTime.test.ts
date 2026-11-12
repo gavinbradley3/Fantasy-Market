@@ -183,6 +183,20 @@ describe('experience is derived historically, not read as a current count', () =
     expect(seasonsCompletedAsOf(null, '2026-02-15T00:00:00.000Z')).toBeNull();
     expect(seasonsCompletedAsOf(2100, '2026-02-15T00:00:00.000Z')).toBeNull();
   });
+
+  it('does not count a season until its regular season has ended (audit B7)', () => {
+    // September 2026, 2026 season in progress: a 2022 rookie (Brock Purdy) has completed
+    // 2022–2025, four seasons — not five.
+    expect(seasonsCompletedAsOf(2022, '2026-09-12T21:04:45.363Z')).toBe(4);
+    // A 2023 rookie (C.J. Stroud) has completed three.
+    expect(seasonsCompletedAsOf(2023, '2026-09-12T21:04:45.363Z')).toBe(3);
+    // A 2026 rookie in his first season has completed none, so ROOKIE_EXPECTED_STARTER can fire.
+    expect(seasonsCompletedAsOf(2026, '2026-11-12T00:00:00.000Z')).toBe(0);
+    // Offseason (July 2026): the 2026 season has not started and is not counted.
+    expect(seasonsCompletedAsOf(2022, '2026-07-01T00:00:00.000Z')).toBe(4);
+    // Early January, before the Week 18 boundary passes, the season is still in progress.
+    expect(seasonsCompletedAsOf(2022, '2026-01-01T00:00:00.000Z')).toBe(3);
+  });
 });
 
 describe('attestation', () => {

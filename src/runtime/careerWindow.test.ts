@@ -11,6 +11,7 @@ import { nflverseAdapter } from '@/ingestion/adapters/nflverse';
 import { freshness } from '@/ingestion/__fixtures';
 import { buildSourcePlan } from './sources';
 import { selectInferenceBuilds } from './selection';
+import { syntheticScheduleFor } from '@/ingestion/__fixtures';
 
 const AS_OF = '2026-02-01T00:00:00.000Z';
 
@@ -33,6 +34,7 @@ describe('the career window deepens players, it never adds them', () => {
           { gsis_id: '00-OLD', player_name: 'Retired Passer', position: 'QB', team: 'BUF' },
         ],
         games: [...weeks('00-QB', 2025, 8), ...weeks('00-OLD', 2019, 16)],
+        schedule: syntheticScheduleFor([...weeks('00-QB', 2025, 8), ...weeks('00-OLD', 2019, 16)]),
       },
     };
     const { snapshot } = ingest([source]);
