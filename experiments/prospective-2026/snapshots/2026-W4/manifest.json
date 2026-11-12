@@ -1,0 +1,228 @@
+{
+ "id": "2026-W4",
+ "asOf": "2026-10-06T12:15:00.000Z",
+ "capturedAt": "2026-11-12T19:56:50.000Z",
+ "capturedAtSource": "supplied: 2026-11-12T19:56:50Z (re-labelled 2026-11-12T20:56:06.721Z)",
+ "completedAt": "2026-11-12T20:57:12.569Z",
+ "classification": "HISTORICAL_RECONSTRUCTION",
+ "hoursAfterDecision": 895.6972222222222,
+ "reason": "captured 895.7 h after the decision instant (limit 72 h); inputs may include later provider corrections",
+ "prospectiveWindowHours": 72,
+ "firstOutcomeSeason": 2027,
+ "firstOutcomeKickoff": "not yet scheduled",
+ "code": {
+  "sha": "254fb9ffc40e8d0302afc252de2c73eabeb12266",
+  "srcOrScriptsModified": true,
+  "incumbentPredictionCodeSha": "cd26a81360a1cc5a8eadb1ac1473b109aeaa1c62"
+ },
+ "incumbent": {
+  "file": "experiments/prospective-2026/predictions/2026-W4.json",
+  "sha256": "05cf6157e8e347f958479365342f03ee40b291a5cca5622cb01feeef1e198c09",
+  "predictionChecksum": "4bfe60dd22c2259d6199772d6530eae93741233317ab79ffc3f79188fbac757c"
+ },
+ "candidates": {
+  "file": "experiments/prospective-2026/snapshots/2026-W4/candidates.json",
+  "sha256": "ef0393d71f390ad4a04279fa7bdca8d5982eb93458a6beb63add2bf1e1392f53",
+  "models": [
+   "C_age_adjusted",
+   "F_two_part"
+  ],
+  "baselineConstants": {
+   "historySeasons": 3,
+   "recencyHalfLifeSeasons": 1,
+   "seasonGames": 17,
+   "ageCurve": {
+    "minBaselinePoints": 50,
+    "minPairs": 25,
+    "clamp": [
+     0.5,
+     1.5
+    ]
+   },
+   "efficiencyPriorOpportunities": 100
+  }
+ },
+ "inputs": {
+  "nflverseReleaseStamps": "not recorded (inputs fetched before this procedure existed)",
+  "harnessFiles": {
+   "stats_player_week_2012.csv": {
+    "bytes": 7796458,
+    "sha256": "5c8885d93ec529efa9d729cec1ef255f438ee27a59eba6e156a360fa0045b56b",
+    "modifiedAt": "2026-11-12T19:42:25.738Z"
+   },
+   "stats_player_week_2013.csv": {
+    "bytes": 7713866,
+    "sha256": "f7329a8f15084c9c23d841f14eb117fcc630d6c82913501f3c60f2d8f4e651a4",
+    "modifiedAt": "2026-11-12T19:42:25.802Z"
+   },
+   "stats_player_week_2014.csv": {
+    "bytes": 7883194,
+    "sha256": "a389b10d94eb8e6b9a153223d381aab821b0eff4cd73967835a21032192abc61",
+    "modifiedAt": "2026-11-12T19:42:25.898Z"
+   },
+   "stats_player_week_2015.csv": {
+    "bytes": 7881066,
+    "sha256": "21052baa3b3291a92faf3e6827891295010dca8cc5cefd5a909984b9d7b64664",
+    "modifiedAt": "2026-11-12T19:42:25.898Z"
+   },
+   "stats_player_week_2016.csv": {
+    "bytes": 7852359,
+    "sha256": "eb0264c65d1ef593196afcd4ba24e9f2e9b7942923bf6f4bb4639684e2c4d470",
+    "modifiedAt": "2026-11-12T19:42:25.810Z"
+   },
+   "stats_player_week_2017.csv": {
+    "bytes": 7821392,
+    "sha256": "592b0916065987b0b3afb0480162f03350d16b12250dc42b0f194e2ab1378563",
+    "modifiedAt": "2026-11-12T19:42:25.782Z"
+   },
+   "stats_player_week_2018.csv": {
+    "bytes": 7792665,
+    "sha256": "c53021bcfc9f89d30edd6f1fe145a1d7d6ce469efeec75974fe9f0adac568642",
+    "modifiedAt": "2026-11-12T19:42:25.910Z"
+   },
+   "stats_player_week_2019.csv": {
+    "bytes": 7767165,
+    "sha256": "a05558126b1209b80fe11a8f18938cb35816370bf9990975a87de49e9eed7376",
+    "modifiedAt": "2026-11-12T19:42:25.958Z"
+   },
+   "stats_player_week_2020.csv": {
+    "bytes": 7883270,
+    "sha256": "05b992676faccc8940efbf6242cb76358069372d31d7c2e02c1a4acdcd3cbe18",
+    "modifiedAt": "2026-11-12T19:42:25.966Z"
+   },
+   "stats_player_week_2021.csv": {
+    "bytes": 8477784,
+    "sha256": "41915fb49238902ad1f129ebf0405b11a1e710454ae0fe8f7b3e4f9145875f48",
+    "modifiedAt": "2026-11-12T19:42:25.850Z"
+   },
+   "stats_player_week_2022.csv": {
+    "bytes": 8408729,
+    "sha256": "ad426c3fe5bf1cc30c3f137fdfe96d054e19d400879ee4413129da49fa7b54be",
+    "modifiedAt": "2026-11-12T19:42:25.794Z"
+   },
+   "stats_player_week_2023.csv": {
+    "bytes": 8332874,
+    "sha256": "f19cb71a5de0dce7fd09376026237c9ee9d5a93fe13815a2ea3ec2d37204cb17",
+    "modifiedAt": "2026-11-12T19:42:25.846Z"
+   },
+   "stats_player_week_2024.csv": {
+    "bytes": 8470040,
+    "sha256": "3ddc45a84f759aa348ce465ae001752c530575455717657cdfe1f8abfcdb4759",
+    "modifiedAt": "2026-11-12T19:42:25.978Z"
+   },
+   "stats_player_week_2025.csv": {
+    "bytes": 8656387,
+    "sha256": "e5e0615b3d96a3eaebfaee91e55afb4a4e7fe0caf057454177bcd7d6ad4bcfc2",
+    "modifiedAt": "2026-11-12T19:42:25.750Z"
+   },
+   "stats_player_week_2026.csv": {
+    "bytes": 4210587,
+    "sha256": "164bbcb46f4bf93c06a17c0f2497a06c17bbaf543d1e352ee6b85410febf884a",
+    "modifiedAt": "2026-11-12T19:42:25.538Z"
+   },
+   "games.csv": {
+    "bytes": 2189959,
+    "sha256": "7b6db9362136b0846e4e55730cdb5ec7fcab107b7c55b6fa2f6802d555fceb9e",
+    "modifiedAt": "2026-11-12T19:42:25.462Z"
+   },
+   "players.csv": {
+    "bytes": 7308461,
+    "sha256": "f90a9d0009b8e5d50353b0013971b466534b25cc2f98b7ad14d39361356975d7",
+    "modifiedAt": "2026-11-12T19:42:25.670Z"
+   },
+   "draft_picks.csv": {
+    "bytes": 1661985,
+    "sha256": "c64c6a93d541f2631583bb6245b2075c7e2105190be3b3ee2d13be787f8684fc",
+    "modifiedAt": "2026-11-12T19:42:25.530Z"
+   }
+  },
+  "incumbentCaptures": [
+   {
+    "file": "nflverse__games__beb2a72803e2d75f__sha-77769f96029108cd.json",
+    "bytes": 8389477,
+    "sha256": "d5bd7e291560e04786a4d94de0f0fb5a0a9ec8bd9a7fc7fce503698f1cf6d424"
+   },
+   {
+    "file": "nflverse__games__bfb2a8bb02e2d5cc__sha-202d0090a228d30d.json",
+    "bytes": 8465898,
+    "sha256": "97b437277d3036a9596b3d09552548ae4b0d3ab3adce4342bfdd85aedb1f8312"
+   },
+   {
+    "file": "nflverse__games__bfb4e75206e09d81__sha-6c58e0360f24ed03.json",
+    "bytes": 7845557,
+    "sha256": "48f0d66f140e77000e2c089ee4efdf547e8ff975a1865e029232ae42f17fab88"
+   },
+   {
+    "file": "nflverse__games__c0b2aa4e05e2da85__sha-8893336c9e05cff3.json",
+    "bytes": 8535349,
+    "sha256": "a5e2571fd3dc58ed80d9614319e759c4cd6c0c1a87f3f3d231df9450053d2dd1"
+   },
+   {
+    "file": "nflverse__games__c0b4e8e505e09bee__sha-8b9c10d19798bab4.json",
+    "bytes": 7819901,
+    "sha256": "43e94ba20332261b66ca3e30f67f87f3b4c097efd7e98eaf5ee014aefd250028"
+   },
+   {
+    "file": "nflverse__games__c1b2abe104e2d8f2__sha-29851550e31efdbb.json",
+    "bytes": 7936740,
+    "sha256": "9a79e14eb8e98ef6096ea603431785add8a5ce15e5d7b322df8730f07c4f8a6c"
+   },
+   {
+    "file": "nflverse__games__c3b2af07fee2cf80__sha-1dca9859e576fdfc.json",
+    "bytes": 4239649,
+    "sha256": "8e7e3aab7e445b75e1f661a0da8145abf833c45f1293253b80e742e678c264bc"
+   },
+   {
+    "file": "nflverse__games__c4b2b09a01e2d439__sha-49c1407f12cba7c0.json",
+    "bytes": 8715323,
+    "sha256": "79074cb32630500bf05b3541c157cdee4a29059e14275c8f826632e21ade05af"
+   },
+   {
+    "file": "nflverse__games__c5b2b22d00e2d2a6__sha-52bf8b5decc20f60.json",
+    "bytes": 8527653,
+    "sha256": "eb2cf27048dc152679e9895f5376b6d27848c7ebbe5471034c735f9e48df69bf"
+   },
+   {
+    "file": "nflverse__identity__ac2652250598dbec__sha-be6b5d5e455a59df.json",
+    "bytes": 7383812,
+    "sha256": "145554ae4c69152e540fc6ef257ff21f49b0f7fcea5376a0546fc2fa9d3714d0"
+   },
+   {
+    "file": "nflverse__participation__891bd3c816c8d483__sha-1cc456c9b1adc78a.json",
+    "bytes": 49422306,
+    "sha256": "6c5e2b8f9090ef5ffbc7fc1e9415fd5fa3a018076730be7ba56ed520b9f2e164"
+   },
+   {
+    "file": "nflverse__participation__8a1bd55b15c8d2f0__sha-9a2ce739a2babdb6.json",
+    "bytes": 50020888,
+    "sha256": "b78c72e4fb2c370f684219d88625cd26cf7b04601bd4821f2d251962265862b2"
+   },
+   {
+    "file": "nflverse__roster__b602888070e09085__sha-2d0478c3105523c8.json",
+    "bytes": 15526616,
+    "sha256": "b775a1cf112cf963a166afca528ad6a5eb34b8578c823e001f51d2a488551e09"
+   },
+   {
+    "file": "nflverse__roster__b7028a136fe08ef2__sha-f9a66497ec2e308c.json",
+    "bytes": 15067601,
+    "sha256": "5e30becacc26b7a6b45bdc5a7c722218e290af063efab21a9f689378248d764a"
+   },
+   {
+    "file": "nflverse__roster__b9028d396de08bcc__sha-0f20ba79a96df068.json",
+    "bytes": 8096763,
+    "sha256": "f45912bedab56d714331a29dbe1d9ad5070a07fcdeb1ac96c75112272ad463bc"
+   },
+   {
+    "file": "nflverse__schedule__d1e3844294615bbb__sha-ecbdbc5a55842cab.json",
+    "bytes": 2198449,
+    "sha256": "a0c815b72a1696405e6e61163d43445d8a7389b7e763a08d665d08cd12352825"
+   }
+  ]
+ },
+ "bundle": {
+  "file": ".local/archive-bundles/prospective-2026/2026-W4.tar.xz",
+  "bytes": 21158488,
+  "sha256": "dc1270f5e013c54e3959e2318d713816a5d8a8ca2bed2c43028124d8c4fad12e",
+  "storedAt": null
+ }
+}
