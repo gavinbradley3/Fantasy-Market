@@ -29,7 +29,7 @@ const snap = (over: Partial<MarketSnapshot> = {}): MarketSnapshot => ({
   canonicalPlayerId: JOSH,
   source: 'dynastyprocess',
   format: 'dynasty_superflex',
-  value: 10256,
+  value: 9100,
   overallRank: 1,
   positionRank: 1,
   sourceConsensusRank: 1,
@@ -79,11 +79,11 @@ describe('market snapshot store', () => {
   it('APPENDS a later capture instead of overwriting yesterday', () => {
     const s = store();
     s.appendMarketSnapshots([snap({ ingestedAt: '2026-09-04T18:00:00.000Z', value: 10000 })]);
-    s.appendMarketSnapshots([snap({ ingestedAt: '2026-09-11T18:00:00.000Z', value: 10256 })]);
+    s.appendMarketSnapshots([snap({ ingestedAt: '2026-09-11T18:00:00.000Z', value: 9100 })]);
 
     const hist = s.getMarketSnapshotHistory(JOSH, 'dynastyprocess', 'dynasty_superflex');
     expect(hist).toHaveLength(2);
-    expect(hist.map((h) => h.value)).toEqual([10000, 10256]); // oldest first — the series
+    expect(hist.map((h) => h.value)).toEqual([10000, 9100]); // oldest first — the series
     expect(hist[0].ingestedAt).toBe('2026-09-04T18:00:00.000Z');
     s.close();
   });
@@ -91,9 +91,9 @@ describe('market snapshot store', () => {
   it('supports 7-day movement arithmetic across captures', () => {
     const s = store();
     s.appendMarketSnapshots([snap({ ingestedAt: '2026-09-04T18:00:00.000Z', value: 9000 })]);
-    s.appendMarketSnapshots([snap({ ingestedAt: '2026-09-11T18:00:00.000Z', value: 10256 })]);
+    s.appendMarketSnapshots([snap({ ingestedAt: '2026-09-11T18:00:00.000Z', value: 9100 })]);
     const hist = s.getMarketSnapshotHistory(JOSH, 'dynastyprocess', 'dynasty_superflex');
-    expect((hist.at(-1)!.value ?? 0) - (hist[0].value ?? 0)).toBe(1256);
+    expect((hist.at(-1)!.value ?? 0) - (hist[0].value ?? 0)).toBe(100);
     s.close();
   });
 
@@ -107,9 +107,9 @@ describe('market snapshot store', () => {
 
   it('keeps the two formats separate — a 1QB value never answers a Superflex query', () => {
     const s = store();
-    s.appendMarketSnapshots([snap({ format: 'dynasty_superflex', value: 10256 })]);
+    s.appendMarketSnapshots([snap({ format: 'dynasty_superflex', value: 9100 })]);
     s.appendMarketSnapshots([snap({ format: 'dynasty_1qb', value: 7000 })]);
-    expect(s.getMarketSnapshotHistory(JOSH, 'dynastyprocess', 'dynasty_superflex')[0].value).toBe(10256);
+    expect(s.getMarketSnapshotHistory(JOSH, 'dynastyprocess', 'dynasty_superflex')[0].value).toBe(9100);
     expect(s.getMarketSnapshotHistory(JOSH, 'dynastyprocess', 'dynasty_1qb')[0].value).toBe(7000);
     s.close();
   });
@@ -120,11 +120,11 @@ describe('market snapshot store', () => {
       snap({ ingestedAt: '2026-09-04T18:00:00.000Z', value: 10000 }),
       snap({ canonicalPlayerId: 'pt-other', ingestedAt: '2026-09-04T18:00:00.000Z', value: 500, overallRank: 2 }),
     ]);
-    s.appendMarketSnapshots([snap({ ingestedAt: '2026-09-11T18:00:00.000Z', value: 10256 })]);
+    s.appendMarketSnapshots([snap({ ingestedAt: '2026-09-11T18:00:00.000Z', value: 9100 })]);
 
     const latest = s.getLatestMarketSnapshots('dynastyprocess', 'dynasty_superflex');
     expect(latest).toHaveLength(2);
-    expect(latest.find((x) => x.canonicalPlayerId === JOSH)?.value).toBe(10256);
+    expect(latest.find((x) => x.canonicalPlayerId === JOSH)?.value).toBe(9100);
     // A player the newest capture omitted keeps their last known quote, stamped with its own
     // older instant, rather than dropping out of the market entirely.
     const other = latest.find((x) => x.canonicalPlayerId === 'pt-other');

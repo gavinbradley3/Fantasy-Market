@@ -56,15 +56,16 @@ jobs:
 
       - run: npm ci
 
-      # The published data. `continue-on-error` is deliberate: a FIRST deploy happens before any
-      # refresh has run, and the app must still build and serve — it renders an honest "no
-      # board" state rather than failing the deploy.
+      # Fetch exactly one immutable data revision. Failure here is not evidence that this is a
+      # first deployment: without a verified board the existing site must remain untouched.
       - name: Fetch published site data
         id: sitedata
-        continue-on-error: true
         run: |
           git fetch origin site-data --depth=1
-          git worktree add ../site-data origin/site-data
+          DATA_SHA="$(git rev-parse FETCH_HEAD)"
+          git worktree add --detach ../site-data "$DATA_SHA"
+          echo "commit=$DATA_SHA" >> "$GITHUB_OUTPUT"
+          echo "::notice::deploying site-data commit $DATA_SHA"
 
       - name: Build
         env:
@@ -73,21 +74,21 @@ jobs:
           PLAYERTICKER_BASE_PATH: /${{ github.event.repository.name }}/
         run: npm run build
 
-      - name: Copy published data into the build
+      # This is the deployment admission boundary. It validates board.json from the checkout
+      # above, redacts uncalibrated confidence fields from the deployed copy, and copies only
+      # the public files. Any failure ends this job before artifact upload.
+      - name: Validate and copy published data into the build
         run: |
-          mkdir -p dist/data
-          if [ -f ../site-data/board.json ]; then
-            cp ../site-data/board.json          dist/data/
-            echo "board.json copied ($(du -h ../site-data/board.json | cut -f1))"
-          else
-            echo "::warning::no board.json on site-data — the site will render its no-board state"
-          fi
-          for f in status.json market-latest.json; do
-            if [ -f "../site-data/$f" ]; then cp "../site-data/$f" dist/data/; else echo "::warning::no $f yet"; fi
-          done
-          # market-history.jsonl is deliberately NOT copied. Nothing in the UI reads it, it is
-          # the archive rather than a serving document, and it grows without bound.
+          npm run prepare:site-data -- --source ../site-data --destination dist/data
+          # Only board.json and status.json are deployed (src/config/release.ts). The external
+          # market capture is never copied while its redistribution rights are unresolved.
           ls -la dist/data/
+
+      # Fails the job before artifact upload if anything other than approved data is about to be
+      # published: an extra data file, any external-market marker anywhere in the build, or an
+      # unredacted confidence field.
+      - name: Assert only approved public data
+        run: npm run assert:public-data -- --dir dist
 
       # GitHub Pages serves files, not routes: a deep link to /board would 404 because no such
       # file exists. Serving index.html as the 404 body hands the request to the SPA router,
@@ -106,6 +107,27 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    outputs:
+      page_url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  # Checks the LIVE site from the outside after every deploy: the app and board load, no
+  # confidence values are published, the market files return 404, and no market marker is in the
+  # deployed JavaScript. Retries while the Pages CDN cache (up to ten minutes) catches up.
+  verify:
+    needs: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Verify the deployed site
+        run: npm run verify:deployment -- --url "${{ needs.deploy.outputs.page_url }}" --attempts 24 --delay-ms 30000

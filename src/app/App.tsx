@@ -1,31 +1,36 @@
-import { Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import { AppShell } from '@/components/chrome/AppShell';
-import LandingPage from '@/pages/LandingPage';
-import MarketPage from '@/pages/MarketPage';
 import BoardPage from '@/pages/BoardPage';
-import PlayerPage from '@/pages/PlayerPage';
-import WatchlistPage from '@/pages/WatchlistPage';
-import PortfolioPage from '@/pages/PortfolioPage';
 import MethodologyPage from '@/pages/MethodologyPage';
 import LegalPage from '@/pages/LegalPage';
-import WrModelPage from '@/pages/WrModelPage';
-import PlayerModelPage from '@/pages/player-model/PlayerModelPage';
 import NotFoundPage from '@/pages/NotFoundPage';
+
+/**
+ * Former Demo Market routes. They rendered simulated prices, movements, injury notes and
+ * buy/sell signals next to real player names, so they are no longer public. Old links land on
+ * The Board instead of a 404. The page components and their UI building blocks are kept in the
+ * repository for reuse once they can be driven by published values.
+ */
+export const RETIRED_DEMO_ROUTES = [
+  '/market',
+  '/player/:ticker',
+  '/watchlist',
+  '/portfolio',
+  '/player-model',
+  '/wr-model',
+] as const;
 
 export default function App() {
   return (
     <AppShell>
       <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/market" element={<MarketPage />} />
+        <Route path="/" element={<Navigate to="/board" replace />} />
         <Route path="/board" element={<BoardPage />} />
-        <Route path="/player/:ticker" element={<PlayerPage />} />
-        <Route path="/watchlist" element={<WatchlistPage />} />
-        <Route path="/portfolio" element={<PortfolioPage />} />
         <Route path="/methodology" element={<MethodologyPage />} />
-        <Route path="/player-model" element={<PlayerModelPage />} />
-        <Route path="/wr-model" element={<WrModelPage />} />
         <Route path="/legal" element={<LegalPage />} />
+        {RETIRED_DEMO_ROUTES.map((path) => (
+          <Route key={path} path={path} element={<Navigate to="/board" replace />} />
+        ))}
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </AppShell>

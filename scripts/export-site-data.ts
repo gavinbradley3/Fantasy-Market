@@ -34,6 +34,7 @@ import { dirname, join, resolve } from 'node:path';
 import { PersistenceStore } from '@/persistence';
 import { createApplicationService, DEFAULT_MARKET_FORMAT, DEFAULT_MARKET_SOURCE } from '@/application';
 import { toMarketResponse, toPublicationResponse } from '@/api/dto';
+import { EXTERNAL_MARKET_ENABLED } from '@/config/release';
 import type { SchedulerPort } from '@/application';
 import { STALENESS } from '@/ops/staleness';
 import { buildStatus } from '@/ops/status';
@@ -128,7 +129,12 @@ function main(): number {
     }
 
     // --- market ---
-    const snapshots = app.market.latest(DEFAULT_MARKET_SOURCE, DEFAULT_MARKET_FORMAT);
+    // External market quotes are written ONLY when EXTERNAL_MARKET_ENABLED is true. Their
+    // redistribution rights are unresolved, and every output of this script lands on a public
+    // branch, so while the flag is off nothing market-derived is written — not the latest
+    // quotes, not the history archive.
+    const snapshots = EXTERNAL_MARKET_ENABLED ? app.market.latest(DEFAULT_MARKET_SOURCE, DEFAULT_MARKET_FORMAT) : [];
+    if (!EXTERNAL_MARKET_ENABLED) console.log('market-latest.json  NOT WRITTEN — external market data is disabled (src/config/release.ts)');
     const captures = app.market.captureInstants(DEFAULT_MARKET_SOURCE, DEFAULT_MARKET_FORMAT);
     let appended = false;
     if (snapshots.length > 0) {

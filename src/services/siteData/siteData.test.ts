@@ -24,7 +24,8 @@ describe('data source resolution', () => {
     expect(s.kind).toBe('static');
     expect(s.publicationPath).toBe('/board.json');
     expect(s.statusPath).toBe('/status.json');
-    expect(s.marketPath).toBe('/market-latest.json');
+    // External market data is disabled (src/config/release.ts), so no market document is requested.
+    expect(s.marketPath).toBeNull();
   });
 
   it('honours the deployed base path, so a project page and a custom domain both work', () => {
@@ -108,7 +109,9 @@ describe('document validation', () => {
         quoteCount: 1,
         quotes: [{ canonicalPlayerId: 'pt-a', value: 5000, overallRank: 1, positionRank: 1 }],
       }),
-      STATIC,
+      // The document reader is kept for a future licensed source; exercised with a source that
+      // names a market path, which the disabled release configuration does not.
+      { ...STATIC, marketPath: '/market-latest.json' },
     );
     expect(doc?.quotes).toHaveLength(1);
     // Attribution is rendered, not stripped: the licensing position is unchanged by deployment.
