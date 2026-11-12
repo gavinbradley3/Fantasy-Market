@@ -1,0 +1,32 @@
+{
+  "name": "prospective-2026",
+  "description": "Prospective archive of the frozen PlayerTicker model. Each file is the unchanged production pipeline's output at a schedule-derived decision instant, recorded before the outcome seasons it will be scored on. No evaluation is run here and no production board, workflow or schedule is touched. See README.md for what each snapshot can and cannot be used for.",
+  "dataDir": ".local/validation-data",
+  "capturesDir": ".local/prospective-captures",
+  "isolateCaptures": true,
+  "workDir": ".local/prospective-work",
+  "decisions": [
+    {
+      "season": 2026,
+      "checkpoint": "W4"
+    },
+    {
+      "season": 2026,
+      "checkpoint": "W8"
+    },
+    {
+      "season": 2026,
+      "checkpoint": "W12"
+    }
+  ],
+  "periods": {
+    "development": [],
+    "validation": [],
+    "test": []
+  },
+  "leagueSchemaId": "dynasty-superflex-12",
+  "bootstrap": {
+    "reps": 1000,
+    "seed": 20261112
+  }
+}
