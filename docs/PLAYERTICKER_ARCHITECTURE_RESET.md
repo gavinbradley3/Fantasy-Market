@@ -1,367 +1,289 @@
 # PlayerTicker Architecture Reset
 
-Status: proposal for owner review. No production code, model weight or deployment changed.
-Date: 2026-11-12. Source checks in this document ran against live provider files on that date.
+Status: revision 2, for owner review. No production code, model weight, merge or deployment.
+Date: 2026-11-12.
 
-## 0. Verdict
+Evidence base: `main` @ `084cbab`; `docs/PHASE1_RECOVERY_AUDIT.md`
+(branch `claude/playerticker-audit-phase-1-xbuowi`); PR #14 (`claude/phase2-validation`):
+`docs/PHASE2_VALIDATION_PLAN.md`, `docs/MODEL_SANITY_INVESTIGATION.md`, `src/validation/`,
+`scripts/backtest/`, `experiments/phase2-baseline-v1` and `-v2`.
 
-The repository holds about 75,000 lines of TypeScript and 23,000 lines of specification. It has
-never projected a fantasy point and has never tested a valuation against an outcome. Those two
-gaps are the reset.
+## 0. Recommendation
 
-Recommended architecture, in one line: **project fantasy points per game from a fitted
-baseline, convert projected points to discounted value over replacement, compare the resulting
-rank with an authorized market source, and explain every change as an exact split between
-opportunity and efficiency.**
+**Keep the frozen PlayerTicker pipeline as the incumbent benchmark. Build one challenger inside
+the existing Phase 2 harness: a projection of points per scheduled team game, split into
+playing time and scoring rate, valued as points above replacement. Promote it only if it beats
+the incumbent on the sealed test period, in one run.**
 
-Recommended first task: **build the RB weekly fact table and a backtested baseline projection**
-(section 7). Every later feature has to beat that baseline out of sample or stay out.
+The Phase 2 evidence already points there. The age-adjusted baseline (C) ties the incumbent
+within position where decisions get made, and its plain points-above-replacement value beats
+`dynastyValue` across positions by 0.11 to 0.15 Spearman in both periods, with intervals that
+exclude zero. The value layer is the weakest link. The position models are the strongest.
 
-### Two documents in the brief do not exist under the names given
+**First task:** add challenger F to `src/validation` and score it on the 17 development and
+validation dates (section 7).
 
-No file is titled "Phase 1 recovery audit" or "Phase 2 validation results". I reviewed the
-closest matches and treated them as those documents:
+## 1. Corrections to revision 1
 
-- `docs/READINESS_FRONTIER_AUDIT.md` (its sections are "Phase 1" through "Phase 7")
-- `docs/ACCESSIBLE_MODEL_VALIDATION.md` (the only validation write-up in the repository)
-
-If you meant other documents, they are not on `main` or on this branch.
-
-## 1. What the review found
-
-**1. The original position models never ran on real inputs.** The four specifications
-(11,091 lines) require charting data with no free source. The repository's own documents record
-the result:
-
-- WR: all 309 valued receivers received identical fallback values for route participation,
-  targets per route, expected points per target and catch rate over expected. Engine confidence
-  came out at 8 for every receiver (`WR_ACCESSIBLE_MODEL_V1.md` §1).
-- RB: 24 of 37 inputs unavailable for all 237 players. TE: 27 of 40
-  (`ACCESSIBLE_DATA_MODEL_RB_TE_V1.md` §1.1).
-- QB runs as "FULL", yet every published player still carries `NEUTRAL_DEFAULT` and
-  `UNVALIDATED_MODEL` (`FUTURE_DATA_MAP.md`).
-
-**2. The replacement "accessible" models are hand-authored and tuned by eye.** Component
-anchors, component weights, five horizon weightings and a four-way headline blend are all
-authored. The validation document shows the tuning loop: the dynasty age weight moved from 0.33
-to 0.23 because Christian McCaffrey ranked 20th and looked wrong. That is fitting to consensus
-by hand while claiming independence from it. The spec admits no parameter "has been calibrated
-against realized fantasy points" (§10.1).
-
-**3. No backtest exists.** A search for backtest, holdout, out-of-sample and error metrics
-finds requirements in specifications and no results. "Validation" means a person judged the
-ranking plausible.
-
-**4. The utility layer throws the model's output away.** `dynastyValue.ts` consumes rank only.
-It maps a composite's rank onto a historical production curve. A player's value therefore
-depends on the order of an unfitted composite, and the system contains no statement of the
-form "this player will score X points". Age enters once inside the composite and again in the
-depth term.
-
-**5. The market side cannot support a buy or sell claim yet.** One source (DynastyProcess),
-derived from FantasyPros expert consensus, with public republication uncleared
-(`MARKET_DATA_SOURCES.md`). Expert consensus is stated belief. It is a legitimate comparison
-target, and it is weaker evidence than trades.
-
-**6. The documents assert data gaps that do not exist.** Verified today against nflverse:
-
-| Repository claim | Verified state |
+| Revision 1 said | Correct position |
 |---|---|
-| "nflverse publishes no injury feed" | `injuries_2026.csv` exists, 3,097 rows, through week 10, rebuilt today |
-| Accessible tier has no snap share | `snap_counts_2026.csv` exists, through week 9 |
-| Expected-points metrics have "no free provider" | ffverse `ep_weekly_2026.csv` exists, through week 9, history to 2006 |
-| No fumble column in weekly stats | `stats_player_week_2026.csv` carries rushing, receiving and sack fumbles |
-| No depth charts, no contract data | `depth_charts_2026.csv` and `historical_contracts.csv.gz` both exist |
+| "No backtest exists" | Wrong. I reviewed `main` only. PR #14 holds a harness with 25 decision dates, four baselines, a sealed test period, bootstrap intervals and deterministic output |
+| Phase 1 and Phase 2 documents do not exist | Wrong. Both exist on unmerged branches. I did not fetch them |
+| Replace the accessible composites | Unsupported. They are level with the best baseline in the decision tier and better across the whole RB and WR board (+0.06 [0.02, 0.10], +0.05 [0.02, 0.08]) |
+| Remove the four position engines and their specs | Reversed. Freeze them as benchmarks |
+| Simplify persistence, API, scheduler, inference | Withdrawn. `backtest:predict` replays the unchanged production pipeline. Cutting it destroys the benchmark |
+| First task: build an RB fact table and a new backtest | Withdrawn. Baselines B and C already are that model, scored without survivor bias |
+| My RB table (prior PPG, R² 0.47) | Void. It kept only players active in both windows, and it read 2024 and 2025 outcomes, which Phase 2 seals. No choice in this revision rests on it. Treat any expected-points question as open and decide it on development dates only |
+| `historical_contracts.csv.gz` is current | Wrong. Phase 1 found it frozen at May 2022. The Parquet file is current |
 
-The project spent months engineering around a data wall that was partly a failure to list the
-provider's releases.
+Revision 1 got three things right, and Phase 1 or Phase 2 confirms each: the utility layer
+discards model output (rank only), the "missing data" is mostly missing ingestion, and market
+republication rights are unresolved.
 
-**7. The infrastructure outweighs the product.** The deployed site reads a static JSON export
-from a GitHub Action. Behind it sit a scheduler, an HTTP API, an application service layer, a
-SQLite store rebuilt from scratch every run (527 MB, 6.6 GB peak memory) and a 5,870-line
-inference layer whose main job is deciding which fallback to apply.
+## 2. What the existing research establishes
 
-## 2. What should survive
-
-| Component | Why |
+| Finding | Source |
 |---|---|
-| Transport: release discovery, RFC 4180 CSV decoding, null-is-not-zero, fetch cache and replay (`src/transport`) | Correct, tested, and every new source needs it |
-| Identity resolution through GSIS ids and the crosswalk, including the two-Justin-Jeffersons test | Name joins corrupt data silently |
-| Point-in-time discipline: every fact carries an as-of, nothing later may inform it | A backtest is worthless without it |
-| League schema, replacement demand and the measured production curve (`src/utility`) | Replacement level comes from league rules and nine seasons of box scores. The Superflex premium falls out of one slot definition |
-| Points per team game as the production unit | Charges missed games without a minimum-games filter |
-| Shrinkage estimator `(n·observed + k·prior) / (n + k)` | Right tool. `k` and the prior must come from data |
-| Market ingestion, append-only history, mandatory attribution, `comparable` and `movementAvailable` flags (`src/market`) | This already suppresses claims when evidence is missing |
-| Refusal over guessing: unvalued beats scored-as-zero | Core to the product's honesty |
-| Static publish through GitHub Actions and the frontend shell | It works and costs nothing |
+| Decision tier, within position: incumbent minus best baseline is QB −0.05, RB +0.00, WR −0.03, TE −0.04 on the two-season target. Every interval includes zero | Phase 2 §5.1 |
+| Whole board: incumbent better for RB and WR. Its edge sits in players with little or no prior-season play (RB, no games last season: 0.57 against 0.35) | Phase 2 §5.1, §5.3 |
+| Cross-position `dynastyValue`: worse than baseline C by 0.11 to 0.15 for players with NFL history, both periods. 78% of player-dates carry a value below 1 | Phase 2 §5.5 |
+| Offseason boards: last season's total beats the incumbent at every position. Points per game played loses to season total in 7 of 8 cells. Missed games carry information | Phase 2 §5.4 |
+| Rookies: 0 of 391 drafted players appear before their first game. Draft slot alone ranks their two-season output at ρ 0.46 to 0.81 in 15 of 16 position-years | Phase 2 summary |
+| Incumbent ranks move more between checkpoints (0.90 to 0.93 against 0.98 to 0.99) with no tested benefit | Phase 2 §5.6 |
+| A player's rank can move with an unchanged composite, through pool changes and the steep curve near replacement (RB30 = 8.0, RB36 = 1.9) | Sanity investigation |
+| QB runs on 16 substituted inputs per player. Role and age decide QB order | Phase 1 B6, sanity investigation |
+| Free snap share tracks true dropback participation at r 0.94 to 0.97 | Phase 1 F2 |
 
-Statistical methods worth keeping: regression to a prior, value over replacement, empirical
-age curves, rank and percentile comparison against a market.
+Limits that bound every claim above: validation two-season results rest on one decision date,
+TE intervals are wide, and nothing beyond two seasons has outcome data yet.
 
-## 3. What should be replaced
+## 3. Decisions
 
-**Unfitted composites.** Nine components, 0 to 100 anchor scales, per-horizon weight tables and
-a headline blend produce a number nobody can check against a result. Replace with a projection
-in fantasy points, fitted on history.
-
-**Score transformations.** Rate, then shrunk rate, then anchor score, then weighted composite,
-then horizon blend, then rank, then curve lookup, then depth adjustment, then 0 to 100
-normalization. Seven transformations sit between a carry and a value. Target: three.
-
-**Authored judgment inputs.** `contract_security`, `competition_pressure`,
-`organizational_commitment` and role-change flags have no feed. The readiness audit's
-recommendation was to hand-author them for 100 players each week. Drop the inputs.
-
-**Confidence by penalty table.** Replace with sample size and the projection's measured error.
-
-**Five horizons.** Weekly, rest of season, one year, three year and dynasty were five
-re-weightings of the same components. Keep two outputs: next-game-window points and dynasty
-value.
-
-**The tier system.** FULL, ACCESSIBLE and INSUFFICIENT exist to route around engines that
-cannot run. One model per position removes the need.
-
-## 4. Decision table
-
-| Component | Decision | Note |
+| Component | Decision | Basis |
 |---|---|---|
-| `src/transport`, CSV decoding, release map | **KEEP** | Add release tags for snaps, injuries, ffopportunity |
-| Identity resolution (`src/pipeline/identity*`, `src/ingestion/identity*`) | **KEEP** | Add `pfr_id` join for snap counts |
-| Point-in-time as-of handling | **KEEP** | |
-| `src/utility` league schema, replacement, production curve | **KEEP** | |
-| `src/utility/dynastyValue.ts` (rank to curve, depth term, age floor) | **REPLACE** | Value projected points directly (section 5.3) |
-| `src/market` ingestion, history, attribution, comparison | **KEEP** | Add a second source only after reading its terms |
-| GitHub Actions refresh and static deploy | **KEEP** | |
-| Frontend shell, board, player page | **KEEP** | Rebind to the new output document |
-| `src/accessible` RB, TE, WR composites, anchors, horizon weights | **REPLACE** | Fitted points projection |
-| Age components and authored age curves | **REPLACE** | Empirical curve, applied once |
-| Confidence penalty tables | **REPLACE** | Sample size plus measured error band |
-| Explanation generators | **REPLACE** | Template over the opportunity and efficiency split |
-| `src/inference` (5,870 lines) | **SIMPLIFY** | Keep per-fact source and as-of. Drop fallback ladders, field-confidence aggregation, competition, security, environment inference |
-| `src/persistence` SQLite store | **SIMPLIFY** | Flat weekly tables per season. The store is rebuilt every run and persists nothing |
-| `src/api`, `src/application`, `src/scheduler` | **SIMPLIFY** | The live site is static. Keep a thin export script, archive the rest |
-| `MARKET_MODEL_FOUNDATION_V2.md` (1,126 lines) | **SIMPLIFY** | Keep four objects (expected output, utility, intrinsic value, observed price) and the independence rule. One page |
-| `DESIGN.md` | **SIMPLIFY** | Keep product vision and UI. Drop the demo-market engine sections |
-| `src/qb-model`, `src/rb-model`, `src/te-model`, `src/wr-model` (10,016 lines) and their four specs | **REMOVE** | Move to an `archive/` path. Out of the production build |
-| `AUTOMATED_INFERENCE_LAYER_SPEC_V1.md`, `AUTOMATED_INFERENCE_NUMERIC_REGISTRY_V1.md` (3,391 lines) | **REMOVE** | Govern a fallback system the new design does not need |
-| Model tier selection, readiness frontier, authored-supplement plan | **REMOVE** | |
-| Route proxy ladder and `pbp_participation` ingestion | **REMOVE** | Provider releases it after the season. Useless for weekly trends |
-| Mock market data service, PRNG price engine, thesis template generator | **REMOVE** | No invented prices on any production path |
-| Premium data plan (`FUTURE_DATA_MAP.md`) | **REMOVE** | No evidence of necessity yet. Revisit after the backtest names a specific gap |
+| `src/validation`, `scripts/backtest`, experiment archives | **KEEP** | The evaluation system. No second one |
+| Frozen incumbent at `e4dc3a0`: QB engine, accessible RB/WR/TE, inference, persistence, transport | **FREEZE** | Benchmark E. Reproducible by `backtest:predict`. No weight or feature changes |
+| Four original position specs and engines | **FREEZE** | Reference only. RB and TE engines value 0 players, so E is the working benchmark |
+| Baselines A to D and their archived constants | **KEEP** | C is the standing challenger |
+| `src/utility` league schema, replacement ranks | **KEEP** | Top-120 position mix matches reality (28/33/46/13 against 28/33/45/14) |
+| `dynastyValue.ts` rank-to-curve conversion and depth term | **REPLACE** | Loses by 0.11 to 0.15. Replace only through the harness |
+| Production curves fitted on 2017 to 2025 | **SIMPLIFY** | Refit per decision date on prior seasons. Today they leak (section 5) |
+| Transport, identity, point-in-time resolution, capture and replay | **KEEP** | Phase 1 E. Fix P2-D1, P2-D2, P2-D3 |
+| `src/market` ingestion, history, attribution | **KEEP** | Private until rights clear |
+| Rookie coverage | **ADD, second** | Draft-slot value, separate population. Phase 2 experiment B |
+| Confidence labels | **REPLACE** | Hold until calibrated against backtest error. Phase 1 K3 |
+| `pbp_participation` as a required source | **SIMPLIFY** | Optional, offseason only (PR #12) |
+| Simulated market pages, invented notes, buy and sell lists on real names | **REMOVE** | Phase 1 B3. PR #11 |
+| Hand-curated supplement plan (`READINESS_FRONTIER_AUDIT.md`) | **REMOVE** | Phase 1 E rejects it |
+| Phase 2 experiment 1 as a patch to the accessible models | **SUPERSEDE** | Its hypothesis (missed games count as zeros) lives in challenger F. The incumbent stays untouched |
+| Premium data | **DEFER** | No evidence of necessity |
 
-## 5. The simplest viable architecture
-
-Four stages. Each has one unit and one test.
+## 4. Architecture
 
 ```
-facts (per player-game)  ->  projection (points/game)  ->  value (discounted points over replacement)
-                                                                       |
-market observations (independent) --------------------------------> comparison + explanation
+facts -> projection (playing time x scoring rate) -> value (points above replacement)
+                                                           |
+market observations (independent) -----------------> comparison -> explanation
 ```
 
-### 5.1 Facts
+### 4.1 Projection: playing time and scoring rate
 
-One row per player per game, from free files: box score, snaps, expected fantasy points,
-team totals, injury status, age, draft slot. Each row keeps its source file and release
-timestamp. Derived shares (carry share, target share, snap share) are computed against the
-team's totals for that game.
-
-### 5.2 Projection
-
-Output: expected PPR points per game over the next window, with an error band. Position
-logic lives in the feature list, and the form stays the same for all four positions.
-
-- **Baseline:** trailing points per game, regressed to a position prior by sample size, plus
-  age. Coefficients, prior and `k` are fitted on seasons before the as-of.
-- **Admission rule:** a feature (snap share, expected points, draft capital, target share)
-  enters only when it lowers out-of-sample error against the baseline. This rule replaces
-  every authored weight.
-- **Error band:** the standard deviation of backtest residuals, by position and sample size.
-
-A quick check I ran today sets expectations (ffverse `ep_weekly` 2014 to 2025, RBs, fit on
-targets through 2021, tested on 2022 to 2025):
-
-| Target | Predictor | Out-of-sample R² | MAE (points/game) |
-|---|---|---|---|
-| Next-season PPG (8+ games both seasons, n=238) | Prior-season PPG | 0.47 | 3.08 |
-| | Prior-season expected points/game | 0.45 | 3.17 |
-| | Both | 0.47 | 3.09 |
-| Second-half PPG (5+ games each half, n=261) | First-half PPG | 0.58 | 2.99 |
-| | First-half expected points/game | 0.55 | 3.07 |
-| | Both | 0.58 | 2.97 |
-
-Three lessons. A one-variable model explains about half the variance, and the existing
-nine-component composite has never been measured against it. Expected points did not improve
-prediction in this cut, so I am not recommending it as a projection input on faith. The sample
-excludes players who lost their jobs or got hurt, so real error is larger. Treat these figures
-as indicative; the first task reproduces them inside the repository under a stricter protocol.
-
-### 5.3 Value
-
-Common unit for all positions: **discounted fantasy points over replacement**.
+Target: fantasy points per **scheduled team game**. A missed game scores zero. Retirement,
+release and injury count as outcomes, exactly as `outcomes.ts` scores them.
 
 ```
-value = Σ over seasons t  discount^t × games_t × E[ max(0, projected_ppg_t − replacement_ppg) ]
+projected season points = 17 x expected games share x expected points per game played
 ```
 
-- `replacement_ppg` comes from the existing league schema and production curve. No change.
-- `projected_ppg_t` is the year-zero projection carried forward along an empirical age curve
-  for the position, fitted from the same history and including players who left the league.
-- The expectation uses the projection's error band. A player projected below replacement keeps
-  positive value because some of his outcomes clear the bar. That replaces the authored depth
-  term (`WEIGHT 0.25`, `AGE_FLOOR 0.5`) with arithmetic, and it prices age once.
-- `discount` and the number of seasons are league-preference settings. Publish them and show
-  the sensitivity, as `UTILITY_LAYER.md` already does for replacement convention.
+- **Games share:** games played over team games scheduled, recency weighted. The fit includes
+  players who never played again, at share zero.
+- **Scoring rate:** points per game played, recency weighted. The fit can only use players who
+  played, because a rate needs a game. The games-share term carries the risk of not playing.
+  Evaluation stays unconditional.
+- **Regression and age:** each part regresses toward its position mean and takes an age
+  adjustment. Both are fitted at each decision date on season pairs completed before it, by
+  the procedure `fitAgeCurve` already uses. No authored weight.
+- **Constants:** reuse `BASELINE_CONSTANTS` as archived (three seasons, one-season half-life,
+  17 games, 25-pair pooling).
 
-The 0 to 100 display scale stays a monotone rescale applied last.
+Baseline B already equals games share times rate by identity. Challenger F tests one idea:
+the two parts persist at different strengths, so forecasting them separately should help.
+If it does not help, C stands as the projection.
 
-### 5.4 Comparison
+Position logic enters as admitted features, one per experiment, each scored against the
+standing challenger: draft slot for players with thin history, snap share, roster status.
+The incumbent's edge on low-availability players says roster and career information matters.
 
-Model value and market value have different units, so compare percentile within the same
-player universe, as `comparison.ts` already does. The market never enters stages 5.1 to 5.3.
-
-A buy-low or sell-high label requires all of the following. Otherwise the board shows the
-facts and no label.
-
-1. An authorized market source with a capture inside its freshness window.
-2. A projection built on enough games to have a measured error band.
-3. A gap larger than the band implies by chance.
-4. No blind-spot flag: rookie with fewer than a set number of games, active injury report
-   entry, team change since the last game.
-5. A passed backtest showing that gaps of that size closed in the model's direction.
-
-Condition 5 is unmet today, so the honest label at launch is "model and consensus disagree",
-with the evidence shown. DynastyProcess keeps 362 weekly commits of `values-players.csv` back
-to 2019-04-06 (verified), which makes that backtest possible at no cost.
-
-### 5.5 Explanation
-
-Expected fantasy points give an exact accounting identity:
+### 4.2 Value
 
 ```
-points/game = expected points/game (opportunity) + points over expected/game (efficiency)
+value = sum over horizon seasons of max(0, projected points - replacement points)
 ```
 
-A change between two windows splits into an opportunity change and an efficiency change, and
-opportunity splits again into rushing and receiving. Each sentence in an explanation cites a
-number from the fact table: "carry share rose from 41% to 63% over the last four games;
-expected points rose 4.1 per game; efficiency fell 0.8". No free text, no authored judgment.
-Expected points earn their place here even though they did not improve the forecast.
+Replacement is the k-th best projection at the position (QB 24, RB 35, WR 47, TE 14). This is
+the rule that already beats `dynastyValue` in the harness. One unit for every position.
 
-### 5.6 Where this design breaks
+Two known weaknesses to measure, not assume away:
 
-- **The market knows things box scores do not.** Draft capital, camp reports, an injury to the
-  starter ahead of a backup. A production model will flag those players as mispriced and be
-  wrong. The blind-spot flags in 5.4 are the mitigation, and they will suppress many of the
-  most interesting names. Expect the model to lose to consensus on rookies.
-- **The edge over consensus may be small or zero.** If the backtest in 5.4 shows gaps do not
-  close in the model's direction, the product's defensible value is trend detection and
-  explanation, and "the market is wrong" comes off the board. Plan for that outcome.
-- **Expected points come from a third-party model** (ffverse, xgboost trained on 2006 to
-  2020). A silent retrain would shift history. Pin the release timestamp on every run.
-- **The strongest argument for the old design:** richer inputs (routes, red-zone role,
-  competition) do carry signal that trailing points miss. Agreed. The admission rule in 5.2
-  lets each one back in when it proves itself on held-out seasons.
+- Baseline values under-count QBs in the top 120 (21 to 23 against 25 to 28 realised).
+- A hard floor at zero cannot separate players below replacement. An option-value term may
+  enter only if it improves the cross-position target on the history population.
 
-## 6. Data map
+Horizon: two seasons, because no longer outcome exists. Label it that way on the site.
 
-"Verified" means I fetched the file on 2026-11-12. Licence statements describe the hosting
-repository. Upstream rights are noted where they differ, and none of this is legal advice.
+### 4.3 Market comparison: three separate claims
 
-### Free and available
-
-| Need | Source and file | Update | History | Public-use position |
-|---|---|---|---|---|
-| Box-score usage and production; target share, air yards, fumbles | nflverse `stats_player_week_<season>.csv` | Nightly in season (rebuilt today, week 9 present) | 2025 and 2026 verified; nflverse documents 1999 onward | nflverse-data repository licence is CC BY 4.0 (verified). Attribute |
-| Snap share | nflverse `snap_counts_<season>.csv` | Weekly (rebuilt Nov 10) | 2012 onward verified | Same repository licence. Sourced from Pro Football Reference, keyed on `pfr_player_id` |
-| Opportunity (expected fantasy points by rush and reception) | ffverse `ep_weekly_<season>.csv` | Weekly (week 9 present) | 2006 onward verified | GPL-3 repository. Third-party model output. Attribute and pin version |
-| Availability | nflverse `injuries_<season>.csv` | Daily in season (week 10 present) | 2009 onward verified | Same repository licence |
-| Age, position, draft slot, team by week | nflverse `players.csv`, `draft_picks.csv` (1980 to 2026), `roster_weekly_<season>.csv` | Daily | Verified | Same repository licence |
-| Schedule, team games | nflverse `games.csv` | Daily | Already ingested | Same |
-| Red-zone and goal-line splits | nflverse play-by-play | Nightly | Verified 2025 | Same. Skip until a backtest shows expected points miss something |
-| Depth chart rank | nflverse `depth_charts_<season>.csv` | Daily snapshots (74 MB for 2026) | 2001 onward verified | Same. Skip in the prototype |
-| Market comparison | DynastyProcess `values-players.csv` (1QB and 2QB values) | Weekly (latest scrape 2026-11-06) | 362 commits since 2019-04-06 | GPL-3 repository. Values derive from FantasyPros expert consensus. **Republication of raw values is uncleared** |
-
-### Available with restrictions: do not build on these yet
-
-| Source | Offers | Issue |
+| Claim | Meaning | Required evidence |
 |---|---|---|
-| nflverse `nextgen_stats` | Rush yards over expected, 2016 to 2026 (verified) | NFL-owned tracking statistics. Public reuse rights unverified |
-| nflverse `pfr_advstats` | Yards before and after contact, broken tackles | Sports Reference terms restrict reuse. Unverified for this use |
-| nflverse `ftn_charting` | Play action, screens, catchable ball, drops, 2022 onward (verified) | Carries no route counts. Check FTN attribution terms before display |
-| nflverse `contracts` | OverTheCap contract value, APY, guarantees (31,893 rows) | OverTheCap terms unverified. No projection need shown |
-| FantasyCalc API | Dynasty values derived from real trades | Blocked by this sandbox's egress policy (HTTP 403 from the proxy). Terms unread. Best candidate for a trade-based second source |
+| **Rank disagreement** | Model and market order a player differently | An authorized, fresh market capture |
+| **Value gap** | The disagreement is worth something in a trade | The gap, in market units, exceeds model and market noise |
+| **Buy-low or sell-high** | The market will move toward the model | A backtest showing gaps of that size closed in the model's direction |
 
-### Unavailable free
+Rank and percentile differences mislead because value is steep at the top and flat at the
+bottom. Six RB ranks near replacement move value from 8.0 to 1.9. Twenty ranks deeper move
+almost nothing.
 
-| Measurement | Status | Proxy | Premium needed? |
-|---|---|---|---|
-| Routes run per player, in season | No free feed. `pbp_participation` has no 2026 file (404) and was last rebuilt 2026-02-10 | Snap share with target share | No evidence yet. The 0.47 baseline uses neither |
-| Per-player blocking and pressure grades | Licensed charting only | None | No |
-| Trade-based market prices with clear republication rights | None verified | Expert consensus | Possibly a licence or written permission. Zero cost to ask |
-| KeepTradeCut values | No API. Scraping is out | None | Not pursued |
-| Sleeper adds, drops, ADP | Public | Activity signal only. It is not a price | n/a |
+**Value gap, defined without inventing a scale:** read the market's own value at the model's
+rank for that player, within the same universe, and subtract the player's market value. The
+result says what the market would charge for a player the model ranks there. Report it with a
+band: the projection error from the harness, carried through to rank, against the market's own
+week-to-week movement.
 
-**Owner action, no code:** ask the DynastyProcess maintainer and FantasyPros in writing
-whether displaying per-player consensus values with attribution is permitted, and read
-FantasyCalc's terms from an unrestricted network. Until one answer arrives, the public site
-should show rank differences and withhold raw third-party values.
+**Suppression:** no market capture means facts and projection only. A gap inside its band
+shows as a rank disagreement only. Rookies before their first game, players on injured reserve
+and team changes since the last game carry a blind-spot flag and no label. Buy-low and
+sell-high stay off until the third row's backtest exists.
 
-## 7. Smallest end-to-end prototype
+**Real market movement** comes from consecutive captures of the same source. Fewer than two
+captures means no movement shown (`movementAvailable` already enforces this).
 
-A vertical slice for eight running backs, one script, one output document. No UI work.
+### 4.4 Explanation: two ledgers, never merged
 
-**Player selection by rule, from 2026 data at the as-of,** so nobody hand-picks flattering
-cases: the top two RBs by expected points per game; the two largest risers and two largest
-fallers in expected points per game (last four games against the prior span); one rookie; one
-RB with an active injury report entry.
+**Ledger 1, observed changes.** Facts from the box score between two dates: carries, targets,
+snap share, games missed, team. Each cites its source file and release timestamp. Each carries
+a tag: *model input* or *context only*. A context-only fact never appears as a reason.
 
-**Inputs:** `stats_player_week`, `snap_counts`, `ep_weekly` for 2018 to 2026, `injuries_2026`,
-`players`, `draft_picks`, `games`, and the DynastyProcess values file. Each fetch records the
-release timestamp and a checksum, and the transport replay cache makes reruns byte-identical.
+**Ledger 2, projection drivers.** The exact arithmetic of the value change, by sequential
+substitution in a fixed order, so the terms sum to the total:
 
-**What the output shows for each player:**
+1. New games entering the window (scoring rate)
+2. Games missed (games share)
+3. Recency reweighting and season rollover
+4. Age adjustment
+5. Replacement level moved (other players' projections changed)
+6. Player pool changed
+7. Fitted parameters refit
+8. Provider corrected a past stat line
 
-| Requirement | Demonstrated by |
+Drivers 3 to 8 involve no football event for the player. The sanity investigation found
+exactly this: Hurts moved 12 to 22 on an unchanged composite. An explanation that reports only
+ledger 1 would have invented a reason.
+
+Reuse `scripts/explain-players.ts` (contributions from persisted artifacts) and
+`src/ops/rankingChange.ts` (movement between boards).
+
+## 5. What could undermine this
+
+**Leakage**
+
+| Risk | Status |
 |---|---|
-| Verified supporting statistics | Per-game rows with source file and release timestamp. A check recomputes PPR points from yards, receptions and touchdowns and fails on mismatch with the provider's `fantasy_points_ppr` |
-| Opportunity and efficiency over time | Carry share, target share, snap share, expected points per game, points over expected per game: season to date, last four, prior season |
-| Reproducible projection | Section 5.2 baseline. Coefficients printed with the training window and the backtest error |
-| Cross-position-compatible fair value | Section 5.3 formula against the existing Superflex replacement level. Unit: discounted points over replacement. A QB or WR would run through the same function |
-| Independent market comparison | DynastyProcess 2QB percentile against model percentile among RBs, labelled as expert consensus with attribution |
-| Why the outlook changed | Section 5.5 split between two as-of dates four weeks apart, one sentence per term, each citing a fact-table value |
-| Suppression | Run the slice twice: with the market file and without it. The second run must emit facts and projection and no buy or sell label. Rookie and injured cases must show their blind-spot flag and no label |
+| nflverse republishes files in place. Replays see later stat corrections | Disclosed in Phase 2 §2. Unfixable backward. Archive boards forward from now |
+| HTTP 304 reuses a cached envelope's date, so ages freeze (P2-D1) | Harness fixed. Production open |
+| `years_exp` fallback and current-state position in `players.csv` (P2-D3) | Open. 18 position mismatches measured |
+| Production curves and replacement choices fitted on 2017 to 2025 | Flatters the incumbent's cross-position result. Refit per date |
+| ffverse expected points come from a model trained on 2006 to 2020 | In-sample for 2019 and 2020 decision dates. Context only until tested on later dates |
+| Injury designations are not point-in-time in free data | Roster status only in backtests |
+| Validation period already read while forming hypotheses, including challenger F | The confirmatory test is the sealed test period, once |
+| Revision 1's ad hoc check read 2024 and 2025 RB outcomes | Voided in section 1 |
 
-**Out of scope for the slice:** other positions, the frontend, persistence, scheduling, depth
-charts, play-by-play, any second market source.
+**Licensing**
 
-## 8. First implementation task
+- nflverse-data repository: CC BY 4.0. Attribute visibly. Snap counts originate with Pro
+  Football Reference, contracts with OverTheCap, charting with FTN. Confirm terms before any
+  paid product.
+- ffverse expected points: GPL-3 repository, third-party model output.
+- DynastyProcess: GPL-3 repository over FantasyPros consensus. `market-latest.json` sits in
+  the public deploy today (Phase 1 B12). Remove it and ask both parties in writing.
+- FantasyCalc: trade-based, terms unread, unreachable from this environment.
+- Backtest inputs stay local. Commit hashes only, as PR #14 does.
 
-**Build the RB weekly fact table and a backtested baseline projection.**
+**Assumptions**
+
+- Two seasons stand in for dynasty value.
+- Expert consensus stands in for market price. It is stated belief, with no trades behind it.
+- Rank correlation measures order and ignores magnitude. A value-gap claim needs the
+  calibrated error too (validation MAE: QB 53, RB 33, WR 30, TE 24 points per season).
+- The market may be efficient against a box-score model. If gaps do not close in the model's
+  direction, the product is fair value, real movement and verified explanation, without
+  buy-low or sell-high.
+
+## 6. Data required
+
+| Purpose | Source | In the harness today |
+|---|---|---|
+| Production, games played, opportunities | nflverse `stats_player_week` 2012 to 2026 | Yes |
+| Team games scheduled, decision dates | nflverse `games.csv` | Yes |
+| Age, rookie season, draft slot | nflverse `players.csv`, `draft_picks.csv` (allowed columns only) | Yes |
+| Roster status | nflverse `roster_weekly` | Through the frozen pipeline |
+| Snap share | nflverse `snap_counts`, 2012 onward | No. Admit by experiment |
+| Opportunity context | ffverse `ep_weekly`, 2006 onward | No. Context only |
+| Current injuries | nflverse `injuries` | No. Live board only |
+| Market comparison | DynastyProcess, weekly, 362 commits since 2019-04-06 | No. Private until cleared |
+| True routes, grades | Licensed only | Deferred |
+
+Challenger F needs no new source.
+
+## 7. First implementation task
+
+**Add challenger F to the existing harness and score it against C and E.**
+
+Branch from `claude/phase2-validation`. Touch `src/validation`, `scripts/backtest` and a new
+`experiments/phase2-challenger-f/` only. `git diff` against production `src` stays empty.
 
 Scope:
 
-1. Add three release mappings to the existing transport layer: `snap_counts`, `injuries`, and
-   ffverse `ep_weekly`.
-2. Produce one flat table: RB player-games for 2018 to 2026 with box score, shares, snaps,
-   expected points, age at kickoff and draft slot. Join on GSIS id, with `pfr_id` for snaps.
-   Report every unjoined row.
-3. Fit the section 5.2 baseline with a walk-forward protocol: for each test season, fit on
-   earlier seasons only. Include players who did not play the following window, scored as
-   zero points per team game, so the survivor bias in my quick check goes away.
-4. Emit one report: coefficients, out-of-sample R² and MAE by season, the residual spread by
-   sample size, and the same metrics for the current `rb-accessible-1.0` ranking where it can
-   run at the same as-of dates.
+1. Add model `F_two_part` beside the baselines: section 4.1 as written, with section 4.2
+   value. Every fitted quantity uses season pairs completed before the decision date.
+2. Extend the evaluator to print paired differences F minus C and F minus E, same bootstrap,
+   same seed.
+3. Run the 17 development and validation dates. The test period stays sealed.
+4. Add a leakage test: F at a decision date reads no game with `availableAt` after it.
 
-Acceptance:
+Success criteria, fixed now:
 
-- The table reconciles with provider PPR totals for every player-game.
-- Rerunning from the replay cache yields an identical report.
-- The report states one number, baseline out-of-sample MAE, that every later feature must beat.
-- No authored weight appears anywhere in the code path.
+- Decision tier, two-season target, development: F at or above C at 3 of 4 positions.
+- Cross-position value, history population: F minus C interval not below zero, and F minus E
+  interval above zero.
+- Report top-120 position mix and whole-board RB and WR against E, whatever they show.
 
-Decision the report forces: if `rb-accessible-1.0` beats the baseline, I am wrong about the
-composites and section 3 needs revisiting. If it loses or ties, archive it and build section 7
-on the baseline.
+Outcome:
 
-Stop point: owner review of this document. Nothing here is implemented.
+- F passes: F is the challenger. Next experiment adds the draft-slot rookie value.
+- F fails: C is the challenger, the two-part split is dropped, same next experiment.
+- E stays the published model until a challenger beats it on the sealed test period.
+
+## 8. Prototype slice, after the first task
+
+Eight running backs chosen by rule from the live board: two highest values, two largest value
+rises and two largest falls over four weeks, one rookie, one on injured reserve. One script,
+one output document per player:
+
+| Must show | How |
+|---|---|
+| Verified statistics | Game rows with source file and release timestamp, reconciled to provider PPR totals |
+| Opportunity and efficiency over time | Games share, carries, targets, snap share, points per game played, by window |
+| Reproducible projection | Challenger output with fitted parameters and harness error |
+| Cross-position fair value | Section 4.2, same function for every position |
+| Market comparison | Rank disagreement and value gap with band, when a cleared capture exists |
+| Why the outlook changed | Both ledgers from section 4.4 |
+| Suppression | Second run without market data emits no gap and no label. Rookie and injured cases show their flag |
+
+## 9. Owner decisions
+
+1. Approve the first task on the PR #14 branch.
+2. Confirm the incumbent stays frozen and published models change only after a sealed-test win.
+3. Remove `market-latest.json` from the public deploy and request written permission.
+4. Decide PR #11 and PR #12. The harness is stacked on #12, so this work inherits that base.
+5. Start archiving each published board with its date. The 2026 and 2027 seasons are the only
+   leak-free test available.
