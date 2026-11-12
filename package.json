@@ -32,7 +32,10 @@
     "verify:sleeper": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/verify-sleeper.ts",
     "stage:board": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/stage-board.ts",
     "verify:staging": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/verify-staging.ts",
-    "explain:players": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/explain-players.ts"
+    "explain:players": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/explain-players.ts",
+    "backtest:fetch": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/backtest/fetch-data.ts",
+    "backtest:predict": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/backtest/predict-playerticker.ts",
+    "backtest:evaluate": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/backtest/evaluate.ts"
   },
   "dependencies": {
     "react": "^18.3.1",
