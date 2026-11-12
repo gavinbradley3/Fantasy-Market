@@ -1,29 +1,31 @@
 
 > playerticker@1.0.0 ingest
-> TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/ingest-nflverse.ts --as-of 2026-11-12T15:29:01.000Z --career-seasons 2017,2018,2019,2020,2021,2022,2023,2024,2025 --db /home/runner/work/_temp/playerticker.db --captures /home/runner/work/_temp/captures --verify-replay
+> TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/ingest-nflverse.ts --as-of 2026-11-12T15:42:53.000Z --career-seasons 2017,2018,2019,2020,2021,2022,2023,2024,2025 --db /home/runner/work/_temp/playerticker.db --captures /home/runner/work/_temp/captures --verify-replay
 
-[ingest] seasons: 2024, 2025, 2026 (derived: derived from 2026-11-12T15:29:01.000Z — the most recent season whose Week 1 has kicked off (2026) and the 2 before it)
+[ingest] seasons: 2024, 2025, 2026 (derived: derived from 2026-11-12T15:42:53.000Z — the most recent season whose Week 1 has kicked off (2026) and the 2 before it)
 [ingest] heap limit 8240 MB (need ≥ 4096 MB)
-(node:2313) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(node:2529) ExperimentalWarning: SQLite is an experimental feature and might change at any time
 (Use `node --trace-warnings ...` to show where the warning was created)
-[ingest] source failure run=run-manual-2026-11-12T15:29:02.195Z-1 provider=nflverse capability=participation season=2026 required=false code=UNEXPECTED_STATUS stage=fetch retryable=false
+[ingest] source failure run=run-manual-2026-11-12T15:42:55.083Z-1 provider=nflverse capability=participation season=2026 required=false code=UNEXPECTED_STATUS stage=fetch retryable=false
+[ingest] source failure run=run-manual-2026-11-12T15:42:55.083Z-1 provider=sleeper capability=identity season=unknown required=false code=INGESTION_FAILURE stage=fetch retryable=false
 mode          live
 seasons       2024, 2025, 2026 (derived)
-as-of         2026-11-12T15:29:01.000Z
+as-of         2026-11-12T15:42:53.000Z
 published     true
-publication   board-f8e6b56e56a3d157
-snapshot      snap-9fe8d171e51af500
+publication   board-be1bf34ce16cd0e1
+snapshot      snap-116442b5858d5908
 entries       853
 valued        682
-duration      73.9s
-peak memory   6767 MB resident (heap 1382 MB at exit)
+duration      97.9s
+peak memory   6347 MB resident (heap 1338 MB at exit)
 
 position   entries   valued
 QB            104       93
 RB            228      177
 TE            182      147
 WR            339      265
-[ingest] source failure run=run-manual-2026-11-12T15:30:16.197Z-1 provider=nflverse capability=participation season=2026 required=false code=MISSING_REPLAY_PAYLOAD stage=replay retryable=false
+[ingest] source failure run=run-manual-2026-11-12T15:44:32.622Z-1 provider=nflverse capability=participation season=2026 required=false code=MISSING_REPLAY_PAYLOAD stage=replay retryable=false
+[ingest] source failure run=run-manual-2026-11-12T15:44:32.622Z-1 provider=sleeper capability=identity season=unknown required=false code=MISSING_REPLAY_PAYLOAD stage=replay retryable=false
 
-replay verify  snapshot snap-9fe8d171e51af500 board board-f8e6b56e56a3d157 entries 853 valued 682
+replay verify  snapshot snap-116442b5858d5908 board board-be1bf34ce16cd0e1 entries 853 valued 682
 replay verify  MATCH

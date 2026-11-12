@@ -1,15 +1,15 @@
 {
   "schema": "playerticker.staging-verification/v1",
-  "publicationId": "board-f8e6b56e56a3d157",
+  "publicationId": "board-be1bf34ce16cd0e1",
   "hardPass": true,
   "checks": {
     "recency": {
       "pass": true,
-      "asOf": "2026-11-12T15:29:01.000Z",
+      "asOf": "2026-11-12T15:42:53.000Z",
       "dating": "raw schedule gameday+gametime (US Eastern) via the platform time-zone database; final = kickoff + 5h",
       "newestIncludedKickoff": "2026-11-10T01:15:00.000Z",
       "newestFinalKickoffInRawSchedule": "2026-11-10T01:15:00.000Z",
-      "newestAgeDays": 2.59,
+      "newestAgeDays": 2.6,
       "regularSeasonGamesNotYetEligible": 0,
       "kickoffSources": {
         "SCHEDULE_TIME": 166833
@@ -105,8 +105,8 @@
         "status": "partial",
         "required_failure": 0,
         "source_count": 19,
-        "success_count": 18,
-        "failure_count": 1
+        "success_count": 17,
+        "failure_count": 2
       },
       "failed": [
         {
@@ -115,6 +115,14 @@
           "request_key": "nflverse:participation?season=2026",
           "required": 0,
           "error_code": "UNEXPECTED_STATUS",
+          "failure_stage": "fetch"
+        },
+        {
+          "provider": "sleeper",
+          "capability": "identity",
+          "request_key": "sleeper:identity",
+          "required": 0,
+          "error_code": "INGESTION_FAILURE",
           "failure_stage": "fetch"
         }
       ]

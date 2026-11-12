@@ -1,11 +1,11 @@
 {
   "schema": "playerticker.staging-manifest/v1",
   "valuation": {
-    "checksum": "3f158dfb2f03d56c5387a68672593bde7f58575e336b35f815f417cd68aaefb7",
-    "boardChecksum": "f8e6b56e56a3d157",
-    "publicationId": "board-f8e6b56e56a3d157",
-    "snapshotId": "snap-9fe8d171e51af500",
-    "asOf": "2026-11-12T15:29:01.000Z",
+    "checksum": "c43002bbbc062d66a0303fcb7d0a463dea011a2d488804b3d02c2a2e717ed0df",
+    "boardChecksum": "be1bf34ce16cd0e1",
+    "publicationId": "board-be1bf34ce16cd0e1",
+    "snapshotId": "snap-116442b5858d5908",
+    "asOf": "2026-11-12T15:42:53.000Z",
     "entryCount": 853,
     "byPosition": {
       "QB": {
@@ -27,8 +27,8 @@
     }
   },
   "metadata": {
-    "publishedAt": "2026-11-12T15:30:10.395Z",
-    "runId": "run-manual-2026-11-12T15:29:02.195Z-1"
+    "publishedAt": "2026-11-12T15:44:23.584Z",
+    "runId": "run-manual-2026-11-12T15:42:55.083Z-1"
   },
   "reference": {
     "publicationId": "board-dec6b5a627b0a557",
@@ -310,11 +310,11 @@
   "reviewStatus": "PENDING_OWNER_REVIEW",
   "approvedChecksum": null,
   "artifacts": {
-    "board.json": "9b7fe7c13a66cd7a6deba6ea5cef5ac8f0f79b60a5a196233ae47ad50b449161",
-    "status.json": "bddc1fbaa9a1e3a64a8ab97d6b8cecbe59b478f56e668a581c0a3f991d062cec",
-    "verification.json": "5610211472b4ac7616a892e50ef811310e73841fceea628edd24d8d3f6dd9c81",
-    "run-log.txt": "b0ba2226ece37d63aec3642d9e773439c839a66f90b0ba644f0986811be2939d",
-    "REVIEW.md": "3286f66f1611a60168fbb54f456ff8053f11eb515872690b39eec5de4708177e"
+    "board.json": "836f4c5d2c13b15066c72c2d5fe09c697f639541f58d309ceca7b62db03f5d9e",
+    "status.json": "3c9e9030b5da8152128ac3f365ec9bff26e3c817c447d045cf591bb5d5254f1f",
+    "verification.json": "b2d6f7af1ab2db1d6c6e9e78ada329a911f625de897cfa9e6bd42878fd298e4a",
+    "run-log.txt": "235448a3d42eafc2556c85dd3d6daa064c2964df6d93245926fa4cedc26b31ea",
+    "REVIEW.md": "a7eb2085931d6bc9ceae025c40eb0a10a33502eba8e5a384773cc69ac3175b64"
   },
   "verificationPassed": true
 }
