@@ -1,0 +1,35 @@
+{
+  "name": "phase3-usage-signals",
+  "question": "Do changes in snap share, carry share and target share predict opportunity and PPR production over a player's team's next 2-4 games, beyond recent fantasy production?",
+  "status": "Pre-registered 2026-11-12 before any outcome was computed. Exploratory: correlational, no causal claim.",
+  "dataDir": ".local/validation-data",
+  "usageDataDir": ".local/usage-data",
+  "periods": { "fit": [2019, 2020, 2021], "holdout": [2022, 2023], "sealed": [2024, 2025] },
+  "decisions": "every regular-season week w from 4 to (last regular-season week - 4) in each fit and holdout season; instant = 12 h after the last kickoff of week w (src/validation/calendar.ts)",
+  "positions": ["RB", "WR", "TE"],
+  "population": "main stats position in the group; at least 3 games played in the current season, final by the instant",
+  "horizonsTeamGames": [2, 3, 4],
+  "primaryHorizon": 3,
+  "targets": {
+    "points": "PPR points (site scoring) over the player's current team's next H scheduled regular-season games, divided by H; a missed game counts as 0",
+    "opportunities": "carries + targets over the same games, divided by H; a missed game counts as 0"
+  },
+  "production": {
+    "P_L4": "PPR points over the team's last 4 games, missed games as 0, divided by 4",
+    "P_STD": "season-to-date PPR points per team game, missed games as 0",
+    "F_RATE": "challenger F's input rate: recency-weighted points per scheduled team game over the harness history window (baseline B's rate)"
+  },
+  "usage": {
+    "snap": "offensive snap share (provider-reported, joined by PFR id)",
+    "carry": "player carries / team carries (RB only)",
+    "target": "player targets / team targets",
+    "volume": "carries + targets per team game over the last 4 team games (comparison: raw volume, not a share)",
+    "level": "share over the player's last 4 games played",
+    "change": "share over his last 2 games played minus share over up to 4 games played before those"
+  },
+  "models": "OLS per position x target x horizon, fitted on fit-period rows only. M0 = production only. Then M0 + each usage feature alone (level, change, level+change), then M0 + all shares, then M0 + all shares + volume.",
+  "metrics": "holdout MAE, RMSE, out-of-sample R2; paired MAE difference vs M0 with a 95% player-cluster bootstrap interval (1,000 resamples, seed 20261112); signed M0 residual in the top and bottom decile of each change feature (decile cut points from fit-period rows)",
+  "sample": "rows missing snap share are excluded from every model at that position, so all models are scored on identical rows; the exclusion count is reported",
+  "decisionRule": "Recommend adding a usage feature to F only if, at H = 3 on the points target, adding it to M0 lowers holdout MAE with a bootstrap interval entirely below zero at every position it applies to. If several qualify, recommend the one with the largest relative reduction. Otherwise recommend none.",
+  "bootstrap": { "reps": 1000, "seed": 20261112 }
+}
