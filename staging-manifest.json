@@ -1,0 +1,312 @@
+{
+  "schema": "playerticker.staging-manifest/v1",
+  "valuation": {
+    "checksum": "9de1b5fe731c856e9dde4e5ab03cf613afbf53aeec6c5e3b211761fe3dfc3e9a",
+    "boardChecksum": "b36ab31ffd91137e",
+    "publicationId": "board-b36ab31ffd91137e",
+    "snapshotId": "snap-69a86b4a05360bef",
+    "asOf": "2026-11-12T14:37:00.000Z",
+    "entryCount": 853,
+    "byPosition": {
+      "QB": {
+        "entries": 104,
+        "valued": 93
+      },
+      "RB": {
+        "entries": 228,
+        "valued": 177
+      },
+      "WR": {
+        "entries": 339,
+        "valued": 265
+      },
+      "TE": {
+        "entries": 182,
+        "valued": 147
+      }
+    }
+  },
+  "metadata": {
+    "publishedAt": "2026-11-12T14:45:37.346Z",
+    "runId": "run-manual-2026-11-12T14:44:34.956Z-1"
+  },
+  "reference": {
+    "publicationId": "board-dec6b5a627b0a557",
+    "publishedAt": "2026-09-12T21:05:41.650Z",
+    "valuationChecksum": "85a6aea02eefbd7d88225e84f65d3a9a869ae4000ae6603542e01f401da0a3a9"
+  },
+  "rankingChange": {
+    "verdict": "REVIEW_REQUIRED",
+    "reasons": [
+      "rank correlation 0.875 is below 0.9",
+      "only 69.0% of the previous top 100 remain in the top 100 (minimum 80%)",
+      "32 of the previous top 100 moved more than 40 places or became unranked (maximum 5)"
+    ],
+    "thresholds": {
+      "minSpearman": 0.9,
+      "minTopOverlap": 0.8,
+      "topN": 100,
+      "largeMovePlaces": 40,
+      "maxLargeMoves": 5
+    },
+    "metrics": {
+      "referenceRanked": 575,
+      "candidateRanked": 682,
+      "commonRanked": 534,
+      "spearman": 0.8747690739453942,
+      "topOverlap": 0.69,
+      "largeMovesInReferenceTop": 32,
+      "referenceTopUnrankedInCandidate": 0,
+      "newlyRanked": 148,
+      "droppedFromRanking": 41
+    },
+    "largestMoves": [
+      {
+        "canonicalId": "pt-690c3e7ea06819a7",
+        "name": "saquon barkley",
+        "position": "RB",
+        "referenceRank": 91,
+        "candidateRank": 334,
+        "placesUp": -243
+      },
+      {
+        "canonicalId": "pt-4c537b2a9813bdab",
+        "name": "tyrone tracy jr.",
+        "position": "RB",
+        "referenceRank": 73,
+        "candidateRank": 277,
+        "placesUp": -204
+      },
+      {
+        "canonicalId": "pt-6889c7b1f8702abc",
+        "name": "jake ferguson",
+        "position": "TE",
+        "referenceRank": 80,
+        "candidateRank": 278,
+        "placesUp": -198
+      },
+      {
+        "canonicalId": "pt-0fa2a3a71c2d0c2e",
+        "name": "courtland sutton",
+        "position": "WR",
+        "referenceRank": 76,
+        "candidateRank": 244,
+        "placesUp": -168
+      },
+      {
+        "canonicalId": "pt-28f6fcf37a37302e",
+        "name": "christian mccaffrey",
+        "position": "RB",
+        "referenceRank": 32,
+        "candidateRank": 197,
+        "placesUp": -165
+      },
+      {
+        "canonicalId": "pt-61faf6685ba981fd",
+        "name": "kyle pitts",
+        "position": "TE",
+        "referenceRank": 31,
+        "candidateRank": 175,
+        "placesUp": -144
+      },
+      {
+        "canonicalId": "pt-cc01ff9028534361",
+        "name": "juwan johnson",
+        "position": "TE",
+        "referenceRank": 70,
+        "candidateRank": 213,
+        "placesUp": -143
+      },
+      {
+        "canonicalId": "pt-df0932b9c6a41a40",
+        "name": "kenny gainwell",
+        "position": "RB",
+        "referenceRank": 79,
+        "candidateRank": 222,
+        "placesUp": -143
+      },
+      {
+        "canonicalId": "pt-c8aa8ccfa9d606c2",
+        "name": "jakobi meyers",
+        "position": "WR",
+        "referenceRank": 92,
+        "candidateRank": 234,
+        "placesUp": -142
+      },
+      {
+        "canonicalId": "pt-2fc0742d65c1ca4c",
+        "name": "jerry jeudy",
+        "position": "WR",
+        "referenceRank": 99,
+        "candidateRank": 237,
+        "placesUp": -138
+      },
+      {
+        "canonicalId": "pt-3f9831bc94bb6631",
+        "name": "marvin harrison jr.",
+        "position": "WR",
+        "referenceRank": 97,
+        "candidateRank": 230,
+        "placesUp": -133
+      },
+      {
+        "canonicalId": "pt-c283ba1dc1e4603c",
+        "name": "michael pittman",
+        "position": "WR",
+        "referenceRank": 72,
+        "candidateRank": 201,
+        "placesUp": -129
+      },
+      {
+        "canonicalId": "pt-5a07a9b397638e4e",
+        "name": "sam darnold",
+        "position": "QB",
+        "referenceRank": 84,
+        "candidateRank": 195,
+        "placesUp": -111
+      },
+      {
+        "canonicalId": "pt-4ad8d73fb2c2a726",
+        "name": "rico dowdle",
+        "position": "RB",
+        "referenceRank": 89,
+        "candidateRank": 200,
+        "placesUp": -111
+      },
+      {
+        "canonicalId": "pt-4714f90909d1587c",
+        "name": "wan'dale robinson",
+        "position": "WR",
+        "referenceRank": 25,
+        "candidateRank": 129,
+        "placesUp": -104
+      },
+      {
+        "canonicalId": "pt-3977d49f0ac758e6",
+        "name": "brian thomas jr.",
+        "position": "WR",
+        "referenceRank": 78,
+        "candidateRank": 180,
+        "placesUp": -102
+      },
+      {
+        "canonicalId": "pt-4976863d4ad5ec2c",
+        "name": "treveyon henderson",
+        "position": "RB",
+        "referenceRank": 65,
+        "candidateRank": 160,
+        "placesUp": -95
+      },
+      {
+        "canonicalId": "pt-59bc3aba0945f0ab",
+        "name": "ladd mcconkey",
+        "position": "WR",
+        "referenceRank": 67,
+        "candidateRank": 153,
+        "placesUp": -86
+      },
+      {
+        "canonicalId": "pt-a40b7525df17374c",
+        "name": "omarion hampton",
+        "position": "RB",
+        "referenceRank": 43,
+        "candidateRank": 128,
+        "placesUp": -85
+      },
+      {
+        "canonicalId": "pt-b4fa46c76e1ed42e",
+        "name": "jaxson dart",
+        "position": "QB",
+        "referenceRank": 27,
+        "candidateRank": 105,
+        "placesUp": -78
+      },
+      {
+        "canonicalId": "pt-a7fb6ec25c6d7517",
+        "name": "jalen hurts",
+        "position": "QB",
+        "referenceRank": 12,
+        "candidateRank": 82,
+        "placesUp": -70
+      },
+      {
+        "canonicalId": "pt-a685f4114a5fc654",
+        "name": "quentin johnston",
+        "position": "WR",
+        "referenceRank": 66,
+        "candidateRank": 133,
+        "placesUp": -67
+      },
+      {
+        "canonicalId": "pt-18785cfe9534fc93",
+        "name": "romeo doubs",
+        "position": "WR",
+        "referenceRank": 86,
+        "candidateRank": 148,
+        "placesUp": -62
+      },
+      {
+        "canonicalId": "pt-2802f407d4525b82",
+        "name": "justin herbert",
+        "position": "QB",
+        "referenceRank": 24,
+        "candidateRank": 81,
+        "placesUp": -57
+      },
+      {
+        "canonicalId": "pt-0e2e813a1fa2cb67",
+        "name": "jaylen waddle",
+        "position": "WR",
+        "referenceRank": 45,
+        "candidateRank": 102,
+        "placesUp": -57
+      }
+    ],
+    "newInCandidateTop": [
+      {
+        "canonicalId": "pt-4f0066cc341f20b9",
+        "name": "deshaun watson",
+        "position": "QB",
+        "candidateRank": 10
+      },
+      {
+        "canonicalId": "pt-d3b502e5c75a479c",
+        "name": "carnell tate",
+        "position": "WR",
+        "candidateRank": 51
+      },
+      {
+        "canonicalId": "pt-f93d933c9b0edf2d",
+        "name": "denzel boston",
+        "position": "WR",
+        "candidateRank": 56
+      },
+      {
+        "canonicalId": "pt-32963590d1bfe785",
+        "name": "kc concepcion",
+        "position": "WR",
+        "candidateRank": 78
+      },
+      {
+        "canonicalId": "pt-55cdd4714d731f74",
+        "name": "jonah coleman",
+        "position": "RB",
+        "candidateRank": 85
+      },
+      {
+        "canonicalId": "pt-3c89795be7ccd61a",
+        "name": "omar cooper jr.",
+        "position": "WR",
+        "candidateRank": 90
+      },
+      {
+        "canonicalId": "pt-ae90e896cdceebc3",
+        "name": "caleb douglas",
+        "position": "WR",
+        "candidateRank": 93
+      }
+    ]
+  },
+  "reviewStatus": "PENDING_OWNER_REVIEW",
+  "approvedChecksum": null
+}

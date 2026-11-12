@@ -1,0 +1,115 @@
+{
+  "schema": "playerticker.staging-verification/v1",
+  "publicationId": "board-b36ab31ffd91137e",
+  "hardPass": true,
+  "checks": {
+    "recency": {
+      "pass": true,
+      "asOf": "2026-11-12T14:37:00.000Z",
+      "newestGameKickoff": "2026-11-05T00:00:00.000Z",
+      "newestAgeDays": 7.61,
+      "regularSeasonGamesAfterAsOfInSnapshot": 0
+    },
+    "currentSeason": {
+      "pass": true,
+      "season": 2026,
+      "gameRecords": 9455,
+      "weeks": [
+        "01",
+        "02",
+        "03",
+        "04",
+        "05",
+        "06",
+        "07",
+        "08",
+        "09"
+      ],
+      "boardPlayersWithCurrentSeasonGames": 566,
+      "boardEntries": 853,
+      "gameRecordsBySeason": {
+        "2017": 16769,
+        "2018": 16711,
+        "2019": 16646,
+        "2020": 16757,
+        "2021": 18110,
+        "2022": 17963,
+        "2023": 17788,
+        "2024": 18112,
+        "2025": 18522,
+        "2026": 9455
+      }
+    },
+    "teamAgreement": {
+      "pass": true,
+      "vsLatestWeeklyRoster": {
+        "compared": 709,
+        "agree": 709,
+        "share": 1,
+        "mismatches": []
+      },
+      "entriesWithoutCurrentSeasonRoster": 144,
+      "vsLatestGameTeam": {
+        "compared": 566,
+        "agree": 556,
+        "share": 0.9823321554770318,
+        "mismatches": [
+          "marquez valdes-scantling: board PIT vs last 2026 game LAC (2026_05_DEN_LAC)",
+          "keenan allen: board SF vs last 2026 game IND (2026_09_DAL_IND)",
+          "ryan miller: board NE vs last 2026 game MIA (2026_04_MIA_MIN)",
+          "odell beckham jr.: board MIN vs last 2026 game NYG (2026_03_TEN_NYG)",
+          "jacoby brissett: board BAL vs last 2026 game ARI (2026_08_ARI_DAL)",
+          "e.j. jenkins: board ATL vs last 2026 game PHI (2026_06_CAR_PHI)",
+          "andy dalton: board ATL vs last 2026 game PHI (2026_03_PHI_CHI)",
+          "kirk cousins: board MIN vs last 2026 game LV (2026_09_LV_SF)",
+          "josh downs: board KC vs last 2026 game IND (2026_09_DAL_IND)",
+          "jimmy horn jr.: board CLE vs last 2026 game CAR (2026_01_CHI_CAR)"
+        ],
+        "note": "independent dataset; a mismatch is expected for a player traded or released after his last game"
+      }
+    },
+    "experience": {
+      "informational": true,
+      "seasonsCompleted": {
+        "brock purdy": 4,
+        "josh allen": 8,
+        "c.j. stroud": 3,
+        "patrick mahomes": 9
+      }
+    },
+    "noLeakage": {
+      "pass": true,
+      "factTimestampsChecked": 1990,
+      "inputsChecked": 853,
+      "violations": [],
+      "excludedFutureFacts": 0
+    },
+    "sources": {
+      "run": {
+        "status": "partial",
+        "required_failure": 0,
+        "source_count": 19,
+        "success_count": 17,
+        "failure_count": 2
+      },
+      "failed": [
+        {
+          "provider": "nflverse",
+          "capability": "participation",
+          "request_key": "nflverse:participation?season=2026",
+          "required": 0,
+          "error_code": "UNEXPECTED_STATUS",
+          "failure_stage": "fetch"
+        },
+        {
+          "provider": "sleeper",
+          "capability": "identity",
+          "request_key": "sleeper:identity",
+          "required": 0,
+          "error_code": "NETWORK",
+          "failure_stage": "fetch"
+        }
+      ]
+    }
+  }
+}
