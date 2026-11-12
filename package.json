@@ -37,6 +37,7 @@
     "backtest:predict": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/backtest/predict-playerticker.ts",
     "backtest:evaluate": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/backtest/evaluate.ts",
     "backtest:archive": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/backtest/archive-snapshot.ts",
+    "backtest:usage": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/backtest/usage-experiment.ts",
     "trends:rb": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/trends/rb-trends.ts"
   },
   "dependencies": {
