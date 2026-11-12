@@ -2,7 +2,7 @@
 //
 // THE TRAP THIS MODULE EXISTS TO AVOID
 // PlayerTicker's dynasty composite for Josh Allen is ~55.3. DynastyProcess's Superflex value
-// for the same player is ~10,256. Subtracting them, or dividing one by the other, produces a
+// for the same player is ~9,100. Subtracting them, or dividing one by the other, produces a
 // number instantly — and that number is meaningless. The two figures are not the same
 // quantity measured differently; they are different quantities. One is a 0–100 model score,
 // the other a trade-currency unit with its own distribution and no published conversion. Any

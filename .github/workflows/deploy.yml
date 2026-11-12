@@ -84,6 +84,12 @@ jobs:
           # market capture is never copied while its redistribution rights are unresolved.
           ls -la dist/data/
 
+      # Fails the job before artifact upload if anything other than approved data is about to be
+      # published: an extra data file, any external-market marker anywhere in the build, or an
+      # unredacted confidence field.
+      - name: Assert only approved public data
+        run: npm run assert:public-data -- --dir dist
+
       # GitHub Pages serves files, not routes: a deep link to /board would 404 because no such
       # file exists. Serving index.html as the 404 body hands the request to the SPA router,
       # which is the standard single-page fallback for this host.

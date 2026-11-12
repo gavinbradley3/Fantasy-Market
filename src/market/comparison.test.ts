@@ -2,7 +2,7 @@
 //
 // The central assertion in this file is a NEGATIVE one: no function here ever subtracts a
 // model value from a market value. The two are quoted on unrelated scales, and the moment
-// something computes `(55.3 - 10256) / 10256` the product starts telling people a player is
+// something computes `(55.3 - 9100) / 9100` the product starts telling people a player is
 // "99.5% overvalued". Order comparisons are the honest alternative, and these tests pin both
 // the arithmetic and its sign conventions.
 
@@ -14,7 +14,7 @@ const quote = (over: Partial<MarketSnapshot> = {}): MarketSnapshot => ({
   canonicalPlayerId: 'pt-josh',
   source: 'dynastyprocess',
   format: 'dynasty_superflex',
-  value: 10256,
+  value: 9100,
   overallRank: 1,
   positionRank: 1,
   sourceConsensusRank: 1,
@@ -74,7 +74,7 @@ describe('comparison', () => {
   it('carries both raw values without ever combining them', () => {
     const [row] = compareModelToMarket([model()], [quote()], opts);
     expect(row.modelValue).toBe(55.3);
-    expect(row.marketValue).toBe(10256);
+    expect(row.marketValue).toBe(9100);
     // The contract has no field in which a cross-scale difference could hide.
     expect(Object.keys(row)).not.toContain('absoluteDifference');
     expect(Object.keys(row)).not.toContain('percentageDifference');
@@ -124,7 +124,7 @@ describe('comparison', () => {
   it('an unvalued model player is incomparable even when the market has a quote', () => {
     const [row] = compareModelToMarket([model({ value: null, overallRank: null })], [quote()], opts);
     expect(row.comparable).toBe(false);
-    expect(row.marketValue).toBe(10256); // the market side is still shown
+    expect(row.marketValue).toBe(9100); // the market side is still shown
     expect(row.overallRankDifference).toBeNull();
   });
 

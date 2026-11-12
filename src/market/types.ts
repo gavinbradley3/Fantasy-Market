@@ -115,7 +115,7 @@ export interface MarketBatch {
  * WHY THERE IS NO VALUE DIFFERENCE HERE
  * The two sides are quoted on unrelated scales. A PlayerTicker dynasty composite is a 0–100
  * model score; a DynastyProcess Superflex value is a ~0–10,000 trade-currency number with its
- * own distribution. `(55.3 - 10256) / 10256` is arithmetic on incompatible units — it computes
+ * own distribution. `(55.3 - 9100) / 9100` is arithmetic on incompatible units — it computes
  * cleanly and means nothing — and picking a multiplier to bridge them would be inventing a
  * conversion neither side published. So raw values are CARRIED (each labelled with its side)
  * and never subtracted.

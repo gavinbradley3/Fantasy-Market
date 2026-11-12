@@ -117,7 +117,7 @@ export function marketSnapshot(over: Partial<MarketSnapshot> = {}): MarketSnapsh
     canonicalPlayerId: 'pt-d80f2bd29165c373',
     source: 'dynastyprocess',
     format: 'dynasty_superflex',
-    value: 10256,
+    value: 9100,
     overallRank: 1,
     positionRank: 1,
     sourceConsensusRank: 1,

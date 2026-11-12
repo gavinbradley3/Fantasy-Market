@@ -1,0 +1,55 @@
+name: Deployment preview
+
+# Builds EXACTLY what the deploy job would publish, from the current site-data branch, runs the
+# same admission gate and public-data assertion, and keeps the result as a downloadable
+# artifact. It deploys nothing.
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Fetch published site data (current site-data)
+        run: |
+          git fetch origin site-data --depth=1
+          git worktree add --detach ../site-data FETCH_HEAD
+          echo "site-data commit $(git rev-parse FETCH_HEAD)"
+          ls -la ../site-data
+
+      - name: Build
+        env:
+          PLAYERTICKER_BASE_PATH: /${{ github.event.repository.name }}/
+        run: npm run build
+
+      - name: Admission gate (same as deploy)
+        run: npm run prepare:site-data -- --source ../site-data --destination dist/data
+
+      - name: Assert only approved public data
+        run: npm run assert:public-data -- --dir dist
+
+      - name: SPA fallback for deep links
+        run: cp dist/index.html dist/404.html
+
+      - name: List the preview
+        run: find dist -type f | sort
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: site-preview-${{ github.event.pull_request.number }}-${{ github.sha }}
+          path: dist
+          retention-days: 14
