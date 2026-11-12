@@ -11,10 +11,12 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import type { ExperimentConfig } from '@/validation/config';
 import {
-  buildRows, byCheckpoint, calibratedMae, crossPositionMix, largestMisses, evaluateCells, loadForEvaluation, MODELS, rookiePopulation, sampleSizes, stability, subgroups,
+  buildRows, byCheckpoint, calibratedMae, configureModels, crossPositionMix, largestMisses, evaluateCells, loadForEvaluation, MODELS, PAIRS, periodOf, rookiePopulation, sampleSizes, stability, subgroups,
   type CellResult,
 } from '@/validation/evaluate';
 import { BASELINE_CONSTANTS } from '@/validation/baselines';
+import { fitTwoPart } from '@/validation/challengers';
+import { POSITIONS, type Pos } from '@/validation/data';
 
 const args = process.argv.slice(2);
 const arg = (k: string) => {
@@ -29,6 +31,7 @@ const reps = Number(arg('--reps') ?? NaN);
 
 const root = process.cwd();
 const config = JSON.parse(readFileSync(resolve(configPath), 'utf8')) as ExperimentConfig;
+configureModels(config);
 const { ds, last } = loadForEvaluation(config, root, unsealTest);
 const { rows, manifests, skipped, reclass } = buildRows({ config, root, unsealTest }, ds, last);
 const bootReps = Number.isFinite(reps) ? reps : config.bootstrap.reps;
@@ -57,7 +60,37 @@ const results = {
   calibratedMae: calibratedMae(rows),
   crossPositionMix: crossPositionMix(rows),
   rookies: rookiePopulation({ config, root, unsealTest }, ds, last),
+  ...(config.challengers ? { challengers: { models: MODELS, pairs: PAIRS, predictionsFrom: config.predictionsFrom ?? config.name, twoPartFits: twoPartFits() } } : {}),
 };
+
+/** The fitted lines behind challenger F at each decision season, archived so a number can be traced. */
+function twoPartFits() {
+  const statPos = new Map<string, Map<string, number>>();
+  for (const g of ds.games) {
+    const m = statPos.get(g.gsis) ?? new Map<string, number>();
+    m.set(g.position, (m.get(g.position) ?? 0) + 1);
+    statPos.set(g.gsis, m);
+  }
+  const main = new Map<string, Pos>();
+  for (const [g, m] of statPos) {
+    const top = [...m.entries()].sort((a, b) => b[1] - a[1])[0][0];
+    if ((POSITIONS as readonly string[]).includes(top)) main.set(g, top as Pos);
+  }
+  const out: { fittedThroughSeason: number; pos: Pos; part: string; seasonsAhead: number; intercept: number; slope: number; pairs: number }[] = [];
+  const seasons = [...new Set(config.decisions.map((d) => d.season))].filter((s) => {
+    const p = periodOf(config, s);
+    return p !== null && (p !== 'test' || !!unsealTest);
+  });
+  for (const season of seasons.sort()) {
+    for (const pos of POSITIONS) {
+      const fit = fitTwoPart(ds, season - 1, pos, (g) => main.get(g) ?? null);
+      for (const [part, fits] of [['gamesShare', fit.share], ['pointsPerGamePlayed', fit.rate]] as const) {
+        fits.forEach((f, i) => out.push({ fittedThroughSeason: season - 1, pos, part, seasonsAhead: i + 1, intercept: f.line.a, slope: f.line.b, pairs: f.line.n }));
+      }
+    }
+  }
+  return out;
+}
 
 const round = (_k: string, v: unknown) => (typeof v === 'number' ? (Number.isFinite(v) ? Math.round(v * 10000) / 10000 : null) : v);
 const body = JSON.stringify(results, round, 1);
@@ -93,6 +126,18 @@ function renderTables(cells: CellResult[], r: typeof results): string {
       }
       L.push('');
     }
+  }
+  if (PAIRS.length) {
+    L.push('## Paired differences (first minus second, same bootstrap resamples)', '', 'A value variant shares its parent model\'s within-position ordering, so it differs from the parent only on VOR2.', '', '| Period | Population | Pos | Target | Pair | Δ Spearman [95% CI] | Δ P@N [95% CI] |', '|---|---|---|---|---|---|---|');
+    for (const c of cells) {
+      for (const x of c.paired ?? []) {
+        // A value variant shares its parent's within-position scores: skip pairs that are zero or duplicated there.
+        const sameOrdering = (m: string) => m.replace('E_curve_value', 'E').replace('E_matched_value', 'E').replace('E_playerticker', 'E').replace('C_season_value', 'C').replace('C_age_adjusted', 'C').replace('F_harness_value', 'F').replace('F_two_part', 'F');
+        if (c.target !== 'VOR2' && (sameOrdering(x.a) === sameOrdering(x.b) || x.a === 'F_harness_value' || x.b === 'E_matched_value')) continue;
+        L.push(`| ${c.period} | ${c.population} | ${c.pos} | ${c.target} | ${x.a} − ${x.b} | ${f(x.spearman)} [${f(x.ci[0])}, ${f(x.ci[1])}] | ${f(x.precisionAtN)} [${f(x.pCi[0])}, ${f(x.pCi[1])}] |`);
+      }
+    }
+    L.push('');
   }
   L.push('## Rank stability between consecutive checkpoints (Spearman of T2 scores)', '', '| Period | Pos | ' + MODELS.join(' | ') + ' |', '|---|---|' + MODELS.map(() => '---').join('|') + '|');
   const st = r.stability;

@@ -61,23 +61,28 @@ function scheduledGames(ds: Dataset, season: number, team: string, asOfMs: numbe
   return n;
 }
 
-function latestSeasonWithGames(ds: Dataset, asOfMs: number): number {
+export function latestSeasonWithGames(ds: Dataset, asOfMs: number): number {
   let latest = -Infinity;
   for (const g of ds.games) if (g.availableAt <= asOfMs && g.season > latest) latest = g.season;
   return latest;
 }
 
-interface Rate {
+export interface Rate {
   ptsPerGame: number;
   oppPerGame: number;
   pts: number;
   opp: number;
+  /** Recency-weighted games played over recency-weighted scheduled team games (0..1). */
+  gamesShare: number;
+  /** Recency-weighted points per game PLAYED. ptsPerGame = gamesShare x ptsPerGamePlayed. */
+  ptsPerGamePlayed: number;
 }
 
-function recencyRate(seasons: Map<number, PlayerGame[]>, ds: Dataset, asOfMs: number, latest: number, pos: Pos): Rate {
+export function recencyRate(seasons: Map<number, PlayerGame[]>, ds: Dataset, asOfMs: number, latest: number, pos: Pos): Rate {
   let wPts = 0;
   let wOpp = 0;
   let wGames = 0;
+  let wPlayed = 0;
   let pts = 0;
   let opp = 0;
   for (const [season, games] of seasons) {
@@ -89,10 +94,12 @@ function recencyRate(seasons: Map<number, PlayerGame[]>, ds: Dataset, asOfMs: nu
     wPts += w * sp;
     wOpp += w * so;
     wGames += w * sched;
+    wPlayed += w * games.length;
     pts += sp;
     opp += so;
   }
-  return wGames > 0 ? { ptsPerGame: wPts / wGames, oppPerGame: wOpp / wGames, pts, opp } : { ptsPerGame: 0, oppPerGame: 0, pts: 0, opp: 0 };
+  if (wGames <= 0) return { ptsPerGame: 0, oppPerGame: 0, pts: 0, opp: 0, gamesShare: 0, ptsPerGamePlayed: 0 };
+  return { ptsPerGame: wPts / wGames, oppPerGame: wOpp / wGames, pts, opp, gamesShare: wPlayed / wGames, ptsPerGamePlayed: wPlayed > 0 ? wPts / wPlayed : 0 };
 }
 
 /**

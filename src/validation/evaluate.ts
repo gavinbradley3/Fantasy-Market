@@ -12,9 +12,32 @@ import { loadDataset, type Dataset, type PlayerGame, type Pos, POSITIONS } from 
 import { BASELINES, computeBaselines, type BaselineId } from './baselines';
 import { outcomeFor, REPLACEMENT_RANK, seasonTotals, type Outcome } from './outcomes';
 import { pairwiseAccuracy, precisionAtN, quantile, rng, spearman } from './metrics';
+import { computeTwoPart, curveValue, realisedRankCurve, type ChallengerId, type ValueVariantId } from './challengers';
 
-export type ModelId = 'E_playerticker' | BaselineId;
-export const MODELS: readonly ModelId[] = ['E_playerticker', ...BASELINES];
+export type ModelId = 'E_playerticker' | BaselineId | ChallengerId | ValueVariantId;
+const BASE_MODELS: readonly ModelId[] = ['E_playerticker', ...BASELINES];
+const CHALLENGER_MODELS: readonly ModelId[] = ['E_playerticker', 'E_curve_value', 'E_matched_value', ...BASELINES, 'C_season_value', 'F_two_part', 'F_harness_value'];
+/** Models scored in this run. Five by default; configureModels adds the challengers. */
+export let MODELS: readonly ModelId[] = BASE_MODELS;
+/** Paired differences reported per cell (first minus second), same bootstrap resamples. */
+export let PAIRS: readonly (readonly [ModelId, ModelId])[] = [];
+const CHALLENGER_PAIRS: readonly (readonly [ModelId, ModelId])[] = [
+  ['E_curve_value', 'E_playerticker'], // conversion only (realised rank curve)
+  ['E_matched_value', 'E_playerticker'], // conversion only (C's conversion)
+  ['C_age_adjusted', 'E_matched_value'], // ordering only, under C's conversion
+  ['C_age_adjusted', 'E_playerticker'],
+  ['F_two_part', 'E_playerticker'],
+  ['F_two_part', 'C_season_value'], // F against C, both under the per-season value rule
+  ['F_harness_value', 'C_age_adjusted'], // F against C, both under the archived harness rule
+  ['C_season_value', 'C_age_adjusted'], // value rule only, C's ordering
+  ['F_two_part', 'F_harness_value'], // value rule only, F's ordering
+  ['F_two_part', 'E_curve_value'], // F against the incumbent's ordering with a revised conversion
+  ['C_season_value', 'E_curve_value'],
+];
+export function configureModels(config: Pick<ExperimentConfig, 'challengers'>): void {
+  MODELS = config.challengers ? CHALLENGER_MODELS : BASE_MODELS;
+  PAIRS = config.challengers ? CHALLENGER_PAIRS : [];
+}
 export type Target = 'T1' | 'T2';
 export const TARGETS: readonly Target[] = ['T1', 'T2'];
 export type Period = 'development' | 'validation' | 'test';
@@ -85,7 +108,7 @@ export function buildRows(input: EvaluationInput, ds: Dataset, lastOutcomeSeason
     if (period === null) continue;
     if (period === 'test' && !input.unsealTest) continue;
     const id = `${d.season}-${d.checkpoint}`;
-    const file = join(root, 'experiments', config.name, 'predictions', `${id}.json`);
+    const file = join(root, 'experiments', config.predictionsFrom ?? config.name, 'predictions', `${id}.json`);
     if (!existsSync(file)) {
       skipped.push(`${id}: no prediction file`);
       continue;
@@ -102,14 +125,40 @@ export function buildRows(input: EvaluationInput, ds: Dataset, lastOutcomeSeason
       const sp = statPos.get(p.gsis);
       if (sp && sp !== p.position) reclass.push({ decision: id, boardPos: p.position, statPos: sp, gsis: p.gsis });
     }
-    const base = computeBaselines({ ds, asOfMs, decisionSeason: d.season, checkpoint: d.checkpoint, population, positionOf });
+    const ctx = { ds, asOfMs, decisionSeason: d.season, checkpoint: d.checkpoint, population, positionOf };
+    const base = computeBaselines(ctx);
+    const withChallengers = MODELS.includes('F_two_part');
+    const twoPart = withChallengers ? computeTwoPart(ctx) : null;
+    const rankCurve = withChallengers ? realisedRankCurve(ds, d.season - 1) : null;
+    // Baseline C's two-season predictions at each position, best first: the scale the
+    // matched value variant hands out by the incumbent's position rank.
+    const cSorted = new Map<Pos, number[]>();
+    if (withChallengers) {
+      for (const pos of POSITIONS) {
+        cSorted.set(pos, [...population].filter(([, p]) => p === pos).map(([g]) => base.C_age_adjusted.T2.get(g) ?? 0).sort((x, y) => y - x));
+      }
+    }
 
     // Each baseline's implied replacement level: its own k-th best T1 at the position.
     const rep = new Map<string, number>();
-    for (const b of BASELINES) {
+    const pointModels: Record<string, { T1: ReadonlyMap<string, number>; T2: ReadonlyMap<string, number> }> = { ...base };
+    if (twoPart) pointModels.F_two_part = twoPart;
+    for (const b of Object.keys(pointModels)) {
       for (const pos of POSITIONS) {
-        const vals = [...population].filter(([, p]) => p === pos).map(([g]) => base[b].T1.get(g) ?? 0).sort((x, y) => y - x);
+        const vals = [...population].filter(([, p]) => p === pos).map(([g]) => pointModels[b].T1.get(g) ?? 0).sort((x, y) => y - x);
         rep.set(`${b}|${pos}`, vals[Math.min(REPLACEMENT_RANK[pos], vals.length) - 1] ?? 0);
+      }
+    }
+
+    // Second-season replacement level for the per-season value rule: the k-th best
+    // second-season prediction (T2 - T1) at the position.
+    const rep2 = new Map<string, number>();
+    if (withChallengers) {
+      for (const b of ['C_age_adjusted', 'F_two_part']) {
+        for (const pos of POSITIONS) {
+          const vals = [...population].filter(([, p]) => p === pos).map(([g]) => (pointModels[b].T2.get(g) ?? 0) - (pointModels[b].T1.get(g) ?? 0)).sort((x, y) => y - x);
+          rep2.set(`${b}|${pos}`, vals[Math.min(REPLACEMENT_RANK[pos], vals.length) - 1] ?? 0);
+        }
       }
     }
 
@@ -118,9 +167,26 @@ export function buildRows(input: EvaluationInput, ds: Dataset, lastOutcomeSeason
       const ptScore = p.positionRank === null ? -1e9 : -p.positionRank;
       const score = { E_playerticker: { T1: ptScore, T2: ptScore } } as Record<ModelId, Record<Target, number>>;
       const value = { E_playerticker: p.dynastyValue ?? 0 } as Record<ModelId, number>;
-      for (const b of BASELINES) {
-        score[b] = { T1: base[b].T1.get(gsis) ?? 0, T2: base[b].T2.get(gsis) ?? 0 };
-        value[b] = Math.max(0, (base[b].T2.get(gsis) ?? 0) - 2 * rep.get(`${b}|${pos}`)!);
+      for (const b of Object.keys(pointModels) as (BaselineId | ChallengerId)[]) {
+        score[b] = { T1: pointModels[b].T1.get(gsis) ?? 0, T2: pointModels[b].T2.get(gsis) ?? 0 };
+        value[b] = Math.max(0, (pointModels[b].T2.get(gsis) ?? 0) - 2 * rep.get(`${b}|${pos}`)!);
+      }
+      if (withChallengers) {
+        // Value-layer-only variants: the incumbent's ordering, a different conversion.
+        score.E_curve_value = score.E_playerticker;
+        score.E_matched_value = score.E_playerticker;
+        value.E_curve_value = curveValue(rankCurve![pos], p.positionRank, pos);
+        const cs = cSorted.get(pos)!;
+        const matched = p.positionRank === null || p.positionRank > cs.length ? 0 : cs[p.positionRank - 1];
+        value.E_matched_value = Math.max(0, matched - 2 * rep.get(`C_age_adjusted|${pos}`)!);
+        // Per-season rule. Season 1 = T1, season 2 = T2 - T1, each against its own k-th best.
+        const perSeason = (m: 'C_age_adjusted' | 'F_two_part') =>
+          Math.max(0, score[m].T1 - rep.get(`${m}|${pos}`)!) + Math.max(0, score[m].T2 - score[m].T1 - rep2.get(`${m}|${pos}`)!);
+        score.C_season_value = score.C_age_adjusted;
+        value.C_season_value = perSeason('C_age_adjusted');
+        score.F_harness_value = score.F_two_part;
+        value.F_harness_value = value.F_two_part;
+        value.F_two_part = perSeason('F_two_part');
       }
       rows.push({
         decision: id, season: d.season, checkpoint: d.checkpoint, period, gsis, pos,
@@ -203,6 +269,8 @@ export interface CellResult {
   model: Record<ModelId, { spearman: number; ci: [number, number]; pairwise: number; pairs: number; precisionAtN: number; pCi: [number, number] }>;
   bestBaseline: BaselineId;
   ptMinusBest: { spearman: number; ci: [number, number] };
+  /** Present only when challengers are scored: first minus second, paired bootstrap. */
+  paired?: { a: ModelId; b: ModelId; spearman: number; ci: [number, number]; precisionAtN: number; pCi: [number, number] }[];
 }
 
 /** Rows grouped by decision, filtered to those with the target observed. */
@@ -280,6 +348,7 @@ export function evaluateCells(rows: readonly Row[], reps: number, seed: number):
       const boots = {} as Record<ModelId, { s: number[]; p: number[] }>;
       for (const m of MODELS) boots[m] = { s: [], p: [] };
       const diffs: number[] = [];
+      const pairDiffs = PAIRS.map(() => ({ s: [] as number[], p: [] as number[] }));
       let best: BaselineId = BASELINES[0];
       for (const b of BASELINES) if (point[b].s > point[best].s) best = b;
       for (let rep = 0; rep < reps; rep++) {
@@ -294,6 +363,10 @@ export function evaluateCells(rows: readonly Row[], reps: number, seed: number):
           boots[m].p.push(r[m].p);
         }
         diffs.push(r.E_playerticker.s - r[best].s);
+        PAIRS.forEach(([a, b], i) => {
+          pairDiffs[i].s.push(r[a].s - r[b].s);
+          pairDiffs[i].p.push(r[a].p - r[b].p);
+        });
       }
       const ci = (xs: number[]): [number, number] => {
         const s = xs.filter(Number.isFinite).sort((a, b) => a - b);
@@ -322,6 +395,9 @@ export function evaluateCells(rows: readonly Row[], reps: number, seed: number):
         uniquePlayers: players.length,
         model, bestBaseline: best,
         ptMinusBest: { spearman: point.E_playerticker.s - point[best].s, ci: ci(diffs) },
+        ...(PAIRS.length
+          ? { paired: PAIRS.map(([a, b], i) => ({ a, b, spearman: point[a].s - point[b].s, ci: ci(pairDiffs[i].s), precisionAtN: point[a].p - point[b].p, pCi: ci(pairDiffs[i].p) })) }
+          : {}),
       });
     }
   }
@@ -438,7 +514,7 @@ export function rookiePopulation(input: EvaluationInput, ds: Dataset, lastOutcom
     if (d.checkpoint !== 'OFFSEASON') continue;
     const period = periodOf(config, d.season);
     if (!period || (period === 'test' && !input.unsealTest)) continue;
-    const file = join(root, 'experiments', config.name, 'predictions', `${d.season}-OFFSEASON.json`);
+    const file = join(root, 'experiments', config.predictionsFrom ?? config.name, 'predictions', `${d.season}-OFFSEASON.json`);
     if (!existsSync(file)) continue;
     const pred = JSON.parse(readFileSync(file, 'utf8')) as PredictionFile;
     const board = new Map(pred.players.map((p) => [p.gsis, p]));

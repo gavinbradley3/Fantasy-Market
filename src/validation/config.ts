@@ -14,6 +14,18 @@ export interface ExperimentConfig {
    * from that date (phase2-baseline-v1 replayed every date with October 2019 ages).
    */
   readonly isolateCaptures?: boolean;
+  /**
+   * Read frozen PlayerTicker predictions from another experiment's predictions directory
+   * instead of this one's. A challenger experiment scores new models against the SAME frozen
+   * boards, so it points here rather than copying or regenerating them.
+   */
+  readonly predictionsFrom?: string;
+  /**
+   * Also score the research challengers (src/validation/challengers.ts): F and the two
+   * value-layer-only variants of the incumbent. Off by default, so an experiment that does not
+   * ask for them produces byte-identical results to before they existed.
+   */
+  readonly challengers?: boolean;
   /** Scratch directory for pipeline databases; not archived. */
   readonly workDir: string;
   readonly decisions: readonly { readonly season: number; readonly checkpoint: string }[];
