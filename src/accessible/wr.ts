@@ -247,7 +247,7 @@ const ADOT_PRIOR = 9.5;
  * scoring onto age, trajectory and durability. Target share leads every horizon because it is
  * both the best-measured and the most persistent receiver signal.
  */
-const WR_HORIZON_WEIGHTS = {
+export const WR_HORIZON_WEIGHTS = {
   weekly: { TS: 0.22, OP: 0.19, PR: 0.16, EF: 0.08, SC: 0.07, TR: 0.03, AG: 0.02, DC: 0.01, AV: 0.19, DU: 0.03 },
   ros: { TS: 0.23, OP: 0.19, PR: 0.15, EF: 0.09, SC: 0.06, TR: 0.05, AG: 0.05, DC: 0.02, AV: 0.12, DU: 0.04 },
   oneYear: { TS: 0.23, OP: 0.18, PR: 0.14, EF: 0.09, SC: 0.06, TR: 0.07, AG: 0.1, DC: 0.03, AV: 0.05, DU: 0.05 },

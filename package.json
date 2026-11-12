@@ -31,7 +31,8 @@
     "report:sleeper-enrichment": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/sleeper-enrichment-report.ts",
     "verify:sleeper": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/verify-sleeper.ts",
     "stage:board": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/stage-board.ts",
-    "verify:staging": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/verify-staging.ts"
+    "verify:staging": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/verify-staging.ts",
+    "explain:players": "TSX_TSCONFIG_PATH=./tsconfig.app.json tsx scripts/explain-players.ts"
   },
   "dependencies": {
     "react": "^18.3.1",
