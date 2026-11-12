@@ -66,7 +66,7 @@ describe('static export', () => {
     expect(status.market.quoteCount).toBe(0);
   });
 
-  it('appends one market history line per capture and never duplicates one', () => {
+  it('writes NO market file while external market data is disabled, even when the database holds quotes', () => {
     const dir = tempDir();
     const out = tempDir();
     const dbPath = join(dir, 'market.db');
@@ -74,16 +74,10 @@ describe('static export', () => {
     store.appendMarketSnapshots([quote('pt-a'), quote('pt-b', { overallRank: 2, positionRank: 2, value: 4000 })]);
     store.close();
 
-    run('scripts/export-site-data.ts', ['--db', dbPath, '--out', out, '--now', NOW]);
-    const historyPath = join(out, 'market-history.jsonl');
-    expect(existsSync(historyPath)).toBe(true);
-    const afterFirst = readFileSync(historyPath, 'utf8').trim().split('\n');
-    expect(afterFirst).toHaveLength(1);
-
-    // Re-exporting the SAME capture must not add a line. Re-running a job is safe.
-    const second = run('scripts/export-site-data.ts', ['--db', dbPath, '--out', out, '--now', NOW]);
-    expect(second).toContain('already recorded');
-    expect(readFileSync(historyPath, 'utf8').trim().split('\n')).toHaveLength(1);
+    const log = run('scripts/export-site-data.ts', ['--db', dbPath, '--out', out, '--now', NOW]);
+    expect(log).toContain('NOT WRITTEN — external market data is disabled');
+    expect(existsSync(join(out, 'market-latest.json'))).toBe(false);
+    expect(existsSync(join(out, 'market-history.jsonl'))).toBe(false);
   });
 });
 
@@ -92,12 +86,20 @@ describe('market history seed', () => {
     const dir = tempDir();
     const out = tempDir();
 
-    // Capture one, exported and "committed".
-    const firstDb = join(dir, 'first.db');
-    const s1 = PersistenceStore.open(firstDb);
-    s1.appendMarketSnapshots([quote('pt-a', { ingestedAt: '2026-09-01T00:00:00.000Z' })]);
-    s1.close();
-    run('scripts/export-site-data.ts', ['--db', firstDb, '--out', out, '--now', NOW]);
+    // A committed history line, in the archive format (raw snapshots). Written directly: the
+    // export no longer writes market history while external market data is disabled.
+    writeFileSync(
+      join(out, 'market-history.jsonl'),
+      `${JSON.stringify({
+        source: 'dynastyprocess',
+        format: 'dynasty_superflex',
+        capturedAt: '2026-09-01T00:00:00.000Z',
+        sourceTimestamp: '2026-09-01T00:00:00.000Z',
+        attribution: {},
+        quoteCount: 1,
+        quotes: [quote('pt-a', { ingestedAt: '2026-09-01T00:00:00.000Z' })],
+      })}\n`,
+    );
 
     // A NEW runner, a NEW empty database — as a scheduled job actually starts.
     const secondDb = join(dir, 'second.db');

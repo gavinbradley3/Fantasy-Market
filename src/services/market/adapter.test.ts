@@ -32,7 +32,7 @@ function response(over: Partial<ApiMarketResponse> = {}): ApiMarketResponse {
         canonicalPlayerId: 'pt-josh',
         source: 'dynastyprocess',
         format: 'dynasty_superflex',
-        value: 10256,
+        value: 9100,
         overallRank: 1,
         positionRank: 1,
         sourceTimestamp: '2026-09-11T00:00:00.000Z',
@@ -88,7 +88,7 @@ function player(over: Partial<PublishedPlayer> = {}): PublishedPlayer {
 describe('adaptMarket', () => {
   it('indexes quotes by the canonical id the board already joins on', () => {
     const market = adaptMarket(response());
-    expect(market.quotesByPlayerId.get('pt-josh')?.value).toBe(10256);
+    expect(market.quotesByPlayerId.get('pt-josh')?.value).toBe(9100);
   });
 
   it('carries attribution through — it is not an optional field on the way in', () => {

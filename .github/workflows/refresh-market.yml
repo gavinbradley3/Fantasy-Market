@@ -34,6 +34,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # External market quotes have unresolved redistribution rights, and this job commits to a
+      # PUBLIC branch. It refuses to run until src/config/release.ts enables external market data
+      # in a reviewed change.
+      - name: Refuse while external market data is disabled
+        run: |
+          if ! grep -q "EXTERNAL_MARKET_ENABLED = true" src/config/release.ts; then
+            echo "::error::external market data is disabled (src/config/release.ts); no quotes may be written to a public branch"
+            exit 1
+          fi
+
       - uses: actions/setup-node@v4
         with:
           node-version: '22'

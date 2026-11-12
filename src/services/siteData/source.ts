@@ -15,6 +15,8 @@
 // There is no second pipeline and nothing is uploaded by hand, so the deployed JSON cannot drift
 // from what the refresh published: it IS what the refresh published.
 
+import { EXTERNAL_MARKET_ENABLED } from '@/config/release';
+
 /** The environment knobs this module reads. Nothing else consults them. */
 export interface SiteDataEnv {
   /** Explicit static-data base, e.g. to preview the production path locally. */
@@ -51,7 +53,8 @@ function staticSource(baseUrl: string): SiteDataSource {
     baseUrl: trimTrailingSlash(baseUrl),
     publicationPath: '/board.json',
     statusPath: '/status.json',
-    marketPath: '/market-latest.json',
+    // No market document is published while external market data is disabled.
+    marketPath: EXTERNAL_MARKET_ENABLED ? '/market-latest.json' : null,
   };
 }
 
@@ -81,7 +84,7 @@ export function resolveSiteDataSource(env: SiteDataEnv = {}): SiteDataSource {
       // The dev API serves market through a route, but publishes no status document — freshness
       // is a property of the scheduled refresh, which does not exist locally.
       statusPath: null,
-      marketPath: '/market',
+      marketPath: EXTERNAL_MARKET_ENABLED ? '/market' : null,
     };
   }
 
@@ -91,7 +94,7 @@ export function resolveSiteDataSource(env: SiteDataEnv = {}): SiteDataSource {
       baseUrl: '/api',
       publicationPath: '/publication',
       statusPath: null,
-      marketPath: '/market',
+      marketPath: EXTERNAL_MARKET_ENABLED ? '/market' : null,
     };
   }
 

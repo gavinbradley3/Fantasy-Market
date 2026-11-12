@@ -4,38 +4,39 @@ import { Footer } from '@/components/chrome/Footer';
 export default function LegalPage() {
   return (
     <div className="space-y-4">
-      <h1 className="text-[26px] font-bold leading-tight text-text-primary">Legal & Disclaimers</h1>
+      <h1 className="text-[26px] font-bold leading-tight text-text-primary">Legal, Disclaimers & Data Credits</h1>
 
-      <Section title="Fictional value">
-        Market prices on PlayerTicker are fictional fantasy value indexes. They are not real money,
-        not securities, and not tradable instruments. Nothing on this site can be bought, sold, or
-        wagered.
+      <Section title="What the values are">
+        PlayerTicker values are fantasy football rankings produced by our own models from public statistics. They
+        are in beta and have not been shown to predict future fantasy production better than simple alternatives.
+        See the <Link to="/methodology" className="text-brand-blue hover:underline">Methodology</Link> page for how
+        they are made and what they leave out.
       </Section>
 
       <Section title="Not advice, not gambling">
-        PlayerTicker provides fantasy sports entertainment information only. It is not financial
-        advice, investment advice, gambling, or betting, and offers nothing of monetary value to buy,
-        sell, or wager. "Buy" and "Sell" are used only as fantasy roster-move shorthand.
+        PlayerTicker provides fantasy sports entertainment information only. It is not financial advice, investment
+        advice, gambling, or betting, and offers nothing of monetary value to buy, sell, or wager.
+      </Section>
+
+      <Section title="Data credits">
+        Player, roster, schedule and game statistics come from the{' '}
+        <a href="https://github.com/nflverse/nflverse-data" className="text-brand-blue hover:underline">
+          nflverse-data
+        </a>{' '}
+        project, published under the Creative Commons Attribution 4.0 licence. PlayerTicker is not affiliated with
+        or endorsed by nflverse, the NFL, or any team. No third-party consensus rankings or market values are shown
+        on this site.
       </Section>
 
       <Section title="Names, statistics & imagery">
-        Player names and public statistics are used factually, as is standard in the fantasy sports
-        industry, with no implied endorsement. The MVP uses no NFL team logos, wordmarks, uniforms, or
-        licensed player headshots. Player avatars are generated initials on custom, team-color-inspired
-        gradients — not official marks. Team names appear as plain text.
-      </Section>
-
-      <Section title="Demo data">
-        During the MVP, all values are simulated by our market engine from authored inputs. No live or
-        licensed data source is connected. See the{' '}
-        <Link to="/methodology" className="text-brand-blue hover:underline">Methodology</Link> page for the
-        full explanation of what is simulated.
+        Player names and public statistics are used factually, as is standard in the fantasy sports industry, with
+        no implied endorsement. PlayerTicker uses no NFL team logos, wordmarks, uniforms, or licensed player
+        headshots. Team names appear as plain text.
       </Section>
 
       <Section title="Privacy">
-        The MVP collects nothing beyond anonymous usage analytics and local-storage state (your
-        watchlist and portfolio never leave your browser). There are no accounts and no sale of user
-        data.
+        PlayerTicker has no accounts and collects no personal data. Pages are static files; any preferences are
+        kept in your own browser.
       </Section>
 
       <Footer />

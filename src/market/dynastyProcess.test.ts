@@ -16,11 +16,13 @@ const ID_ROWS: DynastyProcessIdRow[] = [
   { fantasypros_id: '99999', name: 'No Gsis Player', position: 'WR', team: 'FA' },
 ];
 
+// SYNTHETIC values. They exercise the adapter's parsing, ordering and format selection and are
+// deliberately not the source's published numbers, which may not be redistributed.
 const VALUE_ROWS: DynastyProcessValueRow[] = [
-  { player: 'Josh Allen', pos: 'QB', team: 'BUF', value_1qb: '7000', value_2qb: '10256', ecr_1qb: '14.2', ecr_2qb: '1', scrape_date: '2026-09-11', fp_id: '17298' },
-  { player: 'Justin Jefferson', pos: 'WR', team: 'MIN', value_1qb: '9000', value_2qb: '8070', ecr_1qb: '2.1', ecr_2qb: '11.2', scrape_date: '2026-09-11', fp_id: '19236' },
-  { player: 'Bijan Robinson', pos: 'RB', team: 'ATL', value_1qb: '8800', value_2qb: '7976', ecr_1qb: '3.0', ecr_2qb: '11.7', scrape_date: '2026-09-11', fp_id: '23133' },
-  { player: 'Trey McBride', pos: 'TE', team: 'ARI', value_1qb: '4500', value_2qb: '4140', ecr_1qb: '30.1', ecr_2qb: '39.6', scrape_date: '2026-09-11', fp_id: '22936' },
+  { player: 'Josh Allen', pos: 'QB', team: 'BUF', value_1qb: '6500', value_2qb: '9100', ecr_1qb: '13.5', ecr_2qb: '1', scrape_date: '2026-09-11', fp_id: '17298' },
+  { player: 'Justin Jefferson', pos: 'WR', team: 'MIN', value_1qb: '8200', value_2qb: '7400', ecr_1qb: '2.5', ecr_2qb: '10.5', scrape_date: '2026-09-11', fp_id: '19236' },
+  { player: 'Bijan Robinson', pos: 'RB', team: 'ATL', value_1qb: '8100', value_2qb: '7300', ecr_1qb: '3.5', ecr_2qb: '12.5', scrape_date: '2026-09-11', fp_id: '23133' },
+  { player: 'Trey McBride', pos: 'TE', team: 'ARI', value_1qb: '4000', value_2qb: '3700', ecr_1qb: '31.5', ecr_2qb: '40.5', scrape_date: '2026-09-11', fp_id: '22936' },
 ];
 
 const opts = (over: Partial<Parameters<typeof adaptDynastyProcess>[2]> = {}) => ({
@@ -104,8 +106,8 @@ describe('adaptDynastyProcess — formats', () => {
 
     const allenSf = sf.snapshots.find((s) => s.sourcePlayerId === '17298');
     const allen1 = oneQb.snapshots.find((s) => s.sourcePlayerId === '17298');
-    expect(allenSf?.value).toBe(10256);
-    expect(allen1?.value).toBe(7000);
+    expect(allenSf?.value).toBe(9100);
+    expect(allen1?.value).toBe(6500);
     expect(allenSf?.format).toBe('dynasty_superflex');
     expect(allen1?.format).toBe('dynasty_1qb');
   });
@@ -122,7 +124,7 @@ describe('adaptDynastyProcess — values and ranks', () => {
   it('keeps the fractional consensus rank separate from the derived integer rank', () => {
     const batch = adaptDynastyProcess(VALUE_ROWS, ID_ROWS, opts());
     const jj = batch.snapshots.find((s) => s.sourcePlayerId === '19236');
-    expect(jj?.sourceConsensusRank).toBe(11.2); // as published — fractional
+    expect(jj?.sourceConsensusRank).toBe(10.5); // as published — fractional
     expect(Number.isInteger(jj?.overallRank)).toBe(true); // derived by ordering
   });
 

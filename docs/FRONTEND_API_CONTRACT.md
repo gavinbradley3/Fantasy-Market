@@ -174,7 +174,7 @@ kind to handle, unlike `GET /publication`.
       "canonicalPlayerId": "pt-d80f2bd29165c373",
       "source": "dynastyprocess",        // repeated per record so a detached quote stays attributed
       "format": "dynasty_superflex",
-      "value": 10256,                    // the SOURCE's scale. null = no value published, never 0
+      "value": 9100,                    // the SOURCE's scale. null = no value published, never 0
       "overallRank": 1,
       "positionRank": 1,
       "sourceTimestamp": "2026-09-11T00:00:00.000Z",

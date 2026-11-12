@@ -66,6 +66,10 @@ function adaptProvenance(p: ApiBoardEntry['provenance']): PublishedProvenance | 
   };
 }
 
+function positiveIntOrNull(value: number | null | undefined): number | null {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : null;
+}
+
 function finiteOrNull(value: number | null | undefined): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
@@ -83,43 +87,60 @@ function adaptComposites(composites: ApiBoardEntry['composites']): PublishedComp
   return Object.values(adapted).some((v) => v !== null) ? adapted : null;
 }
 
-/**
- * Rank the board. Valued players are ordered by descending value; ties and unvalued players
- * fall back to ascending canonical id, so the order is total and stable across renders.
- * Unvalued players are ranked `null` — they sit at the end of the list without a number.
- */
-function ranked(players: readonly Omit<PublishedPlayer, 'overallRank' | 'positionRank'>[]): PublishedPlayer[] {
-  // The board ranks on the SHARED cross-position value. Sorting the position engines' internal
-  // composites together — which is what this did — compared four numbers anchored in four
-  // different distributions, and put whichever position had the widest internal scale on top.
-  //
-  // A board published before the utility layer existed carries no shared value; those fall back
-  // to the composite, which keeps an older backend readable rather than blank.
-  const anyShared = players.some((p) => p.dynastyValue !== null);
-  const rankOn = (p: Omit<PublishedPlayer, 'overallRank' | 'positionRank'>) =>
-    anyShared ? p.dynastyValue : p.value;
+type Unranked = Omit<PublishedPlayer, 'overallRank' | 'positionRank'> & {
+  readonly canonicalOverallRank: number | null;
+  readonly canonicalPositionRank: number | null;
+};
 
+/**
+ * Rank the board.
+ *
+ * CANONICAL RANKS WIN. A board that publishes its own cross-position ranks
+ * (`dynastyOverallRank` / `dynastyPositionRank`) is shown in exactly that order, with exactly
+ * those numbers: the frontend never re-ranks a published board, because two rankings of one
+ * board are a contradiction a reader cannot resolve. Players the backend did not rank sit after
+ * every ranked player, unranked, in canonical-id order.
+ *
+ * Only a legacy board with no published ranks falls back to ordering by value here.
+ */
+function ranked(players: readonly Unranked[]): PublishedPlayer[] {
+  const strip = (p: Unranked, overallRank: number | null, positionRank: number | null): PublishedPlayer => {
+    const { canonicalOverallRank: _o, canonicalPositionRank: _p, ...rest } = p;
+    return { ...rest, overallRank, positionRank };
+  };
+
+  if (players.some((p) => p.canonicalOverallRank !== null)) {
+    const ordered = [...players].sort((a, b) => {
+      const ar = a.canonicalOverallRank;
+      const br = b.canonicalOverallRank;
+      if (ar !== null && br !== null && ar !== br) return ar - br;
+      if (ar !== null && br === null) return -1;
+      if (ar === null && br !== null) return 1;
+      return a.playerId.localeCompare(b.playerId);
+    });
+    return ordered.map((p) =>
+      p.canonicalOverallRank === null ? strip(p, null, null) : strip(p, p.canonicalOverallRank, p.canonicalPositionRank),
+    );
+  }
+
+  const anyShared = players.some((p) => p.dynastyValue !== null);
+  const rankOn = (p: Unranked) => (anyShared ? p.dynastyValue : p.value);
   const ordered = [...players].sort((a, b) => {
     const av = rankOn(a);
     const bv = rankOn(b);
     if (av !== null && bv !== null && av !== bv) return bv - av;
     if (av !== null && bv === null) return -1;
     if (av === null && bv !== null) return 1;
-    // The board no longer ties at zero in bulk — the depth term separates below-replacement
-    // players — but exact ties still occur where the measured curve has flattened to its floor.
-    // The position composite stands in there, so a tie breaks on something real, not a player id.
-    if (anyShared && a.value !== null && b.value !== null && a.value !== b.value) return b.value - a.value;
     return a.playerId.localeCompare(b.playerId);
   });
-
   let overall = 0;
   const positionCounters = new Map<Position, number>();
   return ordered.map((p) => {
-    if (rankOn(p) === null) return { ...p, overallRank: null, positionRank: null };
+    if (rankOn(p) === null) return strip(p, null, null);
     overall += 1;
     const positionRank = (positionCounters.get(p.position) ?? 0) + 1;
     positionCounters.set(p.position, positionRank);
-    return { ...p, overallRank: overall, positionRank };
+    return strip(p, overall, positionRank);
   });
 }
 
@@ -144,7 +165,7 @@ export function adaptPublication(
 
   const rejected: RejectedRecord[] = [];
   const seen = new Set<string>();
-  const admitted: Omit<PublishedPlayer, 'overallRank' | 'positionRank'>[] = [];
+  const admitted: Unranked[] = [];
 
   for (const entry of response.entries) {
     const canonicalId = typeof entry.canonicalId === 'string' ? entry.canonicalId.trim() : '';
@@ -217,6 +238,8 @@ export function adaptPublication(
       materialMissingInputs: [...(entry.materialMissingInputs ?? [])],
       insufficientReason: entry.insufficientReason ?? null,
       provenance: adaptProvenance(entry.provenance),
+      canonicalOverallRank: positiveIntOrNull(entry.dynastyOverallRank),
+      canonicalPositionRank: positiveIntOrNull(entry.dynastyPositionRank),
     });
   }
 
@@ -229,7 +252,9 @@ export function adaptPublication(
     entryCount: meta.entryCount,
     horizon,
     players,
-    valuedCount: players.filter((p) => p.value !== null).length,
+    // A player is valued when the board ranked him; a legacy board without ranks falls back to
+    // whether any composite was published.
+    valuedCount: players.filter((p) => p.overallRank !== null).length,
     rejected,
   };
 }

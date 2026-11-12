@@ -90,6 +90,13 @@ describe('published market state lifecycle', () => {
     expect(screen.getByTestId('errorKind')).toHaveTextContent('');
   });
 
+  it('treats an HTML 404 from the static board path as an EMPTY publication', async () => {
+    const notFound = (async () => new Response('<!doctype html><title>Not Found</title>', { status: 404 })) as unknown as typeof fetch;
+    renderWithFetch(notFound);
+    await waitFor(() => expect(screen.getByTestId('status')).toHaveTextContent('empty'));
+    expect(screen.getByTestId('errorKind')).toHaveTextContent('');
+  });
+
   it('surfaces a network failure as an error with kind "network"', async () => {
     const down = (async () => {
       throw new TypeError('Failed to fetch');

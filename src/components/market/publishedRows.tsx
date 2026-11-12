@@ -63,50 +63,61 @@ export function HonestyBadge({ player }: { player: PublishedPlayer }) {
 }
 
 /**
- * The model tier, in product language.
+ * Which model produced the value, in plain words.
  *
- * This is the badge that keeps the board honest: a reduced-input valuation is visibly marked
- * as one, everywhere it appears, rather than sitting in the same column as a full-model value
- * with nothing to tell them apart. The label is deliberately plain — "Limited data", not
- * "ACCESSIBLE" — and the tooltip names what was missing in words rather than registry keys.
+ * No tier is called "full". The QB engine runs with a large share of its declared inputs
+ * replaced by fallbacks (docs/PHASE1_RECOVERY_AUDIT.md, B6), and the box-score models are
+ * deliberately reduced. Neither is a complete-input model, so neither is labelled as one.
  */
+export function modelBasisLabel(player: PublishedPlayer): { text: string; detail: string } {
+  switch (player.modelTier) {
+    case 'FULL':
+      return {
+        text: 'QB engine, partial inputs',
+        detail:
+          'Valued by the quarterback engine. Several of its declared inputs (for example play-level efficiency, ' +
+          'offensive environment and contract data) are not available from our data sources and were replaced ' +
+          'by documented fallback values. Not a complete-input valuation.',
+      };
+    case 'ACCESSIBLE':
+      return {
+        text: 'Box-score model',
+        detail:
+          'Valued by a reduced model built on box-score production, team target and carry shares, age and ' +
+          'draft round. It does not use route, snap, red-zone or contract data.' +
+          (player.materialMissingInputs.length > 0
+            ? ` Not used: ${player.materialMissingInputs.join('; ')}.`
+            : ''),
+      };
+    default:
+      return {
+        text: 'Not valued',
+        detail: player.insufficientReason ?? 'Not enough information to value this player.',
+      };
+  }
+}
+
 export function ModelTierBadge({ player }: { player: PublishedPlayer }) {
-  const tier = player.modelTier;
-  const missing = player.materialMissingInputs;
-  if (tier === 'FULL') {
-    // The unremarkable case. Decorating it would make the two tiers that actually
-    // need attention harder to spot in a long board.
-    return (
-      <span
-        className={cn(BADGE, 'border-border-default bg-surface-subtle text-text-secondary')}
-        title="Valued by the full model, using its complete set of inputs."
-      >
-        Full model
-      </span>
-    );
-  }
-  if (tier === 'ACCESSIBLE') {
-    return (
-      <span
-        className={cn(BADGE, 'border-warning/30 bg-warning/10 text-warning')}
-        title={
-          missing.length > 0
-            ? `Valued by the accessible-data model — a reduced model that uses only the data available for this player. Not used: ${missing.join('; ')}.`
-            : 'Valued by the accessible-data model — a reduced model that uses only the data available for this player.'
-        }
-      >
-        Limited data
-      </span>
-    );
-  }
+  const { text, detail } = modelBasisLabel(player);
   return (
     <span
-      className={cn(BADGE, 'border-dashed border-border-strong bg-transparent text-text-muted')}
-      title={player.insufficientReason ?? 'Not enough information to value this player.'}
+      className={cn(
+        BADGE,
+        player.modelTier === 'INSUFFICIENT'
+          ? 'border-dashed border-border-strong bg-transparent text-text-muted'
+          : 'border-border-default bg-surface-subtle text-text-secondary',
+      )}
+      title={detail}
     >
-      No value
+      {text}
     </span>
   );
+}
+
+/** The value the board is ranked on: PlayerTicker's cross-position dynasty value. */
+export function BoardValue({ player, className }: { player: PublishedPlayer; className?: string }) {
+  if (player.overallRank === null || player.dynastyValue === null) return <Unpublished label="no published value" />;
+  return <span className={className}>{player.dynastyValue.toFixed(1)}</span>;
 }
 
 /**
@@ -206,20 +217,10 @@ export const PUBLISHED_COLUMNS = [
   { label: 'Pos', align: 'left' },
   { label: 'Team', align: 'left' },
   { label: 'Value', align: 'right' },
-  { label: 'Mkt Dyn', align: 'right' },
-  { label: 'vs Mkt', align: 'right' },
-  { label: 'Confidence', align: 'right' },
-  { label: 'Volatility', align: 'right' },
-  { label: 'Model', align: 'left' },
+  { label: 'Basis', align: 'left' },
 ] as const;
 
-export function PublishedPlayerRow({
-  player,
-  comparison,
-}: {
-  player: PublishedPlayer;
-  comparison?: ModelMarketComparison;
-}) {
+export function PublishedPlayerRow({ player }: { player: PublishedPlayer }) {
   return (
     <tr className="h-[52px] border-t border-border-default text-sm transition-colors duration-standard hover:bg-elevated">
       <td className="data w-px whitespace-nowrap py-2 pl-4 pr-2 text-right text-[13px] text-text-faint">
@@ -239,36 +240,7 @@ export function PublishedPlayerRow({
         {label(player.team)}
       </td>
       <td className="w-px whitespace-nowrap px-3 py-2 text-right">
-        <span className="data text-[15px] font-semibold text-text-primary">
-          {player.value === null ? <Unpublished /> : player.value.toFixed(1)}
-        </span>
-      </td>
-      <td className="w-px whitespace-nowrap px-3 py-2 text-right">
-        <MarketRank comparison={comparison} />
-      </td>
-      <td className="w-px whitespace-nowrap px-3 py-2 text-right">
-        <MarketRankDelta comparison={comparison} />
-      </td>
-      <td className="w-px whitespace-nowrap px-3 py-2 text-right text-text-secondary">
-        {player.confidenceLabel ?? player.publicConfidenceLabel ? (
-          <span className="inline-flex items-baseline gap-1.5">
-            <span className="text-[13px]">
-              {label(player.confidenceLabel ?? player.publicConfidenceLabel)}
-            </span>
-            {player.confidenceScore !== null && (
-              <span className="data text-xs text-text-faint">
-                {/* A leading space keeps label and score separate in the accessibility tree,
-                    where CSS margins do not exist. */}
-                {` ${player.confidenceScore.toFixed(0)}`}
-              </span>
-            )}
-          </span>
-        ) : (
-          <Unpublished />
-        )}
-      </td>
-      <td className="w-px whitespace-nowrap px-3 py-2 text-right text-[13px] text-text-secondary">
-        {label(player.volatilityLabel)}
+        <BoardValue player={player} className="data text-[15px] font-semibold text-text-primary" />
       </td>
       <td className="w-px whitespace-nowrap py-2 pl-3 pr-4">
         <ModelTierBadge player={player} />
@@ -277,13 +249,7 @@ export function PublishedPlayerRow({
   );
 }
 
-export function PublishedPlayerCard({
-  player,
-  comparison,
-}: {
-  player: PublishedPlayer;
-  comparison?: ModelMarketComparison;
-}) {
+export function PublishedPlayerCard({ player }: { player: PublishedPlayer }) {
   return (
     <div className="border-t border-border-default px-1 py-3.5 first:border-t-0">
       <div className="flex items-start justify-between gap-3">
@@ -309,20 +275,15 @@ export function PublishedPlayerCard({
         </div>
         <div className="shrink-0 text-right">
           <div className="data text-data-lg font-semibold text-text-primary">
-            {player.value === null ? <Unpublished /> : player.value.toFixed(1)}
+            <BoardValue player={player} />
           </div>
           <div className="pt-0.5 text-[10px] uppercase tracking-[0.06em] text-text-faint">
-            Model value
+            Dynasty value
           </div>
         </div>
       </div>
       <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] text-text-muted">
         <ModelTierBadge player={player} />
-        <span>Confidence {label(player.confidenceLabel ?? player.publicConfidenceLabel)}</span>
-        <span>Volatility {label(player.volatilityLabel)}</span>
-        <span className="inline-flex items-baseline gap-1">
-          Mkt dynasty <MarketRank comparison={comparison} /> <MarketRankDelta comparison={comparison} />
-        </span>
       </div>
       {player.role && <div className="mt-2 text-xs text-text-secondary">{player.role}</div>}
       {player.explanation && (

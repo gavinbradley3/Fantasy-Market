@@ -89,6 +89,24 @@ describe('response handling', () => {
     }
   });
 
+  it('keeps an HTML 404 classified as notFound', async () => {
+    const { fetchFn } = stubFetch([
+      async () => new Response('<!doctype html><title>Not Found</title>', { status: 404 }),
+    ]);
+    const err = await new ApiClient({ fetchFn }).getJson('/board.json').catch((e: unknown) => e as ApiError);
+    expect((err as ApiError).kind).toBe('notFound');
+    expect((err as ApiError).status).toBe(404);
+  });
+
+  it('keeps HTTP failures classified by status when their bodies are empty or malformed', async () => {
+    for (const body of ['', '<html>upstream failure</html>']) {
+      const { fetchFn } = stubFetch([async () => new Response(body, { status: 500 })]);
+      const err = await new ApiClient({ fetchFn }).getJson('/x').catch((e: unknown) => e as ApiError);
+      expect((err as ApiError).kind).toBe('server');
+      expect((err as ApiError).status).toBe(500);
+    }
+  });
+
   it('treats a malformed JSON body as invalidResponse, not as a network or status failure', async () => {
     const { fetchFn } = stubFetch([
       async () => new Response('{"broken":', { status: 200, headers: { 'content-type': 'application/json' } }),

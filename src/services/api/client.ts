@@ -126,7 +126,10 @@ export class ApiClient {
       done();
     }
 
-    const raw = await this.readBody(response, url);
+    // Status is authoritative for a non-2xx response. Error pages served by a CDN or static
+    // host are commonly HTML (or empty), but they are still HTTP failures rather than broken
+    // successful API payloads.
+    const raw = await this.readBody(response, url, !response.ok);
 
     if (!response.ok) {
       const envelope = asErrorEnvelope(raw);
@@ -142,8 +145,8 @@ export class ApiClient {
     return raw as T;
   }
 
-  /** Read + JSON-parse a body. Returns `undefined` for an empty body. */
-  private async readBody(response: Response, url: string): Promise<unknown> {
+  /** Read + JSON-parse a body. Non-JSON errors may be ignored so their status remains primary. */
+  private async readBody(response: Response, url: string, tolerateInvalidJson = false): Promise<unknown> {
     let text: string;
     try {
       text = await response.text();
@@ -157,8 +160,8 @@ export class ApiClient {
     try {
       return JSON.parse(text) as unknown;
     } catch (err) {
-      // A malformed body is never surfaced as a status problem — the request "succeeded" and
-      // the payload is still unusable, which is exactly `invalidResponse`.
+      if (tolerateInvalidJson) return undefined;
+      // The request succeeded but its payload is unusable, which is exactly `invalidResponse`.
       throw new ApiError('invalidResponse', `GET ${url} returned a body that is not valid JSON`, {
         status: response.status,
         cause: err,
